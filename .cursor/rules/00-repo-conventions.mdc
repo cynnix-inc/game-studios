@@ -1,0 +1,29 @@
+# Repo Conventions (cynnix-studios-games)
+
+## Monorepo layout
+- `apps/*`: playable games (Expo apps).
+- `packages/*`: shared TypeScript packages used by multiple games.
+- `supabase/*`: local dev migrations + edge function skeletons.
+
+## Tooling
+- Workspace manager: **pnpm workspaces**
+- Task runner: **Turborepo**
+- Language: **TypeScript everywhere**
+
+## Dependency rules
+- Apps may depend on `@cynnix-studios/*` packages via workspace protocol (`workspace:*`).
+- Shared packages should stay focused, reusable, and avoid coupling to a single game.
+- `packages/sudoku-core` must stay **pure TS** (no React / RN / Expo deps).
+
+## Scripts
+- Root is the entry point for common tasks:
+  - `pnpm dev:sudoku`
+  - `pnpm web:sudoku`
+  - `pnpm export:web:sudoku`
+  - `pnpm lint`, `pnpm typecheck`, `pnpm test`
+
+## Env/secrets
+- Never commit secrets. Use `.env.example` + `.env`.
+- Client-safe env vars must be prefixed `EXPO_PUBLIC_`.
+- Supabase **service role** key is server-only (CI/edge), never in apps or shared UI packages.
+

@@ -1,0 +1,27 @@
+node_modules
+.pnpm-store
+.turbo
+.expo
+.expo-shared
+dist
+build
+lib
+.DS_Store
+
+# Expo / RN
+*.jks
+*.keystore
+*.mobileprovision
+*.p8
+
+# Env
+.env
+.env.*.local
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+

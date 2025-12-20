@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "resolveJsonModule": true,
+    "allowJs": false,
+    "checkJs": false,
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitReturns": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "esModuleInterop": true,
+    "isolatedModules": true,
+    "jsx": "react-jsx",
+    "baseUrl": ".",
+    "paths": {
+      "@cynnix-studios/game-foundation": ["packages/game-foundation/src/index.ts"],
+      "@cynnix-studios/supabase": ["packages/supabase/src/index.ts"],
+      "@cynnix-studios/platform-services": ["packages/platform-services/src/index.ts"],
+      "@cynnix-studios/ui": ["packages/ui/src/index.ts"],
+      "@cynnix-studios/sudoku-core": ["packages/sudoku-core/src/index.ts"]
+    }
+  }
+}
+
+

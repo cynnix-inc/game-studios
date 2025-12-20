@@ -1,0 +1,17 @@
+# Expo & Web (Expo Router + Netlify)
+
+## Expo Router
+- Use file-based routing under `apps/sudoku/app/*`.
+- Root layout is `apps/sudoku/app/_layout.tsx`.
+- Screens live under `app/<route>/index.tsx`.
+
+## Web export
+- Netlify publishes `apps/sudoku/dist`.
+- Web export command is `pnpm -w export:web:sudoku` (calls `expo export -p web`).
+- SPA redirects are required via `apps/sudoku/public/_redirects`.
+
+## App identifiers
+- App slug: `sudoku`
+- iOS bundle id: `com.cynnixstudios.sudoku`
+- Android package: `com.cynnixstudios.sudoku`
+

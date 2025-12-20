@@ -1,0 +1,39 @@
+{
+  "name": "cynnix-studios-games",
+  "private": true,
+  "packageManager": "pnpm@9.15.2",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev:sudoku": "corepack pnpm -C apps/sudoku dev",
+    "web:sudoku": "corepack pnpm -C apps/sudoku web",
+    "export:web:sudoku": "corepack pnpm -C apps/sudoku export:web",
+    "lint": "PATH=$(pwd):$PATH turbo lint",
+    "typecheck": "PATH=$(pwd):$PATH turbo typecheck",
+    "test": "PATH=$(pwd):$PATH turbo test",
+    "format": "prettier -w ."
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.17.0",
+    "@types/node": "^22.10.2",
+    "eslint": "^9.17.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-react": "^7.37.3",
+    "eslint-plugin-react-hooks": "^5.1.0",
+    "globals": "^15.13.0",
+    "prettier": "^3.4.2",
+    "turbo": "^2.3.3",
+    "typescript-eslint": "^8.26.0",
+    "typescript": "^5.7.3"
+  },
+  "pnpm": {
+    "overrides": {
+      "react": "19.1.0",
+      "react-dom": "19.1.0",
+      "@types/react": "19.1.0"
+    }
+  }
+}
+
+

@@ -1,0 +1,28 @@
+{
+  "expo": {
+    "name": "Cynnix Studios Sudoku",
+    "slug": "sudoku",
+    "scheme": "sudoku",
+    "version": "0.0.1",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "platforms": ["ios", "android", "web"],
+    "ios": {
+      "bundleIdentifier": "com.cynnixstudios.sudoku",
+      "supportsTablet": true
+    },
+    "android": {
+      "package": "com.cynnixstudios.sudoku"
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "static"
+    },
+    "plugins": ["expo-router"],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
+
+

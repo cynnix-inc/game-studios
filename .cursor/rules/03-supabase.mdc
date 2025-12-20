@@ -1,0 +1,17 @@
+# Supabase
+
+## Client usage
+- Apps should use the typed client factory from `@cynnix-studios/supabase`.
+- Only use `EXPO_PUBLIC_*` env vars in apps.
+
+## RLS expectations
+- All tables must have RLS enabled.
+- Clients should not write leaderboard rows directly.
+
+## Edge functions
+- Leaderboard and save writes should happen via edge functions using service role.
+- Edge functions must validate input and map `auth.uid()` -> `players.id`.
+
+## Types
+- `packages/supabase/src/types/database.types.ts` is a placeholder until generated with Supabase CLI.
+

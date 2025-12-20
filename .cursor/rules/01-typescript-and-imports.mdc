@@ -1,0 +1,18 @@
+# TypeScript & Imports
+
+## TypeScript
+- Use strict TypeScript.
+- Avoid `any`; prefer `unknown` + narrowing.
+- Export types explicitly where helpful (`export type ...`).
+
+## Imports
+- Prefer package entrypoints:
+  - Good: `import { theme } from '@cynnix-studios/ui'`
+  - Bad: `import { theme } from '@cynnix-studios/ui/src/theme'`
+- Avoid cross-package relative imports.
+- Keep `packages/*` free of app-specific imports.
+
+## Module boundaries
+- `packages/sudoku-core` must remain platform-agnostic and Node-compatible.
+- `packages/ui` must stay lightweight (RN styles only; avoid heavy deps).
+
