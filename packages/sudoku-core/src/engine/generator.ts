@@ -1,7 +1,7 @@
 import type { CellValue, Grid } from './grid';
 import { assertGrid, emptyGrid } from './grid';
 import { givensForDifficulty, type Difficulty } from './difficulty';
-import { solve } from './solver';
+import { countSolutions, solve } from './solver';
 
 export type GeneratedPuzzle = {
   puzzle: Grid; // 0 = empty
@@ -52,9 +52,9 @@ export function generate(difficulty: Difficulty, opts?: { seed?: number }): Gene
     const backup = puzzleArr[i]!;
     puzzleArr[i] = 0;
 
-    // Ensure still solvable; we don't enforce uniqueness for v0.
-    const check = solve(puzzleArr);
-    if (!check.ok) {
+    // Ensure puzzle remains uniquely solvable.
+    const solutions = countSolutions(puzzleArr, { limit: 2 });
+    if (solutions !== 1) {
       puzzleArr[i] = backup;
       continue;
     }

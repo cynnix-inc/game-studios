@@ -20,12 +20,14 @@ function Cell({
   value,
   selected,
   given,
+  notesMask,
   onPress,
 }: {
   i: number;
   value: number;
   selected: boolean;
   given: boolean;
+  notesMask: number;
   onPress: () => void;
 }) {
   const r = Math.floor(i / 9);
@@ -38,6 +40,8 @@ function Cell({
   return (
     <Pressable
       onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={`Cell row ${r + 1} column ${c + 1}${given ? ', given' : ''}`}
       style={{
         width: 36,
         height: 36,
@@ -51,7 +55,25 @@ function Cell({
         borderBottomWidth: thickB ? 2 : 1,
       }}
     >
-      <AppText weight={given ? 'bold' : 'regular'}>{value === 0 ? '' : String(value)}</AppText>
+      {value !== 0 ? (
+        <AppText weight={given ? 'bold' : 'regular'}>{String(value)}</AppText>
+      ) : notesMask ? (
+        <View style={{ width: 34, height: 34, flexDirection: 'row', flexWrap: 'wrap' }}>
+          {([1, 2, 3, 4, 5, 6, 7, 8, 9] as const).map((d) => {
+            const on = (notesMask & (1 << (d - 1))) !== 0;
+            return (
+              <View
+                key={d}
+                style={{ width: '33.33%', height: '33.33%', alignItems: 'center', justifyContent: 'center' }}
+              >
+                <AppText tone="muted" style={{ fontSize: 9, lineHeight: 10 }}>
+                  {on ? String(d) : ''}
+                </AppText>
+              </View>
+            );
+          })}
+        </View>
+      ) : null}
     </Pressable>
   );
 }
@@ -97,11 +119,19 @@ export default function GameScreen() {
   const selectedIndex = usePlayerStore((s) => s.selectedIndex);
   const mistakes = usePlayerStore((s) => s.mistakes);
   const startedAtMs = usePlayerStore((s) => s.startedAtMs);
+  const difficulty = usePlayerStore((s) => s.difficulty);
+  const notes = usePlayerStore((s) => s.notes);
+  const notesMode = usePlayerStore((s) => s.notesMode);
+  const canUndo = usePlayerStore((s) => s.undoStack.length > 0);
+  const canRedo = usePlayerStore((s) => s.redoStack.length > 0);
 
   const newPuzzle = usePlayerStore((s) => s.newPuzzle);
   const selectCell = usePlayerStore((s) => s.selectCell);
   const inputDigit = usePlayerStore((s) => s.inputDigit);
   const clearCell = usePlayerStore((s) => s.clearCell);
+  const toggleNotesMode = usePlayerStore((s) => s.toggleNotesMode);
+  const undo = usePlayerStore((s) => s.undo);
+  const redo = usePlayerStore((s) => s.redo);
 
   const [hydrated, setHydrated] = useState(false);
 
@@ -123,7 +153,7 @@ export default function GameScreen() {
   useEffect(() => {
     if (!hydrated) return;
     debouncedSave();
-  }, [puzzle, mistakes, startedAtMs, hydrated, debouncedSave]);
+  }, [puzzle, notes, notesMode, mistakes, startedAtMs, difficulty, canUndo, canRedo, hydrated, debouncedSave]);
 
   useEffect(() => {
     const sub = AppState.addEventListener('change', (state) => {
@@ -144,11 +174,41 @@ export default function GameScreen() {
         <AppCard style={{ flex: 1 }}>
           <AppText tone="muted">Time: {Math.round(elapsedMs / 1000)}s</AppText>
           <AppText tone="muted">Mistakes: {mistakes}</AppText>
+          <AppText tone="muted">Difficulty: {difficulty}</AppText>
         </AppCard>
         <View style={{ justifyContent: 'center' }}>
           <AppButton title="New Puzzle" onPress={() => newPuzzle()} />
         </View>
       </View>
+
+      <AppCard style={{ marginBottom: theme.spacing.md, gap: theme.spacing.sm }}>
+        <AppText weight="semibold">Free Play</AppText>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: theme.spacing.sm }}>
+          {(['easy', 'medium', 'hard', 'expert', 'extreme'] as const).map((d) => {
+            const active = d === difficulty;
+            return (
+              <Pressable
+                key={d}
+                onPress={() => newPuzzle(d)}
+                accessibilityRole="button"
+                accessibilityLabel={`Start ${d} puzzle`}
+                style={{
+                  paddingVertical: theme.spacing.sm,
+                  paddingHorizontal: theme.spacing.md,
+                  borderRadius: theme.radius.md,
+                  backgroundColor: active ? theme.colors.accent : theme.colors.surface2,
+                  borderWidth: 1,
+                  borderColor: theme.colors.border,
+                }}
+              >
+                <AppText weight="semibold" tone={active ? 'default' : 'muted'}>
+                  {d}
+                </AppText>
+              </Pressable>
+            );
+          })}
+        </View>
+      </AppCard>
 
       <View style={{ alignItems: 'center', marginBottom: theme.spacing.lg }}>
         <View style={{ width: 9 * 36, flexDirection: 'row', flexWrap: 'wrap' }}>
@@ -159,10 +219,22 @@ export default function GameScreen() {
               value={v}
               selected={selectedIndex === i}
               given={!!givensMask[i]}
+              notesMask={notes[i] ?? 0}
               onPress={() => selectCell(i)}
             />
           ))}
         </View>
+      </View>
+
+      <View style={{ flexDirection: 'row', gap: theme.spacing.sm, marginBottom: theme.spacing.md }}>
+        <AppButton
+          title={notesMode ? 'Notes: ON' : 'Notes'}
+          onPress={toggleNotesMode}
+          variant={notesMode ? 'primary' : 'secondary'}
+          accessibilityLabel={notesMode ? 'Notes mode on' : 'Notes mode off'}
+        />
+        <AppButton title="Undo" onPress={undo} variant="secondary" disabled={!canUndo} accessibilityLabel="Undo last action" />
+        <AppButton title="Redo" onPress={redo} variant="secondary" disabled={!canRedo} accessibilityLabel="Redo last undone action" />
       </View>
 
       <NumberPad onDigit={(d) => inputDigit(d)} onClear={clearCell} />

@@ -5,27 +5,6 @@ export type SolveResult =
   | { ok: true; solution: Grid }
   | { ok: false; reason: 'invalid' | 'no-solution' };
 
-function allowed(grid: Grid, i: number, v: CellValue): boolean {
-  const r = rowOf(i);
-  const c = colOf(i);
-  const b = boxOf(r, c);
-
-  for (let j = 0; j < 81; j++) {
-    const vv = grid[j]!;
-    if (vv === 0) continue;
-    if (j === i) continue;
-    if (rowOf(j) === r && vv === v) return false;
-    if (colOf(j) === c && vv === v) return false;
-    if (boxOf(rowOf(j), colOf(j)) === b && vv === v) return false;
-  }
-  return true;
-}
-
-function findEmpty(grid: Grid): number {
-  for (let i = 0; i < 81; i++) if (grid[i]! === 0) return i;
-  return -1;
-}
-
 function shuffle<T>(arr: T[], rnd: () => number) {
   for (let i = arr.length - 1; i > 0; i--) {
     const j = Math.floor(rnd() * (i + 1));
@@ -36,39 +15,211 @@ function shuffle<T>(arr: T[], rnd: () => number) {
   return arr;
 }
 
-export function solve(gridIn: ReadonlyArray<number>, opts?: { random?: boolean; seed?: number }): SolveResult {
-  assertGrid(gridIn);
-  const grid = gridIn.slice() as Grid as CellValue[];
+const ALL_DIGITS_MASK = 0x1ff; // 9 bits
 
-  // Validate given clues
-  for (let i = 0; i < 81; i++) {
-    const v = grid[i]!;
-    if (v === 0) continue;
-    if (!allowed(grid as unknown as Grid, i, v)) return { ok: false, reason: 'invalid' };
+function bitForDigit(d: CellValue): number {
+  return 1 << (d - 1);
+}
+
+function popcount9(n: number): number {
+  // n is at most 9 bits wide (0..511). Use Kernighan loop for correctness.
+  n = n & ALL_DIGITS_MASK;
+  let c = 0;
+  while (n) {
+    n &= n - 1;
+    c++;
   }
+  return c;
+}
 
-  const seed = opts?.seed ?? 1337;
+function digitsFromMask(mask: number): CellValue[] {
+  const out: CellValue[] = [];
+  for (let d = 1 as CellValue; d <= 9; d = (d + 1) as CellValue) {
+    if (mask & bitForDigit(d)) out.push(d);
+  }
+  return out;
+}
+
+function makeRng(seed: number) {
+  // xorshift32
   let s = seed >>> 0;
-  const rnd = () => {
-    // xorshift32
+  return () => {
     s ^= s << 13;
     s ^= s >>> 17;
     s ^= s << 5;
     return ((s >>> 0) % 1_000_000) / 1_000_000;
   };
+}
 
-  const digitsBase: CellValue[] = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+export function countSolutions(
+  gridIn: ReadonlyArray<number>,
+  opts?: { limit?: number; random?: boolean; seed?: number },
+): number {
+  assertGrid(gridIn);
+  const grid = gridIn.slice() as Grid as CellValue[];
+
+  const limit = opts?.limit ?? 2;
+  if (limit <= 0) return 0;
+
+  const seed = opts?.seed ?? 1337;
+  const rnd = makeRng(seed);
+
+  const rowMask = Array.from({ length: 9 }, () => 0);
+  const colMask = Array.from({ length: 9 }, () => 0);
+  const boxMask = Array.from({ length: 9 }, () => 0);
+
+  // Initialize masks + validate givens
+  for (let i = 0; i < 81; i++) {
+    const v = grid[i]!;
+    if (v === 0) continue;
+    const r = rowOf(i);
+    const c = colOf(i);
+    const b = boxOf(r, c);
+    const bit = bitForDigit(v);
+    if (rowMask[r]! & bit) return 0;
+    if (colMask[c]! & bit) return 0;
+    if (boxMask[b]! & bit) return 0;
+    rowMask[r] = (rowMask[r] ?? 0) | bit;
+    colMask[c] = (colMask[c] ?? 0) | bit;
+    boxMask[b] = (boxMask[b] ?? 0) | bit;
+  }
+
+  const allowedMaskAt = (i: number) => {
+    const r = rowOf(i);
+    const c = colOf(i);
+    const b = boxOf(r, c);
+    return (~(rowMask[r]! | colMask[c]! | boxMask[b]!) & ALL_DIGITS_MASK) >>> 0;
+  };
+
+  let count = 0;
+
+  const backtrack = () => {
+    if (count >= limit) return;
+
+    let bestI = -1;
+    let bestMask = 0;
+    let bestCount = 10;
+
+    for (let i = 0; i < 81; i++) {
+      if ((grid as CellValue[])[i] !== 0) continue;
+      const mask = allowedMaskAt(i);
+      const pc = popcount9(mask);
+      if (pc === 0) return; // dead end
+      if (pc < bestCount) {
+        bestCount = pc;
+        bestI = i;
+        bestMask = mask;
+        if (pc === 1) break;
+      }
+    }
+
+    if (bestI === -1) {
+      count++;
+      return;
+    }
+
+    const r = rowOf(bestI);
+    const c = colOf(bestI);
+    const b = boxOf(r, c);
+
+    const candidates = digitsFromMask(bestMask);
+    const ordered = opts?.random ? shuffle(candidates, rnd) : candidates;
+
+    for (const v of ordered) {
+      const bit = bitForDigit(v);
+      (grid as CellValue[])[bestI] = v;
+      rowMask[r] = (rowMask[r] ?? 0) | bit;
+      colMask[c] = (colMask[c] ?? 0) | bit;
+      boxMask[b] = (boxMask[b] ?? 0) | bit;
+
+      backtrack();
+
+      (grid as CellValue[])[bestI] = 0;
+      rowMask[r] = (rowMask[r] ?? 0) & ~bit;
+      colMask[c] = (colMask[c] ?? 0) & ~bit;
+      boxMask[b] = (boxMask[b] ?? 0) & ~bit;
+      if (count >= limit) return;
+    }
+  };
+
+  backtrack();
+  return count;
+}
+
+export function solve(gridIn: ReadonlyArray<number>, opts?: { random?: boolean; seed?: number }): SolveResult {
+  assertGrid(gridIn);
+  const grid = gridIn.slice() as Grid as CellValue[];
+
+  const seed = opts?.seed ?? 1337;
+  const rnd = makeRng(seed);
+
+  const rowMask = Array.from({ length: 9 }, () => 0);
+  const colMask = Array.from({ length: 9 }, () => 0);
+  const boxMask = Array.from({ length: 9 }, () => 0);
+
+  // Initialize masks + validate givens
+  for (let i = 0; i < 81; i++) {
+    const v = grid[i]!;
+    if (v === 0) continue;
+    const r = rowOf(i);
+    const c = colOf(i);
+    const b = boxOf(r, c);
+    const bit = bitForDigit(v);
+    if (rowMask[r]! & bit) return { ok: false, reason: 'invalid' };
+    if (colMask[c]! & bit) return { ok: false, reason: 'invalid' };
+    if (boxMask[b]! & bit) return { ok: false, reason: 'invalid' };
+    rowMask[r] = (rowMask[r] ?? 0) | bit;
+    colMask[c] = (colMask[c] ?? 0) | bit;
+    boxMask[b] = (boxMask[b] ?? 0) | bit;
+  }
+
+  const allowedMaskAt = (i: number) => {
+    const r = rowOf(i);
+    const c = colOf(i);
+    const b = boxOf(r, c);
+    return (~(rowMask[r]! | colMask[c]! | boxMask[b]!) & ALL_DIGITS_MASK) >>> 0;
+  };
 
   const backtrack = (): boolean => {
-    const i = findEmpty(grid as unknown as Grid);
-    if (i === -1) return true;
+    let bestI = -1;
+    let bestMask = 0;
+    let bestCount = 10;
 
-    const digits = opts?.random ? shuffle(digitsBase.slice(), rnd) : digitsBase;
-    for (const v of digits) {
-      if (!allowed(grid as unknown as Grid, i, v)) continue;
-      (grid as CellValue[])[i] = v;
+    for (let i = 0; i < 81; i++) {
+      if ((grid as CellValue[])[i] !== 0) continue;
+      const mask = allowedMaskAt(i);
+      const pc = popcount9(mask);
+      if (pc === 0) return false;
+      if (pc < bestCount) {
+        bestCount = pc;
+        bestI = i;
+        bestMask = mask;
+        if (pc === 1) break;
+      }
+    }
+
+    if (bestI === -1) return true;
+
+    const r = rowOf(bestI);
+    const c = colOf(bestI);
+    const b = boxOf(r, c);
+
+    const candidates = digitsFromMask(bestMask);
+    const ordered = opts?.random ? shuffle(candidates, rnd) : candidates;
+
+    for (const v of ordered) {
+      const bit = bitForDigit(v);
+      (grid as CellValue[])[bestI] = v;
+      rowMask[r] = (rowMask[r] ?? 0) | bit;
+      colMask[c] = (colMask[c] ?? 0) | bit;
+      boxMask[b] = (boxMask[b] ?? 0) | bit;
+
       if (backtrack()) return true;
-      (grid as CellValue[])[i] = 0;
+
+      (grid as CellValue[])[bestI] = 0;
+      rowMask[r] = (rowMask[r] ?? 0) & ~bit;
+      colMask[c] = (colMask[c] ?? 0) & ~bit;
+      boxMask[b] = (boxMask[b] ?? 0) & ~bit;
     }
     return false;
   };
