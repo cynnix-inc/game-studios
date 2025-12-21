@@ -3,7 +3,7 @@
   "private": true,
   "packageManager": "pnpm@9.15.2",
   "engines": {
-    "node": ">=22"
+    "node": "22.x"
   },
   "scripts": {
     "dev:sudoku": "corepack pnpm -C apps/sudoku dev",

@@ -1,0 +1,32 @@
+---
+description: Testing rules for domain/engine logic and app orchestration
+globs:
+  - "apps/**/__tests__/**"
+  - "packages/**/__tests__/**"
+  - "packages/**/tests/**"
+  - "**/*.spec.ts"
+  - "**/*.test.ts"
+  - "**/*.spec.tsx"
+  - "**/*.test.tsx"
+  - "**/jest.config.*"
+alwaysApply: false
+---
+
+# Testing Rules
+
+## Core principles
+
+- Prefer **fast, deterministic** unit tests for domain/engine logic.
+- Avoid real network calls in unit tests; mock Supabase/HTTP and any external IO.
+- When randomness is involved (e.g., generation), seed it so tests are reproducible.
+
+## What must be tested (minimum expectations)
+
+- **Pure logic packages** (e.g., Sudoku engine): validation/solver/generator/serialization.
+- **Application services**: orchestration/use-cases (mock storage/supabase providers).
+- **Security-relevant logic**: payload validation and stable error shapes at boundaries (especially server-side).
+
+## E2E
+
+E2E guidance is intentionally non-prescriptive in this repo for now. If/when we adopt a specific web/mobile E2E framework, codify it here and pin versions.
+
