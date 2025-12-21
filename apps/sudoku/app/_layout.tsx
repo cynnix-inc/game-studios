@@ -15,6 +15,7 @@ export default function RootLayout() {
       }}
     >
       <Tabs.Screen name="game/index" options={{ title: 'Game' }} />
+      <Tabs.Screen name="daily/index" options={{ title: 'Daily' }} />
       <Tabs.Screen name="leaderboard/index" options={{ title: 'Leaderboard' }} />
       <Tabs.Screen name="settings/index" options={{ title: 'Settings' }} />
       <Tabs.Screen name="auth/index" options={{ title: 'Auth' }} />

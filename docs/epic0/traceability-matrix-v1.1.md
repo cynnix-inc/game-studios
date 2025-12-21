@@ -91,3 +91,4 @@ Last updated: 2025-12-21
 | Track MVP events | Missing | N/A | Epic 10 | Telemetry hooks exist but app not emitting events. |
 
 
+

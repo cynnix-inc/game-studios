@@ -1,11 +1,13 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { AppState, Pressable, View } from 'react-native';
+import { AppState, View } from 'react-native';
 
 import { AppButton, AppCard, AppText, Screen, theme } from '@cynnix-studios/ui';
 
 import { usePlayerStore } from '../../src/state/usePlayerStore';
 import { loadLocalSave, writeLocalSave } from '../../src/services/saves';
 import { submitScore } from '../../src/services/leaderboard';
+import { NumberPad } from '../../src/components/NumberPad';
+import { SudokuGrid } from '../../src/components/SudokuGrid';
 
 function debounce<TArgs extends unknown[]>(fn: (...args: TArgs) => void, ms: number) {
   let t: ReturnType<typeof setTimeout> | null = null;
@@ -13,82 +15,6 @@ function debounce<TArgs extends unknown[]>(fn: (...args: TArgs) => void, ms: num
     if (t) clearTimeout(t);
     t = setTimeout(() => fn(...args), ms);
   };
-}
-
-function Cell({
-  i,
-  value,
-  selected,
-  given,
-  onPress,
-}: {
-  i: number;
-  value: number;
-  selected: boolean;
-  given: boolean;
-  onPress: () => void;
-}) {
-  const r = Math.floor(i / 9);
-  const c = i % 9;
-  const thickL = c % 3 === 0;
-  const thickT = r % 3 === 0;
-  const thickR = c === 8;
-  const thickB = r === 8;
-
-  return (
-    <Pressable
-      onPress={onPress}
-      style={{
-        width: 36,
-        height: 36,
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: selected ? theme.colors.surface2 : theme.colors.surface,
-        borderColor: theme.colors.border,
-        borderLeftWidth: thickL ? 2 : 1,
-        borderTopWidth: thickT ? 2 : 1,
-        borderRightWidth: thickR ? 2 : 1,
-        borderBottomWidth: thickB ? 2 : 1,
-      }}
-    >
-      <AppText weight={given ? 'bold' : 'regular'}>{value === 0 ? '' : String(value)}</AppText>
-    </Pressable>
-  );
-}
-
-function NumberPad({
-  onDigit,
-  onClear,
-}: {
-  onDigit: (d: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9) => void;
-  onClear: () => void;
-}) {
-  const digits = useMemo(() => [1, 2, 3, 4, 5, 6, 7, 8, 9] as const, []);
-  return (
-    <View style={{ gap: theme.spacing.sm }}>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: theme.spacing.sm }}>
-        {digits.map((d) => (
-          <Pressable
-            key={d}
-            onPress={() => onDigit(d)}
-            style={{
-              width: 44,
-              height: 44,
-              borderRadius: theme.radius.md,
-              backgroundColor: theme.colors.surface2,
-              borderWidth: 1,
-              borderColor: theme.colors.border,
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <AppText weight="semibold">{d}</AppText>
-          </Pressable>
-        ))}
-      </View>
-      <AppButton title="Clear" variant="secondary" onPress={onClear} />
-    </View>
-  );
 }
 
 export default function GameScreen() {
@@ -150,19 +76,8 @@ export default function GameScreen() {
         </View>
       </View>
 
-      <View style={{ alignItems: 'center', marginBottom: theme.spacing.lg }}>
-        <View style={{ width: 9 * 36, flexDirection: 'row', flexWrap: 'wrap' }}>
-          {puzzle.map((v, i) => (
-            <Cell
-              key={i}
-              i={i}
-              value={v}
-              selected={selectedIndex === i}
-              given={!!givensMask[i]}
-              onPress={() => selectCell(i)}
-            />
-          ))}
-        </View>
+      <View style={{ marginBottom: theme.spacing.lg }}>
+        <SudokuGrid puzzle={puzzle} givensMask={givensMask} selectedIndex={selectedIndex} onSelectCell={selectCell} />
       </View>
 
       <NumberPad onDigit={(d) => inputDigit(d)} onClear={clearCell} />

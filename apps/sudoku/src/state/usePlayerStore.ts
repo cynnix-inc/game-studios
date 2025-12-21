@@ -1,11 +1,18 @@
 import { create } from 'zustand';
 
 import type { PlayerProfile } from '@cynnix-studios/game-foundation';
-import { generate, serializeGrid, parseGrid, type Difficulty, type Grid, type CellValue } from '@cynnix-studios/sudoku-core';
+import { generate, nowUtcDateKey, serializeGrid, parseGrid, type Difficulty, type Grid, type CellValue } from '@cynnix-studios/sudoku-core';
+
+import { loadDailyByDateKey, type DailyLoadUnavailable } from '../services/daily';
 
 type SudokuState = {
   profile: PlayerProfile | null;
   guestEnabled: boolean;
+
+  mode: 'free' | 'daily';
+  dailyDateKey: string | null;
+  dailyLoad: { status: 'idle' | 'loading' | 'ready' | 'unavailable'; reason?: DailyLoadUnavailable['reason'] };
+  dailySource: 'remote' | 'cache' | null;
 
   difficulty: Difficulty;
   puzzle: Grid;
@@ -18,6 +25,9 @@ type SudokuState = {
   setProfile: (p: PlayerProfile | null) => void;
   continueAsGuest: () => void;
   newPuzzle: (difficulty?: Difficulty) => void;
+  loadTodayDaily: () => Promise<void>;
+  loadDaily: (dateKey: string) => Promise<void>;
+  exitDailyToFreePlay: () => void;
 
   selectCell: (i: number) => void;
   inputDigit: (d: CellValue) => void;
@@ -46,6 +56,11 @@ export const usePlayerStore = create<SudokuState>((set, get) => ({
   profile: null,
   guestEnabled: false,
 
+  mode: 'free',
+  dailyDateKey: null,
+  dailyLoad: { status: 'idle' },
+  dailySource: null,
+
   difficulty: 'easy',
   puzzle: initial.puzzle,
   solution: initial.solution,
@@ -65,6 +80,10 @@ export const usePlayerStore = create<SudokuState>((set, get) => ({
   newPuzzle: (difficulty = get().difficulty) => {
     const gen = generate(difficulty);
     set({
+      mode: 'free',
+      dailyDateKey: null,
+      dailyLoad: { status: 'idle' },
+      dailySource: null,
       difficulty,
       puzzle: gen.puzzle,
       solution: gen.solution,
@@ -74,6 +93,37 @@ export const usePlayerStore = create<SudokuState>((set, get) => ({
       startedAtMs: Date.now(),
     });
   },
+
+  loadTodayDaily: async () => {
+    const key = nowUtcDateKey(Date.now());
+    await get().loadDaily(key);
+  },
+
+  loadDaily: async (dateKey) => {
+    set({ dailyLoad: { status: 'loading' }, dailySource: null });
+    const res = await loadDailyByDateKey(dateKey);
+    if (!res.ok) {
+      set({ mode: 'daily', dailyDateKey: dateKey, dailyLoad: { status: 'unavailable', reason: res.reason }, dailySource: null });
+      return;
+    }
+
+    const givensMask = res.payload.puzzle.map((v) => v !== 0);
+    set({
+      mode: 'daily',
+      dailyDateKey: res.payload.date_key,
+      dailyLoad: { status: 'ready' },
+      dailySource: res.source,
+      difficulty: res.payload.difficulty,
+      puzzle: res.payload.puzzle as unknown as Grid,
+      solution: res.payload.solution as unknown as Grid,
+      givensMask,
+      selectedIndex: null,
+      mistakes: 0,
+      startedAtMs: Date.now(),
+    });
+  },
+
+  exitDailyToFreePlay: () => set({ mode: 'free', dailyDateKey: null, dailyLoad: { status: 'idle' }, dailySource: null }),
 
   selectCell: (i) => set({ selectedIndex: i }),
 
@@ -101,6 +151,10 @@ export const usePlayerStore = create<SudokuState>((set, get) => ({
 
   hydrateFromSave: (serializedPuzzle, serializedSolution, givensMask, meta) => {
     set({
+      mode: 'free',
+      dailyDateKey: null,
+      dailyLoad: { status: 'idle' },
+      dailySource: null,
       puzzle: parseGrid(serializedPuzzle),
       solution: parseGrid(serializedSolution),
       givensMask: [...givensMask],

@@ -6,5 +6,7 @@ export * from './engine/difficulty';
 export * from './engine/scoring';
 export * from './engine/utc';
 export * from './engine/puzzleKeys';
+export * from './engine/dailyValidation';
+export * from './engine/dailyCachePolicy';
 
 

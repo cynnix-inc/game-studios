@@ -35,3 +35,4 @@ using (true);
 -- Edge Functions using service-role bypass RLS and write safely.
 
 
+
