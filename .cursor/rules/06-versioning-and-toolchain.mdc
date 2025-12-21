@@ -1,0 +1,48 @@
+---
+description: Versioning and toolchain rules (Node 22, pnpm, turbo, Expo pinning)
+globs:
+  - "**/package.json"
+  - "**/pnpm-lock.yaml"
+  - "**/turbo.json"
+  - "**/eas.json"
+  - "**/app.json"
+  - "**/app.config.*"
+  - "**/supabase/config.toml"
+  - "**/.github/workflows/**"
+  - "**/.nvmrc"
+alwaysApply: true
+---
+
+# Versioning & Toolchain
+
+## Node.js
+
+- Node version must be **22.x** across dev/CI.
+- Maintain `.nvmrc` at the repo root.
+- `package.json` `engines.node` should match the chosen major line (prefer `22.x`).
+
+## Package manager
+
+- Single package manager: **pnpm** (pinned via `packageManager` in the repo root `package.json`).
+- Prefer Corepack usage for deterministic pnpm versions.
+- CI installs should be deterministic: `pnpm install --frozen-lockfile`.
+
+## Turbo / monorepo scripts
+
+- Prefer running tasks via the repo scripts (root `package.json`) so Turbo can orchestrate them:
+  - `pnpm lint`
+  - `pnpm typecheck`
+  - `pnpm test`
+  - `pnpm format`
+  - `pnpm export:web:sudoku` (Netlify export)
+
+## Expo / React Native
+
+- Expo SDK should be pinned to a minor line (e.g., `~54.0.0`).
+- React / React Native versions must remain compatible with the pinned Expo SDK; do not bump RN independently.
+
+## Supabase
+
+- Pin `@supabase/supabase-js` to a minor line in `packages/supabase`.
+- Never ship the service role key to clients (apps or shared UI packages).
+
