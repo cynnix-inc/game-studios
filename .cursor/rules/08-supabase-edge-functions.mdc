@@ -1,0 +1,29 @@
+---
+description: Supabase Edge Functions rules (validation, stable error shapes, secret safety)
+globs:
+  - "supabase/functions/**"
+  - "supabase/migrations/**"
+alwaysApply: false
+---
+
+# Supabase Edge Functions
+
+Edge Functions must assume clients are untrusted. They should validate inputs at runtime and return stable, well-documented response shapes.
+
+## Constraints
+
+- **Validate inputs**: runtime validation for all request payloads.
+- **Stable outputs**: consistent success/error shapes; prefer typed request/response DTOs.
+- **Security**:
+  - never log secrets (service role key, tokens)
+  - redact/avoid logging PII
+- **Auth**: map authenticated user identity to your DB model; do not accept user IDs from clients as truth.
+- **Timeouts/retries**: use timeouts for external calls; retries should be idempotent and bounded.
+
+## Structure (thin wrappers)
+
+1. Parse request + auth context
+2. Validate payload
+3. Call service/domain logic
+4. Map result to a stable response format
+

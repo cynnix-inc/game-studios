@@ -1,0 +1,51 @@
+---
+description: Testing rules for domain/engine logic and app orchestration
+globs:
+  - "apps/**/__tests__/**"
+  - "packages/**/__tests__/**"
+  - "packages/**/tests/**"
+  - "**/*.spec.ts"
+  - "**/*.test.ts"
+  - "**/*.spec.tsx"
+  - "**/*.test.tsx"
+  - "**/jest.config.*"
+alwaysApply: false
+---
+
+# Testing Rules
+
+## Core principles
+
+- **TDD is the default for new features**: write a failing test first, then implement, then refactor.
+- Prefer **fast, deterministic** unit tests for domain/engine logic.
+- Avoid real network calls in unit tests; mock Supabase/HTTP and any external IO.
+- When randomness is involved (e.g., generation), seed it so tests are reproducible.
+
+## Minimum bar for new work (enforced)
+
+For any new feature or bugfix, include at least:
+
+- **One happy-path test**
+- **One failure/edge-case test** (validation, error path, permission, or invariant)
+
+If the change impacts a pure-logic package (e.g., `packages/sudoku-core`), tests should live alongside that package’s tests.
+
+## Allowed exceptions (must be explicit)
+
+Exceptions to “tests first” are allowed only when:
+
+- The change is a **mechanical refactor** with no behavior change (still add/keep tests if coverage would regress), or
+- It is an **urgent production hotfix** where speed is critical (tests may follow immediately after, in the same PR if possible)
+
+If you take an exception, leave a brief comment in the PR description explaining why.
+
+## What must be tested (minimum expectations)
+
+- **Pure logic packages** (e.g., Sudoku engine): validation/solver/generator/serialization.
+- **Application services**: orchestration/use-cases (mock storage/supabase providers).
+- **Security-relevant logic**: payload validation and stable error shapes at boundaries (especially server-side).
+
+## E2E
+
+E2E guidance is intentionally non-prescriptive in this repo for now. If/when we adopt a specific web/mobile E2E framework, codify it here and pin versions.
+

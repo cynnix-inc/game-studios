@@ -1,0 +1,35 @@
+---
+description: Formatting, linting, and repo hygiene aligned to this monorepo
+globs:
+  - "**/*"
+alwaysApply: true
+---
+
+# Formatting & Repo Hygiene
+
+## Formatting (Prettier)
+
+- **Formatter**: Prettier
+- **Config**: `.prettierrc`
+- **Local command**: `pnpm format` (runs `prettier -w .` at the repo root)
+
+Prefer formatting via repo scripts rather than ad-hoc commands so CI/dev stay aligned.
+
+## Linting (ESLint)
+
+- **Linter**: ESLint
+- **Config**: `eslint.config.mjs`
+- **Local command**: `pnpm lint`
+
+Prefer fixing lint errors over disabling rules. If a rule must be disabled, document why in-code.
+
+## Line endings and whitespace
+
+- Require an `.editorconfig` for consistent whitespace defaults across editors.
+- Enforce EOL normalization via `.gitattributes` (LF for code/config/docs; CRLF only where required, e.g. `.bat`).
+
+## Git hygiene (Cursor/automation)
+
+- Prefer repo scripts over shell-specific commands.
+- If using git commands that may page output, prefer `git --no-pager ...` to avoid hanging non-interactive runs.
+

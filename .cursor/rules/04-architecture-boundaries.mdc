@@ -1,0 +1,56 @@
+---
+description: Architecture boundaries and dependency direction for apps/packages/supabase
+globs:
+  - "apps/**"
+  - "packages/**"
+  - "supabase/**"
+alwaysApply: true
+---
+
+# Architecture Boundaries (Monorepo)
+
+Keep the architecture straightforward and maintainable with clear boundaries and minimal layers. Prefer small, testable modules over “smart screens”.
+
+## Layers and responsibilities
+
+- **UI (apps)**: rendering, navigation, accessibility, and mapping user input to service calls.
+  - Expo Router route files under `apps/*/app/**` should stay thin.
+  - Avoid persistence/network calls in render paths.
+- **Application services (apps)**: orchestration/use-cases for a single game (e.g., Sudoku run lifecycle, auth flows, save orchestration).
+  - Can depend on domain/engine packages and on provider interfaces (storage, supabase, clock).
+- **Domain/engine (packages)**: pure logic (no UI, no storage, no network).
+  - `packages/sudoku-core` is **pure TypeScript** and platform-agnostic (no React / RN / Expo dependencies).
+- **Shared UI primitives (packages)**: reusable components and tokens.
+  - `packages/ui` should stay lightweight and game-agnostic.
+- **Storage/sync (packages or app modules)**: persistence, serialization, sync wrappers.
+  - Keep these separated from UI and from domain rules where practical.
+- **Backend (supabase)**: migrations and Edge Functions enforce server-side validation and RLS expectations.
+
+## Dependency direction
+
+**Apps should depend on packages; packages must not depend on apps.**
+
+Recommended direction:
+
+- `apps/*` → `packages/*` → (no dependency back to apps)
+- `apps/*` → `supabase/*` only via APIs/clients/edge calls (never by importing server-only secrets)
+
+## Separation of concerns (rules of thumb)
+
+- **Move out of UI**:
+  - core rules/validation/eligibility logic
+  - persistence decisions and autosave policy
+  - sync orchestration (e.g., “save local then sync remote”)
+- **OK in UI**:
+  - local ephemeral UI state (modals, pressed state, focus)
+  - composing screens and delegating to services/hooks
+  - accessibility (labels, focus, keyboard interactions on web)
+
+## DI / provider boundaries
+
+- Prefer explicit dependency injection or parameter passing for external providers:
+  - Supabase client
+  - storage adapters
+  - time/clock
+- Avoid circular dependencies; keep module boundaries explicit.
+
