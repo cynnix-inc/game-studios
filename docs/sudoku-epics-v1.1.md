@@ -341,3 +341,4 @@ This section maps requirements sections to the epic(s) responsible for deliverin
 - **Daily offline completion**: PRD requires storing a pending ranked submission when offline and prompting to submit once online (PRD 6.3). Ensure WBD covers exact UX + retry rules.
 
 
+
