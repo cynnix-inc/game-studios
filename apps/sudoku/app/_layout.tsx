@@ -9,6 +9,7 @@ import { initFreePlayPacks } from '../src/services/freeplayPacks';
 import { warmDailyCacheInBackground } from '../src/services/daily';
 import { loadLocalSettings, syncSettingsOnce } from '../src/services/settings';
 import { loadLocalStats, syncStatsOnce } from '../src/services/stats';
+import { trackEvent } from '../src/services/telemetry';
 import { usePlayerStore } from '../src/state/usePlayerStore';
 
 export default function RootLayout() {
@@ -22,6 +23,7 @@ export default function RootLayout() {
       void syncStatsOnce();
       void initFreePlayPacks();
       warmDailyCacheInBackground();
+      void trackEvent({ name: 'app_open' });
     })();
   }, []);
 

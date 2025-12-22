@@ -7,6 +7,7 @@ import { migrateGuestLocalSavesToCloud, syncSignedInSaveSlotsOnce } from '../ser
 import { clearStoredProfile, readStoredGuestProfile, writeStoredGuestProfile } from '../services/profileStorage';
 import { syncSettingsOnce } from '../services/settings';
 import { syncStatsOnce } from '../services/stats';
+import { trackEvent } from '../services/telemetry';
 
 export function AuthBootstrap() {
   React.useEffect(() => {
@@ -45,6 +46,7 @@ export function AuthBootstrap() {
 
         // If the previous profile was guest, migrate local saves into the account.
         if (prev?.mode === 'guest') {
+          void trackEvent({ name: 'convert_guest_to_account' });
           const token = await getAccessToken();
           if (token) void migrateGuestLocalSavesToCloud({ token });
         }
@@ -75,6 +77,7 @@ export function AuthBootstrap() {
           void syncSettingsOnce();
           void syncStatsOnce();
           if (prev?.mode === 'guest') {
+            void trackEvent({ name: 'convert_guest_to_account' });
             const token = await getAccessToken();
             if (token) void migrateGuestLocalSavesToCloud({ token });
           }

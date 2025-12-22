@@ -4,6 +4,7 @@ import { Platform, View } from 'react-native';
 import { AppButton, AppCard, AppText, Screen, theme } from '@cynnix-studios/ui';
 
 import { signInApple, signInGoogle, signInGoogleWeb } from '../../src/services/auth';
+import { trackEvent } from '../../src/services/telemetry';
 import { usePlayerStore } from '../../src/state/usePlayerStore';
 
 export default function AuthScreen() {
@@ -45,6 +46,7 @@ export default function AuthScreen() {
             try {
               if (Platform.OS === 'web') return;
               await signInApple();
+              void trackEvent({ name: 'sign_in_success', props: { provider: 'apple' } });
             } catch (e) {
               setError(e instanceof Error ? e.message : String(e));
             } finally {
@@ -72,6 +74,7 @@ export default function AuthScreen() {
               const redirectTo = new URL('/auth', window.location.origin).toString();
               try {
                 await signInGoogleWeb(redirectTo);
+                void trackEvent({ name: 'sign_in_success', props: { provider: 'google' } });
               } catch (e) {
                 setError(e instanceof Error ? e.message : String(e));
                 setLoading('none');
@@ -80,6 +83,7 @@ export default function AuthScreen() {
             }
             try {
               await signInGoogle();
+              void trackEvent({ name: 'sign_in_success', props: { provider: 'google' } });
             } catch (e) {
               setError(e instanceof Error ? e.message : String(e));
             } finally {

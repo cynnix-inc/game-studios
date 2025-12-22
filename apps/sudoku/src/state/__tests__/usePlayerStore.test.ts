@@ -1,4 +1,9 @@
+jest.mock('../../services/telemetry', () => ({
+  trackEvent: jest.fn(async () => {}),
+}));
+
 import { usePlayerStore } from '../usePlayerStore';
+import { trackEvent } from '../../services/telemetry';
 
 function makeGrid(fill: number): number[] {
   return Array.from({ length: 81 }, () => fill);
@@ -63,6 +68,47 @@ describe('usePlayerStore Epic 1: notes + undo/redo', () => {
 
     s.redo();
     expect(usePlayerStore.getState().puzzle[0]).toBe(5);
+  });
+});
+
+describe('usePlayerStore Epic 10: telemetry completion', () => {
+  beforeEach(() => {
+    resetStoreForTest();
+    jest.clearAllMocks();
+  });
+
+  it('emits complete_puzzle with ranked=false for free play', () => {
+    usePlayerStore.setState({ mode: 'free', difficulty: 'hard' } as never);
+    usePlayerStore.getState().markCompleted({ clientSubmissionId: 'cid_free', completedAtMs: 1000, nowMs: 1000 });
+
+    expect(trackEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: 'complete_puzzle',
+        props: expect.objectContaining({
+          mode: 'free',
+          difficulty: 'hard',
+          ranked: false,
+          correlation_id: 'cid_free',
+        }),
+      }),
+    );
+  });
+
+  it('emits complete_puzzle with ranked=null for daily', () => {
+    usePlayerStore.setState({ mode: 'daily', dailyDateKey: '2025-12-22', difficulty: 'easy' } as never);
+    usePlayerStore.getState().markCompleted({ clientSubmissionId: 'cid_daily', completedAtMs: 1000, nowMs: 1000 });
+
+    expect(trackEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: 'complete_puzzle',
+        props: expect.objectContaining({
+          mode: 'daily',
+          ranked: null,
+          correlation_id: 'cid_daily',
+          utc_date: '2025-12-22',
+        }),
+      }),
+    );
   });
 });
 

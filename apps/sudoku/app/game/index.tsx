@@ -9,6 +9,7 @@ import { loadLocalSave, writeLocalSave } from '../../src/services/saves';
 import { pullAndMergeCurrentPuzzle, pushCurrentPuzzle } from '../../src/services/sync';
 import { createClientSubmissionId } from '../../src/services/leaderboard';
 import { recordFreePlayCompleted } from '../../src/services/stats';
+import { trackEvent } from '../../src/services/telemetry';
 import { NumberPad } from '../../src/components/NumberPad';
 import { SudokuGrid } from '../../src/components/SudokuGrid';
 
@@ -31,6 +32,7 @@ export default function GameScreen() {
   const mistakes = usePlayerStore((s) => s.mistakes);
   const runTimer = usePlayerStore((s) => s.runTimer);
   const runStatus = usePlayerStore((s) => s.runStatus);
+  const movesLen = usePlayerStore((s) => s.moves.length);
   const undoStackLen = usePlayerStore((s) => s.undoStack.length);
   const redoStackLen = usePlayerStore((s) => s.redoStack.length);
 
@@ -219,7 +221,13 @@ export default function GameScreen() {
               key={d}
               title={d}
               variant={d === difficulty ? undefined : 'secondary'}
-              onPress={() => newPuzzle(d)}
+              onPress={() => {
+                if (hydrated && runStatus !== 'completed' && movesLen > 0) {
+                  void trackEvent({ name: 'abandon_puzzle', props: { mode: 'free', reason: 'new_puzzle' } });
+                }
+                newPuzzle(d);
+                void trackEvent({ name: 'start_freeplay', props: { difficulty: d } });
+              }}
             />
           ))}
         </View>

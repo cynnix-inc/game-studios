@@ -36,7 +36,8 @@ export function corsHeaders(): HeadersInit {
   return {
     'access-control-allow-origin': '*',
     'access-control-allow-methods': 'POST, OPTIONS',
-    'access-control-allow-headers': 'authorization, content-type, x-request-id',
+    // Include `apikey` because app clients may call public Edge Functions with the anon key.
+    'access-control-allow-headers': 'authorization, apikey, content-type, x-request-id',
     'access-control-max-age': '86400',
   };
 }

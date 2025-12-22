@@ -11,6 +11,7 @@ import { NumberPad } from '../../src/components/NumberPad';
 import { SudokuGrid } from '../../src/components/SudokuGrid';
 import { createClientSubmissionId, flushPendingDailySubmissions, submitDailyRun } from '../../src/services/leaderboard';
 import { recordDailyCompleted, recordDailySubmissionResult } from '../../src/services/stats';
+import { trackEvent } from '../../src/services/telemetry';
 
 function debounce<TArgs extends unknown[]>(fn: (...args: TArgs) => void, ms: number) {
   let t: ReturnType<typeof setTimeout> | null = null;
@@ -46,6 +47,7 @@ export default function DailyScreen() {
   const hintBreakdown = usePlayerStore((s) => s.hintBreakdown);
   const runTimer = usePlayerStore((s) => s.runTimer);
   const runStatus = usePlayerStore((s) => s.runStatus);
+  const movesLen = usePlayerStore((s) => s.moves.length);
   const completionClientSubmissionId = usePlayerStore((s) => s.completionClientSubmissionId);
   const undoStackLen = usePlayerStore((s) => s.undoStack.length);
   const redoStackLen = usePlayerStore((s) => s.redoStack.length);
@@ -219,6 +221,16 @@ export default function DailyScreen() {
       });
       if (res.ok && !res.queued) {
         if (res.rankedSubmission != null) void recordDailySubmissionResult({ rankedSubmission: res.rankedSubmission });
+        if (res.rankedSubmission != null) {
+          void trackEvent({
+            name: 'daily_rank_resolved',
+            props: {
+              utc_date: dailyDateKey,
+              correlation_id: clientSubmissionId,
+              ranked: res.rankedSubmission,
+            },
+          });
+        }
         setSubmitState('submitted');
       }
       else if (!res.ok && res.queued) setSubmitState('queued');
@@ -243,8 +255,25 @@ export default function DailyScreen() {
       </AppCard>
 
       <View style={{ flexDirection: 'row', gap: theme.spacing.sm, marginBottom: theme.spacing.md }}>
-        <AppButton title="Load Today" onPress={() => void loadDaily(todayKey)} />
-        <AppButton title="Back to Free Play" variant="secondary" onPress={exitDailyToFreePlay} />
+        <AppButton
+          title="Load Today"
+          onPress={() => {
+            if (hydrated && runStatus !== 'completed' && movesLen > 0) {
+              void trackEvent({ name: 'abandon_puzzle', props: { mode: 'daily', reason: 'switch_day' } });
+            }
+            void loadDaily(todayKey);
+          }}
+        />
+        <AppButton
+          title="Back to Free Play"
+          variant="secondary"
+          onPress={() => {
+            if (hydrated && runStatus !== 'completed' && movesLen > 0) {
+              void trackEvent({ name: 'abandon_puzzle', props: { mode: 'daily', reason: 'switch_mode' } });
+            }
+            exitDailyToFreePlay();
+          }}
+        />
       </View>
 
       {dailyLoad.status === 'unavailable' ? (
@@ -268,7 +297,12 @@ export default function DailyScreen() {
             return (
               <Pressable
                 key={k}
-                onPress={() => void loadDaily(k)}
+                onPress={() => {
+                  if (hydrated && runStatus !== 'completed' && movesLen > 0) {
+                    void trackEvent({ name: 'abandon_puzzle', props: { mode: 'daily', reason: 'switch_day' } });
+                  }
+                  void loadDaily(k);
+                }}
                 accessibilityRole="button"
                 accessibilityLabel={`Load Daily ${k}`}
                 style={{
