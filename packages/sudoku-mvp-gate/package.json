@@ -9,9 +9,9 @@
     ".": "./src/index.ts"
   },
   "scripts": {
-    "lint": "pnpm exec eslint .",
-    "typecheck": "pnpm exec tsc -p tsconfig.json --noEmit",
-    "test": "pnpm exec jest"
+    "lint": "corepack pnpm exec eslint .",
+    "typecheck": "corepack pnpm exec tsc -p tsconfig.json --noEmit",
+    "test": "corepack pnpm exec jest"
   },
   "devDependencies": {
     "@types/jest": "^29.5.14",

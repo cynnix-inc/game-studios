@@ -1,4 +1,4 @@
-import { createSaveService } from '@cynnix-studios/game-foundation';
+import { createSaveService, fetchWithTimeout } from '@cynnix-studios/game-foundation';
 import { assertDailyManifest, assertDailyPayload, type DailyManifestV1, type DailyPayloadV1 } from '@cynnix-studios/sudoku-core';
 
 const GAME_KEY = 'sudoku';
@@ -50,14 +50,22 @@ export async function writeCachedDaily(payload: DailyPayloadV1): Promise<void> {
 export async function fetchDailyManifest(): Promise<DailyManifestV1> {
   const base = dailyBaseUrl();
   if (!base) throw new Error('missing_base_url');
-  const res = await fetch(`${base}/manifest.json`);
+  const res = await fetchWithTimeout(
+    `${base}/manifest.json`,
+    undefined,
+    { timeoutMs: 10_000, maxAttempts: 3, idempotent: true },
+  );
   if (!res.ok) throw new Error(`manifest_http_${res.status}`);
   const json = (await res.json()) as unknown;
   return assertDailyManifest(json);
 }
 
 export async function fetchDailyPayload(url: string): Promise<DailyPayloadV1> {
-  const res = await fetch(url);
+  const res = await fetchWithTimeout(
+    url,
+    undefined,
+    { timeoutMs: 10_000, maxAttempts: 3, idempotent: true },
+  );
   if (!res.ok) throw new Error(`payload_http_${res.status}`);
   const json = (await res.json()) as unknown;
   return assertDailyPayload(json);
