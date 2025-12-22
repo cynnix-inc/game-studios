@@ -67,7 +67,9 @@ export default function AuthScreen() {
             setError(null);
             setLoading('google');
             if (Platform.OS === 'web') {
-              const redirectTo = window.location.origin;
+              // Use a stable in-app callback route on web so the session is detected in-url
+              // and we land back on the Auth screen after the OAuth redirect.
+              const redirectTo = new URL('/auth', window.location.origin).toString();
               try {
                 await signInGoogleWeb(redirectTo);
               } catch (e) {
