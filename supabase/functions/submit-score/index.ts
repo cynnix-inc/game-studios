@@ -83,6 +83,13 @@ function computeHintsUsedCount(breakdown: Partial<Record<HintType, number>> | nu
   return total;
 }
 
+function makePseudonymousDisplayName(): string {
+  // MVP: Not required to be unique. Avoid PII (do not derive from email).
+  // Example: Player-AB12
+  const token = (globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`).replace(/[^a-z0-9]/gi, '');
+  return `Player-${token.slice(0, 4).toUpperCase()}`;
+}
+
 export default async function handler(req: Request): Promise<Response> {
   const requestId = getRequestId(req);
   const startedAt = edgeStartTimer();
@@ -225,7 +232,7 @@ export default async function handler(req: Request): Promise<Response> {
   const userId = userData.user.id;
   const { data: existingPlayer, error: playerSelectErr } = await supabase
     .from('players')
-    .select('id')
+    .select('id, display_name')
     .eq('user_id', userId)
     .maybeSingle();
   if (playerSelectErr) {
@@ -242,11 +249,13 @@ export default async function handler(req: Request): Promise<Response> {
   }
 
   let playerId = existingPlayer?.id as string | undefined;
+  let displayName = (existingPlayer?.display_name as string | null | undefined) ?? null;
   if (!playerId) {
+    const newName = makePseudonymousDisplayName();
     const { data: inserted, error: insertErr } = await supabase
       .from('players')
-      .insert({ user_id: userId })
-      .select('id')
+      .insert({ user_id: userId, display_name: newName })
+      .select('id, display_name')
       .single();
     if (insertErr) {
       const res = err(500, EDGE_ERROR_CODE.INTERNAL, 'Failed to create player', requestId);
@@ -261,6 +270,14 @@ export default async function handler(req: Request): Promise<Response> {
       return res;
     }
     playerId = inserted.id as string;
+    displayName = (inserted.display_name as string | null | undefined) ?? newName;
+  }
+
+  if (!displayName) {
+    const newName = makePseudonymousDisplayName();
+    const { error: updateErr } = await supabase.from('players').update({ display_name: newName }).eq('id', playerId);
+    if (!updateErr) displayName = newName;
+    else displayName = 'Player';
   }
 
   const scoreMs = computeScoreMs({
@@ -274,6 +291,7 @@ export default async function handler(req: Request): Promise<Response> {
   const baseInsert = {
     utc_date: utcDate,
     player_id: playerId,
+    display_name: displayName,
     raw_time_ms: toNonNegativeInt(body.raw_time_ms),
     score_ms: scoreMs,
     mistakes_count: toNonNegativeInt(body.mistakes_count),
@@ -285,7 +303,7 @@ export default async function handler(req: Request): Promise<Response> {
   async function loadByClientSubmissionId(id: string) {
     const { data, error } = await supabase
       .from('daily_runs')
-      .select('utc_date, ranked_submission, raw_time_ms, score_ms, mistakes_count, hints_used_count, client_submission_id')
+      .select('utc_date, ranked_submission, display_name, raw_time_ms, score_ms, mistakes_count, hints_used_count, client_submission_id')
       .eq('client_submission_id', id)
       .maybeSingle();
     return { data, error };
@@ -298,7 +316,7 @@ export default async function handler(req: Request): Promise<Response> {
     return await supabase
       .from('daily_runs')
       .insert({ ...baseInsert, ranked_submission: ranked })
-      .select('utc_date, ranked_submission, raw_time_ms, score_ms, mistakes_count, hints_used_count, client_submission_id')
+      .select('utc_date, ranked_submission, display_name, raw_time_ms, score_ms, mistakes_count, hints_used_count, client_submission_id')
       .single();
   };
 
@@ -306,6 +324,7 @@ export default async function handler(req: Request): Promise<Response> {
     | {
         utc_date: string;
         ranked_submission: boolean;
+        display_name: string;
         raw_time_ms: number;
         score_ms: number;
         mistakes_count: number;
@@ -356,6 +375,7 @@ export default async function handler(req: Request): Promise<Response> {
     {
       utc_date: inserted.utc_date,
       ranked_submission: inserted.ranked_submission,
+      display_name: inserted.display_name,
       raw_time_ms: inserted.raw_time_ms,
       score_ms: inserted.score_ms,
       mistakes_count: inserted.mistakes_count,

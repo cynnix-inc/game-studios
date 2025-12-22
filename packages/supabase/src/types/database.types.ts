@@ -88,6 +88,7 @@ export type Database = {
           id: string;
           utc_date: string;
           player_id: string;
+          display_name: string;
           raw_time_ms: number;
           score_ms: number;
           mistakes_count: number;
@@ -101,6 +102,7 @@ export type Database = {
           id?: string;
           utc_date: string;
           player_id: string;
+          display_name?: string;
           raw_time_ms: number;
           score_ms: number;
           mistakes_count?: number;
@@ -114,6 +116,7 @@ export type Database = {
           id?: string;
           utc_date?: string;
           player_id?: string;
+          display_name?: string;
           raw_time_ms?: number;
           score_ms?: number;
           mistakes_count?: number;
@@ -126,7 +129,36 @@ export type Database = {
         Relationships: [];
       };
     };
-    Views: Record<string, never>;
+    Views: {
+      daily_leaderboard_score_v1: {
+        Row: {
+          utc_date: string;
+          rank: number;
+          player_id: string;
+          display_name: string;
+          score_ms: number;
+          raw_time_ms: number;
+          mistakes_count: number;
+          hints_used_count: number;
+          created_at: string;
+        };
+        Relationships: [];
+      };
+      daily_leaderboard_raw_time_v1: {
+        Row: {
+          utc_date: string;
+          rank: number;
+          player_id: string;
+          display_name: string;
+          score_ms: number;
+          raw_time_ms: number;
+          mistakes_count: number;
+          hints_used_count: number;
+          created_at: string;
+        };
+        Relationships: [];
+      };
+    };
     Functions: Record<string, never>;
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;

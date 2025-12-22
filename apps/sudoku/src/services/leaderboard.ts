@@ -1,13 +1,70 @@
 import { createSaveService, fetchWithTimeout } from '@cynnix-studios/game-foundation';
 import type { HintType } from '@cynnix-studios/sudoku-core';
+import { getSupabasePublicEnv } from '@cynnix-studios/supabase';
 
-export type LeaderboardMode = 'time_ms' | 'mistakes';
+type LeaderboardTab = 'score' | 'raw_time';
 
-export type LeaderboardEntry = {
+export type DailyLeaderboardRow = {
+  utc_date: string;
   rank: number;
-  displayName: string;
-  value: number;
+  player_id: string;
+  display_name: string;
+  score_ms: number;
+  raw_time_ms: number;
+  mistakes_count: number;
+  hints_used_count: number;
+  created_at: string;
 };
+
+type DailyLeaderboardViewName = 'daily_leaderboard_score_v1' | 'daily_leaderboard_raw_time_v1';
+
+function viewNameForTab(tab: LeaderboardTab): DailyLeaderboardViewName {
+  return tab === 'score' ? 'daily_leaderboard_score_v1' : 'daily_leaderboard_raw_time_v1';
+}
+
+function supabaseRestBaseUrl(): string {
+  const { url } = getSupabasePublicEnv();
+  return url.endsWith('/') ? url.slice(0, -1) : url;
+}
+
+function supabaseAnonKey(): string {
+  return getSupabasePublicEnv().anonKey;
+}
+
+function buildRestUrl(path: string, params: Record<string, string | string[]>): string {
+  const base = supabaseRestBaseUrl();
+  const u = new URL(`${base}${path.startsWith('/') ? '' : '/'}${path}`);
+  for (const [k, v] of Object.entries(params)) {
+    if (Array.isArray(v)) {
+      for (const item of v) u.searchParams.append(k, item);
+      continue;
+    }
+    u.searchParams.set(k, v);
+  }
+  return u.toString();
+}
+
+async function restGetJson<T>(args: {
+  url: string;
+  token?: string;
+}): Promise<{ ok: true; data: T } | { ok: false; error: { code: string; message: string } }> {
+  try {
+    const headers: Record<string, string> = {
+      apikey: supabaseAnonKey(),
+      accept: 'application/json',
+    };
+    if (args.token) headers.authorization = `Bearer ${args.token}`;
+
+    const res = await fetchWithTimeout(args.url, { method: 'GET', headers }, { timeoutMs: 10_000, maxAttempts: 3, idempotent: true });
+    if (!res.ok) {
+      return { ok: false, error: { code: `http_${res.status}`, message: `HTTP ${res.status}` } };
+    }
+    const json = (await res.json()) as T;
+    return { ok: true, data: json };
+  } catch (e) {
+    return { ok: false, error: { code: 'network_error', message: e instanceof Error ? e.message : String(e) } };
+  }
+}
 
 export function createClientSubmissionId(): string {
   const maybe = globalThis.crypto?.randomUUID?.();
@@ -86,19 +143,18 @@ export async function submitDailyRun(input: Omit<SubmitDailyRunInput, 'client_su
 
   try {
     const res = await fetchWithTimeout(
-    `${base}/submit-score`,
-    {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        authorization: `Bearer ${token}`,
+      `${base}/submit-score`,
+      {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
       },
-      body: JSON.stringify(payload),
-    },
-    // Idempotent via client_submission_id.
-    // NOTE: Do not retry POST inline; we queue failures and flush later.
-    { timeoutMs: 10_000, maxAttempts: 1, idempotent: true },
-  );
+      // Idempotent via client_submission_id, but do not retry POST inline; we queue failures and flush later.
+      { timeoutMs: 10_000, maxAttempts: 1, idempotent: true },
+    );
 
     const json = (await res.json().catch(() => null)) as unknown;
     if (!res.ok) {
@@ -163,13 +219,79 @@ export async function flushPendingDailySubmissions(): Promise<{ ok: true; flushe
   return { ok: true, flushed };
 }
 
-export async function getTop50(mode: LeaderboardMode): Promise<LeaderboardEntry[]> {
-  // Placeholder: return mock until Supabase configured.
-  return Array.from({ length: 10 }, (_, i) => ({
-    rank: i + 1,
-    displayName: `Player ${i + 1}`,
-    value: mode === 'time_ms' ? 60_000 + i * 1_000 : i,
-  }));
+export async function getDailyTop100(args: { utcDate: string; tab: LeaderboardTab }): Promise<{ ok: true; rows: DailyLeaderboardRow[] } | { ok: false; error: { code: string; message: string } }> {
+  const view = viewNameForTab(args.tab);
+  const select = 'utc_date,rank,player_id,display_name,score_ms,raw_time_ms,mistakes_count,hints_used_count,created_at';
+  const url = buildRestUrl(`/rest/v1/${view}`, {
+    select,
+    utc_date: `eq.${args.utcDate}`,
+    order: 'rank.asc',
+    limit: '100',
+  });
+
+  const res = await restGetJson<DailyLeaderboardRow[]>({ url });
+  if (!res.ok) return res;
+  return { ok: true, rows: res.data ?? [] };
 }
 
+export async function getDailyAroundYou(args: {
+  utcDate: string;
+  tab: LeaderboardTab;
+  window: number;
+}): Promise<
+  | { ok: true; rows: DailyLeaderboardRow[]; mePlayerId: string }
+  | { ok: true; rows: DailyLeaderboardRow[]; mePlayerId: null }
+  | { ok: false; error: { code: string; message: string } }
+> {
+  const { getAccessToken } = await import('./auth');
+  const token = await getAccessToken();
+  if (!token) return { ok: false, error: { code: 'not_authenticated', message: 'Not signed in' } };
 
+  // Resolve auth user id without using supabase-js (avoid unbounded network calls without timeouts).
+  const userRes = await restGetJson<{ id: string }>({
+    url: buildRestUrl('/auth/v1/user', {}),
+    token,
+  });
+  if (!userRes.ok) return userRes;
+
+  const playerRes = await restGetJson<Array<{ id: string }>>({
+    url: buildRestUrl('/rest/v1/players', { select: 'id', user_id: `eq.${userRes.data.id}`, limit: '1' }),
+    token,
+  });
+  if (!playerRes.ok) return playerRes;
+  const playerId = playerRes.data?.[0]?.id;
+  if (!playerId) return { ok: true, rows: [], mePlayerId: null };
+
+  const view = viewNameForTab(args.tab);
+  const select = 'utc_date,rank,player_id,display_name,score_ms,raw_time_ms,mistakes_count,hints_used_count,created_at';
+
+  const meRes = await restGetJson<DailyLeaderboardRow[]>({
+    url: buildRestUrl(`/rest/v1/${view}`, {
+      select,
+      utc_date: `eq.${args.utcDate}`,
+      player_id: `eq.${playerId}`,
+      limit: '1',
+    }),
+    token,
+  });
+  if (!meRes.ok) return meRes;
+  const me = meRes.data?.[0];
+  if (!me) return { ok: true, rows: [], mePlayerId: playerId };
+
+  const w = Math.max(0, Math.floor(args.window));
+  const start = Math.max(1, me.rank - w);
+  const end = me.rank + w;
+
+  const rowsRes = await restGetJson<DailyLeaderboardRow[]>({
+    url: buildRestUrl(`/rest/v1/${view}`, {
+      select,
+      utc_date: `eq.${args.utcDate}`,
+      rank: [`gte.${start}`, `lte.${end}`],
+      order: 'rank.asc',
+    }),
+    token,
+  });
+  if (!rowsRes.ok) return rowsRes;
+
+  return { ok: true, rows: rowsRes.data ?? [], mePlayerId: playerId };
+}
