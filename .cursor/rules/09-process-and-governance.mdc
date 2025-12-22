@@ -1,0 +1,78 @@
+---
+description: Process and governance rules (planning discipline, git safety, TDD workflow) for this monorepo
+globs:
+  - "**/*"
+alwaysApply: true
+---
+
+# Process & Governance (Monorepo)
+
+## Rule map (quick navigation)
+
+- `00-repo-conventions.mdc`: monorepo layout, scripts, env/secrets basics
+- `01-typescript-and-imports.mdc`: strict TS + import hygiene + package boundaries
+- `02-expo-and-web.mdc`: Expo Router + Netlify web export conventions (Sudoku)
+- `03-supabase.mdc`: Supabase usage boundaries (clients/RLS/edge functions) + types generation
+- `04-architecture-boundaries.mdc`: layer boundaries + dependency direction (apps → packages)
+- `05-formatting-and-repo-hygiene.mdc`: Prettier/ESLint + repo hygiene
+- `06-versioning-and-toolchain.mdc`: Node/pnpm/turbo + Expo/Supabase version pinning
+- `07-testing.mdc`: TDD default + minimum testing bar
+- `08-supabase-edge-functions.mdc`: edge function validation + stable response contracts
+- `09-process-and-governance.mdc`: planning discipline + git safety + workflow (this file)
+- `10-design-system-and-a11y.mdc`: tokens + UI consistency + accessibility expectations (Sudoku)
+- `11-observability-and-integrations.mdc`: timeouts/retries/logging/redaction for external calls
+
+This rule focuses on **process and governance** only. It intentionally references (and does not duplicate) other rules:
+
+- Architecture boundaries: `04-architecture-boundaries.mdc`
+- Formatting & hygiene: `05-formatting-and-repo-hygiene.mdc`
+- Versioning/toolchain: `06-versioning-and-toolchain.mdc`
+- Testing: `07-testing.mdc`
+- Edge Functions: `08-supabase-edge-functions.mdc`
+
+## Planning & requirements discipline
+
+When creating/updating epics, specs, or technical plans (docs and issues):
+
+- **Rule cross-reference required**: confirm relevant rules were reviewed before finalizing.
+- **Trace to docs**: link requirements back to repo sources of truth in `docs/**` (e.g., `docs/sudoku-prd-v1.1-mvp.md`, `docs/sudoku-tech-spec-v1.1.md`, `docs/sudoku-epics-v1.1.md`).
+- **Document gaps**: if the docs don’t answer a requirement, flag the gap instead of inventing behavior.
+
+## “No unapproved extras” policy
+
+Stay focused on what’s explicitly required. If you have additional ideas:
+
+- Present them as suggestions for approval (grouped as Requirements / Highly Recommended / Other Recommended).
+- Do not implement extras during implementation unless explicitly approved.
+
+## Cross-platform command discipline
+
+- Prefer repo scripts (`pnpm ...`) and Turborepo tasks over shell-specific one-liners.
+- Avoid assuming a specific shell (PowerShell/Bash/zsh); keep instructions cross-platform.
+
+## Git safety rules
+
+### Branch strategy
+
+- Work happens on `feature/*` or `hotfix/*`.
+- `dev` merges into `main` only when ready to go live.
+
+### Protected branch safety (Cursor/automation)
+
+- **Never commit or push directly** from `dev` or `main`.
+- If asked to push to `dev`/`main`, require explicit approval phrase: **\"approve push\"**.
+- Never force-push without explicit approval phrase: **\"approve force\"**.
+
+## Feature flow (TDD + smoke check)
+
+Default workflow for feature work (see `07-testing.mdc` for testing expectations):
+
+1. Confirm requirements (docs/spec) and relevant rules.
+2. Write tests first (unless an explicit, documented exception applies).
+3. Implement.
+4. Debug until tests pass.
+5. Review against requirements/rules.
+6. **Runtime smoke check** before requesting review:
+   - Prefer running repo scripts (examples): `pnpm dev:sudoku`, `pnpm web:sudoku`, `pnpm export:web:sudoku`
+   - Verify the changed flow works and there are no critical runtime errors.
+

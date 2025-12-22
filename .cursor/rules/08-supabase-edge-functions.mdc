@@ -10,6 +10,12 @@ alwaysApply: false
 
 Edge Functions must assume clients are untrusted. They should validate inputs at runtime and return stable, well-documented response shapes.
 
+## Observability & integration practices
+
+For timeouts, retries, structured logging, correlation IDs, and redaction requirements, follow:
+
+- `11-observability-and-integrations.mdc`
+
 ## Constraints
 
 - **Validate inputs**: runtime validation for all request payloads.
@@ -18,7 +24,44 @@ Edge Functions must assume clients are untrusted. They should validate inputs at
   - never log secrets (service role key, tokens)
   - redact/avoid logging PII
 - **Auth**: map authenticated user identity to your DB model; do not accept user IDs from clients as truth.
-- **Timeouts/retries**: use timeouts for external calls; retries should be idempotent and bounded.
+- **Timeouts/retries**: required; see `11-observability-and-integrations.mdc`.
+
+## HTTP behavior (required)
+
+- **Method gating**: explicitly allow only the intended methods (typically `POST`). Return `405` for others.
+- **CORS**:
+  - Handle `OPTIONS` preflight.
+  - Return appropriate `Access-Control-Allow-Origin`, `Access-Control-Allow-Methods`, `Access-Control-Allow-Headers`.
+  - Do not reflect arbitrary origins unless you intend a public API surface.
+
+## Response contract (required)
+
+All Edge Functions must return a stable JSON envelope with a request-scoped id.
+
+### Success
+
+- **Status**: `200`
+- **Body**:
+  - `{ ok: true, data: <T>, requestId: string }`
+
+### Error
+
+- **Body**:
+  - `{ ok: false, error: { code: string, message: string, details?: unknown }, requestId: string }`
+- **Status code mapping** (minimum):
+  - `400` validation / bad request (`VALIDATION_ERROR`)
+  - `401` unauthenticated (`UNAUTHENTICATED`)
+  - `403` forbidden (`FORBIDDEN`)
+  - `404` not found (`NOT_FOUND`)
+  - `409` conflict (`CONFLICT`)
+  - `429` rate limited (`RATE_LIMITED`)
+  - `504` upstream timeout (`UPSTREAM_TIMEOUT`)
+  - `500` internal/unexpected (`INTERNAL`)
+
+### Request/correlation id
+
+- Accept an incoming request id (e.g., `x-request-id`) if present; otherwise generate one.
+- Always include it in the response as `requestId` and include it in server logs (see `11-observability-and-integrations.mdc`).
 
 ## Structure (thin wrappers)
 

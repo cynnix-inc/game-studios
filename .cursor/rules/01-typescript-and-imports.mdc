@@ -1,3 +1,16 @@
+---
+description: TypeScript correctness and import hygiene (strictness, entrypoints, package boundaries)
+globs:
+  - "apps/**"
+  - "packages/**"
+  - "supabase/**"
+  - "**/*.ts"
+  - "**/*.tsx"
+  - "**/*.cts"
+  - "**/*.mts"
+alwaysApply: true
+---
+
 # TypeScript & Imports
 
 ## TypeScript

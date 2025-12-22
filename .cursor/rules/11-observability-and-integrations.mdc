@@ -1,0 +1,82 @@
+---
+description: Observability and integration practices (timeouts, retries, structured logs, config safety)
+globs:
+  - "supabase/functions/**"
+  - "apps/**/src/**"
+  - "packages/**/src/**"
+  - "scripts/**"
+alwaysApply: true
+---
+
+# Observability & Integrations
+
+This rule applies to code that calls external systems (Supabase, HTTP APIs, storage adapters, telemetry, etc.).
+It complements (and does not replace) `08-supabase-edge-functions.mdc`.
+
+## Goals
+
+- Make external calls **reliable** (timeouts, bounded retries, idempotency).
+- Make issues **debuggable** (structured logs + correlation IDs + durations).
+- Keep user/security data **safe** (no secrets, token/PII masking).
+
+## External calls (required)
+
+- **Timeouts**: every external call must have a timeout.
+  - **Default guidance**:
+    - client/app HTTP: 10s max (prefer shorter where UX demands)
+    - Edge Functions / server: 8s max per upstream call (leave headroom for request parsing + response mapping)
+    - storage (local disk/db): 1–2s max per operation, with cancellation where supported
+- **Retries**:
+  - Only retry **idempotent** operations, or make them idempotent with an idempotency key.
+  - Use **bounded** retries (finite attempts) with **backoff + jitter**.
+  - Prefer retrying *after* classifying errors (e.g., network/timeouts vs validation).
+  - **Default policy (recommended)**:
+    - max attempts: 3 total (initial + 2 retries)
+    - retryable: network errors/timeouts, `502/503/504`, and `429` (respect `Retry-After` if present)
+    - non-retryable: validation/auth errors (`4xx` other than `429`), business-rule rejections
+    - backoff: exponential (e.g., 250ms, 500ms) + jitter
+- **Circuit breaker** (recommended where applicable): if repeated failures occur, fail fast for a short window to protect users and upstream systems.
+- **No secrets in clients**: never embed server-only secrets in apps/packages (see `03-supabase.mdc`).
+
+### Lightweight circuit breaker (recommended pattern)
+
+If you add a circuit breaker, keep it simple and local:
+
+- Track failures per upstream target over a short window (e.g., 10 failures in 30s).
+- When tripped, fail fast for a cooldown (e.g., 30s) with a clear error code (`UPSTREAM_UNAVAILABLE`).
+- Reset on first successful call after cooldown.
+
+## Structured logging (server-side required)
+
+For server-side code (Supabase Edge Functions, scripts, server runtimes):
+
+- **Log both success and failure** for external calls.
+- **Include**:
+  - correlation id (request-scoped) and/or run id
+  - target (service name / URL host)
+  - HTTP method + status (if applicable)
+  - duration (ms)
+  - created/updated timestamps around the call
+- **Levels**:
+  - success: `info`
+  - recoverable issue: `warning`
+  - failure: `error`
+
+### Redaction/masking (required)
+
+- Never log secrets (service role key, auth tokens, API keys).
+- Mask sensitive headers (e.g., `Authorization`, `apikey`, cookies).
+- Mask PII in request/response bodies and query params.
+- Prefer logging **summaries** (counts, ids, booleans) rather than full payloads unless explicitly needed and masked.
+
+## Client-side logging/telemetry
+
+- Avoid logging sensitive values to client consoles.
+- Prefer privacy-preserving telemetry; make opt-out possible if product requirements demand it.
+
+## Configuration & environment safety
+
+- Validate required environment variables at startup/boundaries.
+- Use typed config accessors and runtime validation at the edge of the system.
+- Never log raw env values; log only “present/missing” and safe metadata.
+
