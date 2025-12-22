@@ -1,6 +1,7 @@
 // Supabase Edge Function: track-event (Sudoku v1.1 Epic 10)
 // Trusted write: validates telemetry payload, optionally maps auth user -> user_id, and inserts to public.telemetry_events.
 
+// @ts-expect-error - Deno edge runtime resolves this remote module at runtime.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
 import {
   EDGE_ERROR_CODE,
@@ -12,6 +13,9 @@ import {
   ok,
   withTimeoutFetch,
 } from '../_shared/http.ts';
+
+// Minimal Deno env typing for editor/TS tooling; Supabase Edge Runtime provides Deno at runtime.
+declare const Deno: { env: { get(key: string): string | undefined } };
 
 type Platform = 'web' | 'android' | 'ios';
 
