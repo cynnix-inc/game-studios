@@ -18,6 +18,13 @@ describe('Sudoku web accessibility: keyboard + focus (rule 10)', () => {
     expect(src).toMatch(/ArrowRight/);
     expect(src).toMatch(/Backspace/);
     expect(src).toMatch(/Delete/);
+    // PRD 7.2 minimum shortcut set includes Esc (close-only behavior).
+    expect(src).toMatch(/Escape/);
+    // PRD 7.2 also requires Notes/Undo/Redo shortcuts.
+    expect(src).toMatch(/toLowerCase\(\)/);
+    expect(src).toMatch(/lower === 'n'/);
+    expect(src).toMatch(/lower === 'u'/);
+    expect(src).toMatch(/lower === 'r'/);
   });
 
   test('SudokuGrid provides non-color selection affordance + screen reader hint', () => {
