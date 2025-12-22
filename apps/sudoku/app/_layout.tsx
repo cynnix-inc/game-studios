@@ -6,6 +6,7 @@ import { theme } from '@cynnix-studios/ui';
 import { AuthBootstrap } from '../src/bootstrap/AuthBootstrap';
 import { getOrCreateDeviceId } from '../src/services/deviceId';
 import { loadLocalSettings, syncSettingsOnce } from '../src/services/settings';
+import { loadLocalStats, syncStatsOnce } from '../src/services/stats';
 import { usePlayerStore } from '../src/state/usePlayerStore';
 
 export default function RootLayout() {
@@ -15,6 +16,8 @@ export default function RootLayout() {
       usePlayerStore.getState().setDeviceId(deviceId);
       await loadLocalSettings();
       void syncSettingsOnce();
+      await loadLocalStats();
+      void syncStatsOnce();
     })();
   }, []);
 

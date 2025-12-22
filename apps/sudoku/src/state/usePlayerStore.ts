@@ -28,6 +28,16 @@ type SudokuState = {
   revision: number;
   moves: SudokuMove[];
 
+  // Input + derived state (Epic 1: notes mode + undo/redo)
+  notesMode: boolean;
+  notes: Array<Set<number>>;
+  undoStack: UndoAction[];
+  redoStack: UndoAction[];
+
+  puzzleSyncStatus: 'idle' | 'syncing' | 'ok' | 'error';
+  puzzleLastSyncAtMs: number | null;
+  puzzleLastSyncError: string | null;
+
   mode: 'free' | 'daily';
   dailyDateKey: string | null;
   dailyLoad: { status: 'idle' | 'loading' | 'ready' | 'unavailable'; reason?: DailyLoadUnavailable['reason'] };
@@ -57,6 +67,9 @@ type SudokuState = {
   selectCell: (i: number) => void;
   inputDigit: (d: CellValue) => void;
   clearCell: () => void;
+  toggleNotesMode: () => void;
+  undo: () => void;
+  redo: () => void;
   hintRevealCellValue: () => void;
   pauseRun: (nowMs?: number) => void;
   resumeRun: (nowMs?: number) => void;
@@ -70,6 +83,8 @@ type SudokuState = {
       deviceId?: string;
       revision?: number;
       moves?: SudokuMove[];
+      undoStack?: UndoAction[];
+      redoStack?: UndoAction[];
       mistakes?: number;
       runTimer?: RunTimer;
       startedAtMs?: number;
@@ -88,6 +103,10 @@ type SudokuState = {
     hintBreakdown: Partial<Record<HintType, number>>;
     runTimer: RunTimer;
     runStatus: 'running' | 'paused' | 'completed';
+    revision?: number;
+    moves?: SudokuMove[];
+    undoStack?: UndoAction[];
+    redoStack?: UndoAction[];
   }) => void;
 
   getSavePayload: () =>
@@ -97,6 +116,8 @@ type SudokuState = {
         deviceId: string | null;
         revision: number;
         moves: SudokuMove[];
+        undoStack: UndoAction[];
+        redoStack: UndoAction[];
         serializedPuzzle: string;
         serializedSolution: string;
         givensMask: boolean[];
@@ -113,6 +134,8 @@ type SudokuState = {
         deviceId: string | null;
         revision: number;
         moves: SudokuMove[];
+        undoStack: UndoAction[];
+        redoStack: UndoAction[];
         dailyDateKey: string;
         serializedPuzzle: string;
         givensMask: boolean[];
@@ -127,6 +150,22 @@ type SudokuState = {
 
 const GAME_KEY = 'sudoku';
 
+export type UndoAction =
+  | { kind: 'cell'; cell: number; prev: number; next: number }
+  | { kind: 'note'; cell: number; digit: number; prevHad: boolean; nextHad: boolean };
+
+function emptyNotes(): Array<Set<number>> {
+  return Array.from({ length: 81 }, () => new Set<number>());
+}
+
+function clampCellIndex(i: number): number {
+  return Math.max(0, Math.min(80, i));
+}
+
+function clampDigit(v: number): number {
+  return Math.max(1, Math.min(9, Math.floor(v)));
+}
+
 function newGuestId() {
   return `guest_${Math.random().toString(16).slice(2)}_${Date.now()}`;
 }
@@ -140,6 +179,15 @@ export const usePlayerStore = create<SudokuState>((set, get) => ({
   deviceId: null,
   revision: 0,
   moves: [],
+
+  notesMode: false,
+  notes: emptyNotes(),
+  undoStack: [],
+  redoStack: [],
+
+  puzzleSyncStatus: 'idle',
+  puzzleLastSyncAtMs: null,
+  puzzleLastSyncError: null,
 
   mode: 'free',
   dailyDateKey: null,
@@ -178,6 +226,10 @@ export const usePlayerStore = create<SudokuState>((set, get) => ({
       dailySource: null,
       revision: 0,
       moves: [],
+      notesMode: false,
+      notes: emptyNotes(),
+      undoStack: [],
+      redoStack: [],
       difficulty,
       puzzle: gen.puzzle,
       solution: gen.solution,
@@ -215,6 +267,10 @@ export const usePlayerStore = create<SudokuState>((set, get) => ({
       dailySource: res.source,
       revision: 0,
       moves: [],
+      notesMode: false,
+      notes: emptyNotes(),
+      undoStack: [],
+      redoStack: [],
       difficulty: res.payload.difficulty,
       puzzle: res.payload.puzzle as unknown as Grid,
       solution: res.payload.solution as unknown as Grid,
@@ -235,47 +291,242 @@ export const usePlayerStore = create<SudokuState>((set, get) => ({
   selectCell: (i) => set({ selectedIndex: i }),
 
   inputDigit: (d) => {
-    const { selectedIndex, puzzle, givensMask, solution, mistakes, deviceId, revision, moves } = get();
+    const { selectedIndex, puzzle, givensMask, solution, mistakes, deviceId, revision, moves, notesMode, notes, undoStack, runStatus } = get();
+    if (runStatus === 'completed') return;
     if (selectedIndex == null) return;
     if (givensMask[selectedIndex]) return;
-    const next = puzzle.slice() as number[];
-    next[selectedIndex] = d;
-    const correct = solution[selectedIndex] === d;
+
+    const cell = clampCellIndex(selectedIndex);
+    const digit = clampDigit(d);
     const ts = Date.now();
+
+    // Notes mode: toggle note for this cell without changing puzzle value.
+    if (notesMode) {
+      const setForCell = notes[cell] ?? new Set<number>();
+      const prevHad = setForCell.has(digit);
+      const nextHad = !prevHad;
+      const nextNotes = notes.slice();
+      const nextSet = new Set<number>(setForCell);
+      if (nextHad) nextSet.add(digit);
+      else nextSet.delete(digit);
+      nextNotes[cell] = nextSet;
+
+      const nextMoves: SudokuMove[] = deviceId
+        ? [
+            ...moves,
+            {
+              schemaVersion: 1,
+              device_id: deviceId,
+              rev: revision + 1,
+              ts,
+              kind: nextHad ? 'note_add' : 'note_remove',
+              cell,
+              value: digit,
+            },
+          ]
+        : moves;
+
+      set({
+        notes: nextNotes,
+        moves: nextMoves,
+        revision: deviceId ? revision + 1 : revision,
+        undoStack: [...undoStack, { kind: 'note', cell, digit, prevHad, nextHad }],
+        redoStack: [],
+      });
+      return;
+    }
+
+    // Value mode: set cell value and (if incorrect) increment mistakes.
+    const prev = puzzle[cell] ?? 0;
+    if (prev === digit) return;
+    const nextPuzzle = puzzle.slice() as number[];
+    nextPuzzle[cell] = digit;
+    const correct = solution[cell] === digit;
+
     const nextMoves: SudokuMove[] = deviceId
       ? [
           ...moves,
-          { schemaVersion: 1, device_id: deviceId, rev: revision + 1, ts, kind: 'set', cell: selectedIndex, value: d },
+          { schemaVersion: 1, device_id: deviceId, rev: revision + 1, ts, kind: 'set', cell, value: digit },
           ...(correct ? [] : [{ schemaVersion: 1, device_id: deviceId, rev: revision + 2, ts, kind: 'mistake' } as const]),
         ]
       : moves;
+
     set({
-      puzzle: next as unknown as Grid,
+      puzzle: nextPuzzle as unknown as Grid,
       mistakes: correct ? mistakes : mistakes + 1,
       revision: deviceId ? revision + (correct ? 1 : 2) : revision,
       moves: nextMoves,
+      undoStack: [...undoStack, { kind: 'cell', cell, prev, next: digit }],
+      redoStack: [],
     });
   },
 
   clearCell: () => {
-    const { selectedIndex, puzzle, givensMask, deviceId, revision, moves } = get();
+    const { selectedIndex, puzzle, givensMask, deviceId, revision, moves, undoStack, runStatus } = get();
+    if (runStatus === 'completed') return;
     if (selectedIndex == null) return;
     if (givensMask[selectedIndex]) return;
+    const cell = clampCellIndex(selectedIndex);
+    const prev = puzzle[cell] ?? 0;
+    if (prev === 0) return;
     const next = puzzle.slice() as number[];
-    next[selectedIndex] = 0;
+    next[cell] = 0;
     const ts = Date.now();
     const nextMoves: SudokuMove[] = deviceId
-      ? [...moves, { schemaVersion: 1, device_id: deviceId, rev: revision + 1, ts, kind: 'clear', cell: selectedIndex }]
+      ? [...moves, { schemaVersion: 1, device_id: deviceId, rev: revision + 1, ts, kind: 'clear', cell }]
       : moves;
     set({
       puzzle: next as unknown as Grid,
       revision: deviceId ? revision + 1 : revision,
       moves: nextMoves,
+      undoStack: [...undoStack, { kind: 'cell', cell, prev, next: 0 }],
+      redoStack: [],
+    });
+  },
+
+  toggleNotesMode: () => {
+    const { runStatus } = get();
+    if (runStatus === 'completed') return;
+    set((s) => ({ notesMode: !s.notesMode }));
+  },
+
+  undo: () => {
+    const { undoStack, redoStack, deviceId, revision, moves, puzzle, notes, runStatus } = get();
+    if (runStatus === 'completed') return;
+    const last = undoStack[undoStack.length - 1];
+    if (!last) return;
+
+    const remainingUndo = undoStack.slice(0, -1);
+    const ts = Date.now();
+
+    if (last.kind === 'cell') {
+      const cell = clampCellIndex(last.cell);
+      const prevValue = last.prev;
+      const nextPuzzle = puzzle.slice() as number[];
+      nextPuzzle[cell] = prevValue;
+
+      const nextMoves: SudokuMove[] = deviceId
+        ? [
+            ...moves,
+            prevValue === 0
+              ? { schemaVersion: 1, device_id: deviceId, rev: revision + 1, ts, kind: 'clear', cell }
+              : { schemaVersion: 1, device_id: deviceId, rev: revision + 1, ts, kind: 'set', cell, value: prevValue },
+          ]
+        : moves;
+
+      set({
+        puzzle: nextPuzzle as unknown as Grid,
+        moves: nextMoves,
+        revision: deviceId ? revision + 1 : revision,
+        undoStack: remainingUndo,
+        redoStack: [...redoStack, last],
+      });
+      return;
+    }
+
+    const cell = clampCellIndex(last.cell);
+    const digit = clampDigit(last.digit);
+    const setForCell = notes[cell] ?? new Set<number>();
+    const nextNotes = notes.slice();
+    const nextSet = new Set<number>(setForCell);
+    if (last.prevHad) nextSet.add(digit);
+    else nextSet.delete(digit);
+    nextNotes[cell] = nextSet;
+
+    const nextMoves: SudokuMove[] = deviceId
+      ? [
+          ...moves,
+          {
+            schemaVersion: 1,
+            device_id: deviceId,
+            rev: revision + 1,
+            ts,
+            kind: last.prevHad ? 'note_add' : 'note_remove',
+            cell,
+            value: digit,
+          },
+        ]
+      : moves;
+
+    set({
+      notes: nextNotes,
+      moves: nextMoves,
+      revision: deviceId ? revision + 1 : revision,
+      undoStack: remainingUndo,
+      redoStack: [...redoStack, last],
+    });
+  },
+
+  redo: () => {
+    const { undoStack, redoStack, deviceId, revision, moves, puzzle, notes, runStatus } = get();
+    if (runStatus === 'completed') return;
+    const last = redoStack[redoStack.length - 1];
+    if (!last) return;
+
+    const remainingRedo = redoStack.slice(0, -1);
+    const ts = Date.now();
+
+    if (last.kind === 'cell') {
+      const cell = clampCellIndex(last.cell);
+      const nextValue = last.next;
+      const nextPuzzle = puzzle.slice() as number[];
+      nextPuzzle[cell] = nextValue;
+
+      const nextMoves: SudokuMove[] = deviceId
+        ? [
+            ...moves,
+            nextValue === 0
+              ? { schemaVersion: 1, device_id: deviceId, rev: revision + 1, ts, kind: 'clear', cell }
+              : { schemaVersion: 1, device_id: deviceId, rev: revision + 1, ts, kind: 'set', cell, value: nextValue },
+          ]
+        : moves;
+
+      set({
+        puzzle: nextPuzzle as unknown as Grid,
+        moves: nextMoves,
+        revision: deviceId ? revision + 1 : revision,
+        undoStack: [...undoStack, last],
+        redoStack: remainingRedo,
+      });
+      return;
+    }
+
+    const cell = clampCellIndex(last.cell);
+    const digit = clampDigit(last.digit);
+    const setForCell = notes[cell] ?? new Set<number>();
+    const nextNotes = notes.slice();
+    const nextSet = new Set<number>(setForCell);
+    if (last.nextHad) nextSet.add(digit);
+    else nextSet.delete(digit);
+    nextNotes[cell] = nextSet;
+
+    const nextMoves: SudokuMove[] = deviceId
+      ? [
+          ...moves,
+          {
+            schemaVersion: 1,
+            device_id: deviceId,
+            rev: revision + 1,
+            ts,
+            kind: last.nextHad ? 'note_add' : 'note_remove',
+            cell,
+            value: digit,
+          },
+        ]
+      : moves;
+
+    set({
+      notes: nextNotes,
+      moves: nextMoves,
+      revision: deviceId ? revision + 1 : revision,
+      undoStack: [...undoStack, last],
+      redoStack: remainingRedo,
     });
   },
 
   hintRevealCellValue: () => {
-    const { selectedIndex, puzzle, givensMask, solution, hintBreakdown, hintsUsedCount, deviceId, revision, moves } = get();
+    const { selectedIndex, puzzle, givensMask, solution, hintBreakdown, hintsUsedCount, deviceId, revision, moves, runStatus } = get();
+    if (runStatus === 'completed') return;
     if (selectedIndex == null) return;
     if (givensMask[selectedIndex]) return;
 
@@ -370,6 +621,10 @@ export const usePlayerStore = create<SudokuState>((set, get) => ({
       revision: meta?.revision ?? 0,
       moves: baseMoves,
       puzzle: (folded?.puzzle ?? parseGrid(serializedPuzzle)) as unknown as Grid,
+      notes: folded?.notes ?? emptyNotes(),
+      notesMode: false,
+      undoStack: meta?.undoStack ?? [],
+      redoStack: meta?.redoStack ?? [],
       solution: parseGrid(serializedSolution),
       givensMask: [...givensMask],
       mistakes: folded?.mistakesCount ?? meta?.mistakes ?? 0,
@@ -383,7 +638,20 @@ export const usePlayerStore = create<SudokuState>((set, get) => ({
     });
   },
 
-  restoreDailyProgressFromSave: ({ dailyDateKey, serializedPuzzle, givensMask, mistakes, hintsUsedCount, hintBreakdown, runTimer, runStatus }) => {
+  restoreDailyProgressFromSave: ({
+    dailyDateKey,
+    serializedPuzzle,
+    givensMask,
+    mistakes,
+    hintsUsedCount,
+    hintBreakdown,
+    runTimer,
+    runStatus,
+    revision,
+    moves,
+    undoStack,
+    redoStack,
+  }) => {
     // Important: Daily resume should require online payload fetch. So we only
     // restore player progress after the Daily payload (including solution) is loaded.
     const { mode, dailyLoad: dl, dailyDateKey: currentKey } = get();
@@ -391,14 +659,27 @@ export const usePlayerStore = create<SudokuState>((set, get) => ({
     if (dl.status !== 'ready') return;
     if (!currentKey || currentKey !== dailyDateKey) return;
 
+    const parsedPuzzle = parseGrid(serializedPuzzle) as unknown as number[];
+    const base = parsedPuzzle.slice();
+    for (let i = 0; i < 81; i++) {
+      if (!givensMask[i]) base[i] = 0;
+    }
+    const folded = moves && moves.length > 0 ? foldMovesToState({ startedAtMs: runTimer.startedAtMs, puzzle: base }, moves) : null;
+
     set({
-      puzzle: parseGrid(serializedPuzzle),
+      puzzle: (folded?.puzzle ?? parsedPuzzle) as unknown as Grid,
       givensMask: [...givensMask],
       mistakes,
       hintsUsedCount,
       hintBreakdown,
       runTimer,
       runStatus,
+      revision: revision ?? get().revision,
+      moves: moves ?? get().moves,
+      notes: folded?.notes ?? get().notes,
+      notesMode: false,
+      undoStack: undoStack ?? [],
+      redoStack: redoStack ?? [],
       completedAtMs: null,
       completionClientSubmissionId: null,
       selectedIndex: null,
@@ -406,7 +687,7 @@ export const usePlayerStore = create<SudokuState>((set, get) => ({
   },
 
   getSavePayload: () => {
-    const { mode, dailyDateKey, puzzle, solution, givensMask, mistakes, hintsUsedCount, hintBreakdown, runTimer, runStatus, difficulty, deviceId, revision, moves } =
+    const { mode, dailyDateKey, puzzle, solution, givensMask, mistakes, hintsUsedCount, hintBreakdown, runTimer, runStatus, difficulty, deviceId, revision, moves, undoStack, redoStack } =
       get();
 
     if (mode === 'daily') {
@@ -417,6 +698,8 @@ export const usePlayerStore = create<SudokuState>((set, get) => ({
         deviceId,
         revision,
         moves,
+        undoStack,
+        redoStack,
         dailyDateKey,
         serializedPuzzle: serializeGrid(puzzle),
         givensMask: [...givensMask],
@@ -434,6 +717,8 @@ export const usePlayerStore = create<SudokuState>((set, get) => ({
       deviceId,
       revision,
       moves,
+      undoStack,
+      redoStack,
       serializedPuzzle: serializeGrid(puzzle),
       serializedSolution: serializeGrid(solution),
       givensMask: [...givensMask],

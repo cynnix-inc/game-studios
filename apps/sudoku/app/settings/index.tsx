@@ -8,6 +8,9 @@ import { useSettingsStore } from '../../src/state/useSettingsStore';
 export default function SettingsScreen() {
   const profile = usePlayerStore((s) => s.profile);
   const difficulty = usePlayerStore((s) => s.difficulty);
+  const puzzleSyncStatus = usePlayerStore((s) => s.puzzleSyncStatus);
+  const puzzleLastSyncAtMs = usePlayerStore((s) => s.puzzleLastSyncAtMs);
+  const puzzleLastSyncError = usePlayerStore((s) => s.puzzleLastSyncError);
   const syncStatus = useSettingsStore((s) => s.syncStatus);
   const lastSyncAtMs = useSettingsStore((s) => s.lastSyncAtMs);
   const lastError = useSettingsStore((s) => s.lastError);
@@ -27,6 +30,14 @@ export default function SettingsScreen() {
           Last sync: {lastSyncAtMs ? new Date(lastSyncAtMs).toLocaleString() : 'never'}
         </AppText>
         {lastError ? <AppText tone="muted">Last error: {lastError}</AppText> : null}
+
+        <AppText tone="muted" style={{ marginTop: theme.spacing.md }}>
+          Puzzle sync: {puzzleSyncStatus}
+        </AppText>
+        <AppText tone="muted">
+          Puzzle last sync: {puzzleLastSyncAtMs ? new Date(puzzleLastSyncAtMs).toLocaleString() : 'never'}
+        </AppText>
+        {puzzleLastSyncError ? <AppText tone="muted">Puzzle last error: {puzzleLastSyncError}</AppText> : null}
         <AppText tone="muted" style={{ marginTop: theme.spacing.md }}>
           TODO: add toggles (sound, haptics, etc.)
         </AppText>

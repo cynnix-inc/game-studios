@@ -34,12 +34,14 @@ function digitFromKey(key: string): Digit | null {
 function Cell({
   i,
   value,
+  notes,
   selected,
   given,
   onPress,
 }: {
   i: number;
   value: number;
+  notes?: ReadonlySet<number>;
   selected: boolean;
   given: boolean;
   onPress: () => void;
@@ -70,7 +72,25 @@ function Cell({
         borderBottomWidth: (thickB ? 2 : 1) + selectedBoost,
       }}
     >
-      <AppText weight={given ? 'bold' : 'regular'}>{value === 0 ? '' : String(value)}</AppText>
+      {value === 0 ? (
+        notes && notes.size > 0 ? (
+          <AppText
+            tone="muted"
+            style={{
+              fontSize: 10,
+              lineHeight: 12,
+              textAlign: 'center',
+              paddingHorizontal: 2,
+            }}
+          >
+            {[...notes].sort((a, b) => a - b).join('')}
+          </AppText>
+        ) : (
+          <AppText>{''}</AppText>
+        )
+      ) : (
+        <AppText weight={given ? 'bold' : 'regular'}>{String(value)}</AppText>
+      )}
     </Pressable>
   );
 }
@@ -78,22 +98,50 @@ function Cell({
 export function SudokuGrid({
   puzzle,
   givensMask,
+  notes,
+  notesMode,
   selectedIndex,
   onSelectCell,
   onDigit,
   onClear,
+  onToggleNotesMode,
+  onUndo,
+  onRedo,
 }: {
   puzzle: Grid;
   givensMask: boolean[];
+  notes?: Array<Set<number>>;
+  notesMode?: boolean;
   selectedIndex: number | null;
   onSelectCell: (i: number) => void;
   onDigit?: (d: Digit) => void;
   onClear?: () => void;
+  onToggleNotesMode?: () => void;
+  onUndo?: () => void;
+  onRedo?: () => void;
 }) {
   const [focused, setFocused] = useState(false);
 
   const handleKey = useCallback(
     (key: string, preventDefault?: () => void) => {
+      const lower = key.toLowerCase();
+
+      if (lower === 'n') {
+        preventDefault?.();
+        onToggleNotesMode?.();
+        return;
+      }
+      if (lower === 'u') {
+        preventDefault?.();
+        onUndo?.();
+        return;
+      }
+      if (lower === 'r') {
+        preventDefault?.();
+        onRedo?.();
+        return;
+      }
+
       // Digits
       const digit = digitFromKey(key);
       if (digit) {
@@ -124,7 +172,7 @@ export function SudokuGrid({
         }
       }
     },
-    [onClear, onDigit, onSelectCell, selectedIndex],
+    [onClear, onDigit, onRedo, onSelectCell, onToggleNotesMode, onUndo, selectedIndex],
   );
 
   useEffect(() => {
@@ -145,7 +193,7 @@ export function SudokuGrid({
     <Pressable
       focusable
       accessibilityLabel="Sudoku grid"
-      accessibilityHint="Use arrow keys to move between cells. Use number keys 1 through 9 to enter. Use Backspace or Delete to clear."
+      accessibilityHint={`Use arrow keys to move between cells. Use number keys 1 through 9 to enter. Use Backspace or Delete to clear. Notes mode is ${notesMode ? 'on' : 'off'}.`}
       onFocus={() => setFocused(true)}
       onBlur={() => setFocused(false)}
       style={() => ({
@@ -162,6 +210,7 @@ export function SudokuGrid({
             key={i}
             i={i}
             value={v}
+            notes={notes?.[i]}
             selected={selectedIndex === i}
             given={!!givensMask[i]}
             onPress={() => onSelectCell(i)}
