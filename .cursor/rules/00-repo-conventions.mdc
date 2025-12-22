@@ -1,3 +1,17 @@
+---
+description: Repo conventions (layout, tooling, scripts, env/secrets) for this monorepo
+globs:
+  - "apps/**"
+  - "packages/**"
+  - "supabase/**"
+  - "package.json"
+  - "pnpm-lock.yaml"
+  - "pnpm-workspace.yaml"
+  - "turbo.json"
+  - ".env.example"
+alwaysApply: true
+---
+
 # Repo Conventions (cynnix-studios-games)
 
 ## Monorepo layout
