@@ -175,16 +175,31 @@ export async function pullAndMergeCurrentPuzzle(): Promise<SyncResult> {
   const local = buildLocalPuzzleSave();
   if (!local) return { ok: true, applied: false, reason: 'missing_device_id' };
 
+  usePlayerStore.setState({ puzzleSyncStatus: 'syncing', puzzleLastSyncError: null });
+
   const pulled = await pullSave(slotForPuzzleKey(puzzleKey));
   if (!pulled.ok) {
-    if (pulled.error.code === 'not_authenticated') return { ok: true, applied: false, reason: 'not_authenticated' };
-    if (pulled.error.code === 'not_configured') return { ok: true, applied: false, reason: 'not_configured' };
+    if (pulled.error.code === 'not_authenticated') {
+      usePlayerStore.setState({ puzzleSyncStatus: 'idle' });
+      return { ok: true, applied: false, reason: 'not_authenticated' };
+    }
+    if (pulled.error.code === 'not_configured') {
+      usePlayerStore.setState({ puzzleSyncStatus: 'idle' });
+      return { ok: true, applied: false, reason: 'not_configured' };
+    }
+    usePlayerStore.setState({ puzzleSyncStatus: 'error', puzzleLastSyncError: pulled.error.message });
     return { ok: false, error: pulled.error };
   }
-  if (!pulled.data) return { ok: true, applied: false, reason: 'no_puzzle' };
+  if (!pulled.data) {
+    usePlayerStore.setState({ puzzleSyncStatus: 'idle' });
+    return { ok: true, applied: false, reason: 'no_puzzle' };
+  }
 
   const remoteUnknown = pulled.data;
-  if (!isPuzzleSaveV1(remoteUnknown)) return { ok: false, error: { code: 'invalid_remote_save', message: 'Remote save has invalid shape' } };
+  if (!isPuzzleSaveV1(remoteUnknown)) {
+    usePlayerStore.setState({ puzzleSyncStatus: 'error', puzzleLastSyncError: 'Remote save has invalid shape' });
+    return { ok: false, error: { code: 'invalid_remote_save', message: 'Remote save has invalid shape' } };
+  }
 
   const remote = remoteUnknown;
   const mergedMoves = mergeMoveLogs(local.moves, remote.moves);
@@ -201,6 +216,7 @@ export async function pullAndMergeCurrentPuzzle(): Promise<SyncResult> {
   );
   usePlayerStore.setState({
     puzzle: folded.puzzle as unknown as Grid,
+    notes: folded.notes,
     runTimer: folded.runTimer,
     runStatus: folded.runStatus,
     completedAtMs: folded.completedAtMs,
@@ -210,8 +226,13 @@ export async function pullAndMergeCurrentPuzzle(): Promise<SyncResult> {
     hintBreakdown: folded.hintBreakdown,
     moves: mergedMoves,
     revision: Number.isFinite(localDeviceRev) ? localDeviceRev : local.revision,
+    // Undo/redo is per-device UX; after a merge we clear local stacks to avoid inconsistent history.
+    undoStack: [],
+    redoStack: [],
+    notesMode: false,
   });
 
+  usePlayerStore.setState({ puzzleSyncStatus: 'ok', puzzleLastSyncAtMs: Date.now(), puzzleLastSyncError: null });
   return { ok: true, applied: true };
 }
 
@@ -219,7 +240,19 @@ export async function pushCurrentPuzzle(): Promise<SyncResult> {
   const local = buildLocalPuzzleSave();
   if (!local) return { ok: true, applied: false, reason: 'missing_device_id' };
 
-  return pushSave(slotForPuzzleKey(local.puzzle_key), local);
+  usePlayerStore.setState({ puzzleSyncStatus: 'syncing', puzzleLastSyncError: null });
+  const res = await pushSave(slotForPuzzleKey(local.puzzle_key), local);
+  if (!res.ok) {
+    usePlayerStore.setState({ puzzleSyncStatus: 'error', puzzleLastSyncError: res.error.message });
+    return res;
+  }
+  if (res.applied) {
+    usePlayerStore.setState({ puzzleSyncStatus: 'ok', puzzleLastSyncAtMs: Date.now(), puzzleLastSyncError: null });
+    return res;
+  }
+  // Not applied is expected when signed out or not configured.
+  usePlayerStore.setState({ puzzleSyncStatus: 'idle' });
+  return res;
 }
 
 

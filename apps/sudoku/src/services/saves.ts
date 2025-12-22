@@ -2,6 +2,7 @@ import { createSaveService } from '@cynnix-studios/game-foundation';
 import type { Difficulty, HintType, RunTimer, SudokuMove } from '@cynnix-studios/sudoku-core';
 
 import { GAME_KEY, usePlayerStore } from '../state/usePlayerStore';
+import type { UndoAction } from '../state/usePlayerStore';
 
 export const saveService = createSaveService();
 
@@ -13,6 +14,8 @@ type InProgressSaveV1Free = {
   deviceId?: string | null;
   revision?: number;
   moves?: SudokuMove[];
+  undoStack?: UndoAction[];
+  redoStack?: UndoAction[];
   serializedPuzzle: string;
   serializedSolution: string;
   givensMask: boolean[];
@@ -30,6 +33,8 @@ type InProgressSaveV1Daily = {
   deviceId?: string | null;
   revision?: number;
   moves?: SudokuMove[];
+  undoStack?: UndoAction[];
+  redoStack?: UndoAction[];
   dailyDateKey: string;
   serializedPuzzle: string;
   givensMask: boolean[];
@@ -72,6 +77,41 @@ function parseMoveLog(raw: unknown): SudokuMove[] | undefined {
   return out;
 }
 
+function isUndoAction(v: unknown): v is UndoAction {
+  if (!isObject(v)) return false;
+  if (v.kind === 'cell') {
+    return (
+      typeof v.cell === 'number' &&
+      Number.isInteger(v.cell) &&
+      typeof v.prev === 'number' &&
+      Number.isFinite(v.prev) &&
+      typeof v.next === 'number' &&
+      Number.isFinite(v.next)
+    );
+  }
+  if (v.kind === 'note') {
+    return (
+      typeof v.cell === 'number' &&
+      Number.isInteger(v.cell) &&
+      typeof v.digit === 'number' &&
+      Number.isInteger(v.digit) &&
+      typeof v.prevHad === 'boolean' &&
+      typeof v.nextHad === 'boolean'
+    );
+  }
+  return false;
+}
+
+function parseUndoStack(raw: unknown): UndoAction[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  const out: UndoAction[] = [];
+  for (const a of raw) {
+    if (!isUndoAction(a)) return undefined;
+    out.push(a);
+  }
+  return out;
+}
+
 function forcePaused(timer: RunTimer, nowMs: number): RunTimer {
   if (timer.pausedAtMs != null) return timer;
   return { ...timer, pausedAtMs: nowMs };
@@ -85,6 +125,10 @@ function parseInProgressSaveV1(raw: unknown): InProgressSaveV1 | null {
     if (raw.revision != null && typeof raw.revision !== 'number') return null;
     const moves = raw.moves == null ? undefined : parseMoveLog(raw.moves);
     if (raw.moves != null && !moves) return null;
+    const undoStack = raw.undoStack == null ? undefined : parseUndoStack(raw.undoStack);
+    if (raw.undoStack != null && !undoStack) return null;
+    const redoStack = raw.redoStack == null ? undefined : parseUndoStack(raw.redoStack);
+    if (raw.redoStack != null && !redoStack) return null;
     if (typeof raw.serializedPuzzle !== 'string') return null;
     if (typeof raw.serializedSolution !== 'string') return null;
     if (!Array.isArray(raw.givensMask)) return null;
@@ -101,13 +145,17 @@ function parseInProgressSaveV1(raw: unknown): InProgressSaveV1 | null {
       raw.difficulty !== 'extreme'
     )
       return null;
-    return { ...(raw as InProgressSaveV1Free), moves };
+    return { ...(raw as InProgressSaveV1Free), moves, undoStack, redoStack };
   }
   if (raw.mode === 'daily') {
     if (raw.deviceId != null && typeof raw.deviceId !== 'string') return null;
     if (raw.revision != null && typeof raw.revision !== 'number') return null;
     const moves = raw.moves == null ? undefined : parseMoveLog(raw.moves);
     if (raw.moves != null && !moves) return null;
+    const undoStack = raw.undoStack == null ? undefined : parseUndoStack(raw.undoStack);
+    if (raw.undoStack != null && !undoStack) return null;
+    const redoStack = raw.redoStack == null ? undefined : parseUndoStack(raw.redoStack);
+    if (raw.redoStack != null && !redoStack) return null;
     if (typeof raw.dailyDateKey !== 'string') return null;
     if (typeof raw.serializedPuzzle !== 'string') return null;
     if (!Array.isArray(raw.givensMask)) return null;
@@ -116,7 +164,7 @@ function parseInProgressSaveV1(raw: unknown): InProgressSaveV1 | null {
     if (!isObject(raw.hintBreakdown)) return null;
     if (!isRunTimer(raw.runTimer)) return null;
     if (raw.runStatus !== 'running' && raw.runStatus !== 'paused' && raw.runStatus !== 'completed') return null;
-    return { ...(raw as InProgressSaveV1Daily), moves };
+    return { ...(raw as InProgressSaveV1Daily), moves, undoStack, redoStack };
   }
   return null;
 }
@@ -184,6 +232,8 @@ export async function loadLocalSave() {
     deviceId: saved.deviceId ?? undefined,
     revision: saved.revision ?? undefined,
     moves: saved.moves ?? undefined,
+    undoStack: saved.undoStack ?? undefined,
+    redoStack: saved.redoStack ?? undefined,
     mistakes: saved.mistakes,
     hintBreakdown: saved.hintBreakdown ?? {},
     hintsUsedCount: saved.hintsUsedCount,

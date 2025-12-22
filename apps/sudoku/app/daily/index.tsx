@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { AppState, Pressable, View } from 'react-native';
+import { AppState, Platform, Pressable, View } from 'react-native';
 
 import { AppButton, AppCard, AppText, Screen, theme } from '@cynnix-studios/ui';
 import { getLastNUtcDateKeys, getRunTimerElapsedMs, msUntilNextUtcMidnight, nowUtcDateKey } from '@cynnix-studios/sudoku-core';
@@ -10,6 +10,7 @@ import { pullAndMergeCurrentPuzzle, pushCurrentPuzzle } from '../../src/services
 import { NumberPad } from '../../src/components/NumberPad';
 import { SudokuGrid } from '../../src/components/SudokuGrid';
 import { createClientSubmissionId, flushPendingDailySubmissions, submitDailyRun } from '../../src/services/leaderboard';
+import { recordDailyCompleted, recordDailySubmissionResult } from '../../src/services/stats';
 
 function debounce<TArgs extends unknown[]>(fn: (...args: TArgs) => void, ms: number) {
   let t: ReturnType<typeof setTimeout> | null = null;
@@ -37,6 +38,8 @@ export default function DailyScreen() {
   const puzzle = usePlayerStore((s) => s.puzzle);
   const solution = usePlayerStore((s) => s.solution);
   const givensMask = usePlayerStore((s) => s.givensMask);
+  const notes = usePlayerStore((s) => s.notes);
+  const notesMode = usePlayerStore((s) => s.notesMode);
   const selectedIndex = usePlayerStore((s) => s.selectedIndex);
   const mistakes = usePlayerStore((s) => s.mistakes);
   const hintsUsedCount = usePlayerStore((s) => s.hintsUsedCount);
@@ -44,6 +47,8 @@ export default function DailyScreen() {
   const runTimer = usePlayerStore((s) => s.runTimer);
   const runStatus = usePlayerStore((s) => s.runStatus);
   const completionClientSubmissionId = usePlayerStore((s) => s.completionClientSubmissionId);
+  const undoStackLen = usePlayerStore((s) => s.undoStack.length);
+  const redoStackLen = usePlayerStore((s) => s.redoStack.length);
   const pauseRun = usePlayerStore((s) => s.pauseRun);
   const resumeRun = usePlayerStore((s) => s.resumeRun);
   const markCompleted = usePlayerStore((s) => s.markCompleted);
@@ -54,6 +59,9 @@ export default function DailyScreen() {
   const selectCell = usePlayerStore((s) => s.selectCell);
   const inputDigit = usePlayerStore((s) => s.inputDigit);
   const clearCell = usePlayerStore((s) => s.clearCell);
+  const toggleNotesMode = usePlayerStore((s) => s.toggleNotesMode);
+  const undo = usePlayerStore((s) => s.undo);
+  const redo = usePlayerStore((s) => s.redo);
   const hintRevealCellValue = usePlayerStore((s) => s.hintRevealCellValue);
 
   const todayKey = nowUtcDateKey(Date.now());
@@ -116,6 +124,33 @@ export default function DailyScreen() {
   }, [pauseRun]);
 
   useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    if (typeof document === 'undefined') return;
+    if (typeof window === 'undefined') return;
+
+    const onHidden = () => {
+      pauseRun();
+      void writeLocalSave();
+      void pushCurrentPuzzle();
+    };
+    const onVisible = () => {
+      void flushPendingDailySubmissions();
+      void pullAndMergeCurrentPuzzle();
+    };
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') onHidden();
+      else onVisible();
+    };
+
+    window.addEventListener('pagehide', onHidden);
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => {
+      window.removeEventListener('pagehide', onHidden);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
+  }, [pauseRun]);
+
+  useEffect(() => {
     if (!hydrated) return;
     debouncedSave();
     debouncedPush();
@@ -145,6 +180,10 @@ export default function DailyScreen() {
         hintBreakdown: saved.hintBreakdown,
         runTimer: saved.runTimer.pausedAtMs == null ? { ...saved.runTimer, pausedAtMs: now } : saved.runTimer,
         runStatus: 'paused',
+        revision: saved.revision,
+        moves: saved.moves,
+        undoStack: saved.undoStack,
+        redoStack: saved.redoStack,
       });
     })();
   }, [dailyDateKey, dailyLoad.status, restoreDailyProgressFromSave, resumeDailyKey]);
@@ -166,6 +205,7 @@ export default function DailyScreen() {
 
     const clientSubmissionId = createClientSubmissionId();
     markCompleted({ clientSubmissionId });
+    void recordDailyCompleted();
     setSubmitState('submitting');
 
     void (async () => {
@@ -177,7 +217,10 @@ export default function DailyScreen() {
         hint_breakdown: hintBreakdown,
         client_submission_id: clientSubmissionId,
       });
-      if (res.ok && !res.queued) setSubmitState('submitted');
+      if (res.ok && !res.queued) {
+        if (res.rankedSubmission != null) void recordDailySubmissionResult({ rankedSubmission: res.rankedSubmission });
+        setSubmitState('submitted');
+      }
       else if (!res.ok && res.queued) setSubmitState('queued');
       else setSubmitState('idle');
     })();
@@ -250,6 +293,7 @@ export default function DailyScreen() {
         <AppText tone="muted">Time: {Math.round(elapsedMs / 1000)}s</AppText>
         <AppText tone="muted">Mistakes: {mistakes}</AppText>
         <AppText tone="muted">Hints: {hintsUsedCount}</AppText>
+        <AppText tone="muted">Mode: {notesMode ? 'Notes' : 'Value'}</AppText>
         {hintsUsedCount > 0 ? (
           <AppText tone="muted">Reveal used: {hintBreakdown.reveal_cell_value ?? 0}</AppText>
         ) : null}
@@ -259,13 +303,16 @@ export default function DailyScreen() {
         {completionClientSubmissionId ? <AppText tone="muted">Run id: {completionClientSubmissionId.slice(0, 8)}</AppText> : null}
       </AppCard>
 
-      <View style={{ flexDirection: 'row', gap: theme.spacing.sm, marginBottom: theme.spacing.md }}>
+      <View style={{ flexDirection: 'row', gap: theme.spacing.sm, marginBottom: theme.spacing.md, flexWrap: 'wrap' }}>
         <AppButton
           title="Reveal Cell (+120s)"
           variant="secondary"
           disabled={revealDisabled}
           onPress={hintRevealCellValue}
         />
+        <AppButton title={notesMode ? 'Notes: ON (N)' : 'Notes: OFF (N)'} variant="secondary" onPress={toggleNotesMode} />
+        <AppButton title="Undo (U)" variant="secondary" disabled={undoStackLen === 0} onPress={undo} />
+        <AppButton title="Redo (R)" variant="secondary" disabled={redoStackLen === 0} onPress={redo} />
         {runStatus === 'paused' ? (
           <AppButton
             title="Resume"
@@ -298,10 +345,15 @@ export default function DailyScreen() {
             <SudokuGrid
               puzzle={puzzle}
               givensMask={givensMask}
+              notes={notes}
+              notesMode={notesMode}
               selectedIndex={selectedIndex}
               onSelectCell={selectCell}
               onDigit={inputDigit}
               onClear={clearCell}
+              onToggleNotesMode={toggleNotesMode}
+              onUndo={undo}
+              onRedo={redo}
             />
           </View>
 

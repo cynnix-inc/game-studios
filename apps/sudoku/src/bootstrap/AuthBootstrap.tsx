@@ -5,6 +5,8 @@ import { computeNextProfileFromSession } from '../services/authBootstrapLogic';
 import { getAccessToken, getSessionUser, subscribeToAuthEvents } from '../services/auth';
 import { migrateGuestLocalSavesToCloud, syncSignedInSaveSlotsOnce } from '../services/cloudSaveSync';
 import { clearStoredProfile, readStoredGuestProfile, writeStoredGuestProfile } from '../services/profileStorage';
+import { syncSettingsOnce } from '../services/settings';
+import { syncStatsOnce } from '../services/stats';
 
 export function AuthBootstrap() {
   React.useEffect(() => {
@@ -38,6 +40,8 @@ export function AuthBootstrap() {
         );
         // Signed-in sync (best-effort).
         void syncSignedInSaveSlotsOnce(user.id);
+        void syncSettingsOnce();
+        void syncStatsOnce();
 
         // If the previous profile was guest, migrate local saves into the account.
         if (prev?.mode === 'guest') {
@@ -68,6 +72,8 @@ export function AuthBootstrap() {
             }),
           );
           void syncSignedInSaveSlotsOnce(user.id);
+          void syncSettingsOnce();
+          void syncStatsOnce();
           if (prev?.mode === 'guest') {
             const token = await getAccessToken();
             if (token) void migrateGuestLocalSavesToCloud({ token });

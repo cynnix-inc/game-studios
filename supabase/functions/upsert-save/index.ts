@@ -58,8 +58,27 @@ type SettingsV1 = {
   extra?: unknown;
 };
 
+type StatsV1 = {
+  schemaVersion: 1;
+  kind: 'sudoku_stats';
+  updatedAtMs: number;
+  updatedByDeviceId: string;
+  daily: {
+    completedCount: number;
+    rankedCount: number;
+    replayCount: number;
+  };
+  free: {
+    completedCount: number;
+  };
+};
+
 function isFiniteNumber(v: unknown): v is number {
   return typeof v === 'number' && Number.isFinite(v);
+}
+
+function isFiniteNonNegativeInt(v: unknown): v is number {
+  return typeof v === 'number' && Number.isFinite(v) && Number.isInteger(v) && v >= 0;
 }
 
 function isPuzzleSaveV1(v: unknown): v is PuzzleSaveV1 {
@@ -91,6 +110,22 @@ function isSettingsV1(v: unknown): v is SettingsV1 {
   if (v.kind !== 'sudoku_settings') return false;
   if (!isFiniteNumber(v.updatedAtMs) || v.updatedAtMs < 0) return false;
   if (typeof v.updatedByDeviceId !== 'string' || v.updatedByDeviceId.length === 0) return false;
+  return true;
+}
+
+function isStatsV1(v: unknown): v is StatsV1 {
+  if (!isObject(v)) return false;
+  if (v.schemaVersion !== 1) return false;
+  if (v.kind !== 'sudoku_stats') return false;
+  if (!isFiniteNumber(v.updatedAtMs) || v.updatedAtMs < 0) return false;
+  if (typeof v.updatedByDeviceId !== 'string' || v.updatedByDeviceId.length === 0) return false;
+  if (!isObject(v.daily) || !isObject(v.free)) return false;
+  const daily = v.daily as Record<string, unknown>;
+  const free = v.free as Record<string, unknown>;
+  if (!isFiniteNonNegativeInt(daily.completedCount)) return false;
+  if (!isFiniteNonNegativeInt(daily.rankedCount)) return false;
+  if (!isFiniteNonNegativeInt(daily.replayCount)) return false;
+  if (!isFiniteNonNegativeInt(free.completedCount)) return false;
   return true;
 }
 
@@ -132,6 +167,12 @@ function mergePuzzleSaves(existing: PuzzleSaveV1, incoming: PuzzleSaveV1): { ok:
 }
 
 function mergeSettings(existing: SettingsV1, incoming: SettingsV1): SettingsV1 {
+  if (incoming.updatedAtMs > existing.updatedAtMs) return incoming;
+  if (incoming.updatedAtMs < existing.updatedAtMs) return existing;
+  return incoming.updatedByDeviceId > existing.updatedByDeviceId ? incoming : existing;
+}
+
+function mergeStats(existing: StatsV1, incoming: StatsV1): StatsV1 {
   if (incoming.updatedAtMs > existing.updatedAtMs) return incoming;
   if (incoming.updatedAtMs < existing.updatedAtMs) return existing;
   return incoming.updatedByDeviceId > existing.updatedByDeviceId ? incoming : existing;
@@ -318,10 +359,11 @@ export default async function handler(req: Request): Promise<Response> {
 
   const finalSlot = slot ?? 'main';
 
-  // Validate supported save shapes (Epic 6: puzzle save + settings).
+  // Validate supported save shapes (Epic 6/7: puzzle save + settings + stats).
   const isPuzzle = isPuzzleSaveV1(data);
   const isSettings = isSettingsV1(data);
-  if (!isPuzzle && !isSettings) {
+  const isStats = isStatsV1(data);
+  if (!isPuzzle && !isSettings && !isStats) {
     const res = err(400, EDGE_ERROR_CODE.VALIDATION_ERROR, 'Unsupported save data shape', requestId);
     logEdgeResult({
       requestId,
@@ -399,6 +441,20 @@ export default async function handler(req: Request): Promise<Response> {
         return res;
       }
       canonical = mergeSettings(existingData, data);
+    } else if (isStats) {
+      if (!isStatsV1(existingData)) {
+        const res = err(409, EDGE_ERROR_CODE.CONFLICT, 'Existing save has incompatible shape', requestId);
+        logEdgeResult({
+          requestId,
+          functionName: 'upsert-save',
+          method: req.method,
+          status: res.status,
+          durationMs: Date.now() - startedAt,
+          ok: false,
+        });
+        return res;
+      }
+      canonical = mergeStats(existingData, data);
     }
   }
 

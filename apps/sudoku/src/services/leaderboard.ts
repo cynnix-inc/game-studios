@@ -120,10 +120,22 @@ export async function enqueuePendingDailySubmission(submission: SubmitDailyRunIn
 }
 
 export type SubmitDailyRunResult =
-  | { ok: true; queued: false; data: unknown }
+  | { ok: true; queued: false; data: unknown; rankedSubmission: boolean | null }
   | { ok: true; queued: true }
   | { ok: false; queued: true }
   | { ok: false; queued: false; error: { code: string; message: string } };
+
+function extractRankedSubmissionFromEdgeResponse(json: unknown): boolean | null {
+  // Expected: { ok: true, data: { ranked_submission: boolean, ... }, requestId: string }
+  if (typeof json !== 'object' || json == null) return null;
+  const r = json as Record<string, unknown>;
+  if (r.ok !== true) return null;
+  const data = r.data;
+  if (typeof data !== 'object' || data == null) return null;
+  const d = data as Record<string, unknown>;
+  const v = d.ranked_submission;
+  return typeof v === 'boolean' ? v : null;
+}
 
 export async function submitDailyRun(input: Omit<SubmitDailyRunInput, 'client_submission_id'> & { client_submission_id?: string }): Promise<SubmitDailyRunResult> {
   const base = process.env.EXPO_PUBLIC_SUPABASE_FUNCTIONS_URL;
@@ -164,7 +176,7 @@ export async function submitDailyRun(input: Omit<SubmitDailyRunInput, 'client_su
 
     // Expect stable `{ ok: true, data }` shape from edge.
     if (typeof json === 'object' && json != null && 'ok' in json && (json as { ok: unknown }).ok === true) {
-      return { ok: true, queued: false, data: json };
+      return { ok: true, queued: false, data: json, rankedSubmission: extractRankedSubmissionFromEdgeResponse(json) };
     }
 
     // Unknown response shape; treat as failure and queue for retry.
