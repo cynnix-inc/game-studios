@@ -41,7 +41,7 @@ corepack pnpm install
 ```
 
 2. Create env file:
-   - Copy `.env.example` to `.env`
+   - Copy `docs/env.example` to `.env`
    - Fill in the TODOs (Supabase URL + anon key, OAuth client IDs)
 
 ## Environment variables
@@ -108,6 +108,64 @@ supabase db reset
 - Build command: `pnpm -w export:web:sudoku`
 - Publish directory: `apps/sudoku/dist`
 - SPA redirects live in `apps/sudoku/public/_redirects`
+
+## CI/CD (GitHub Actions + Supabase + Netlify)
+
+This repo uses **GitHub Actions** for CI (quality gates) and **Supabase CLI** for backend deploys. **Netlify** builds and hosts the exported web app.
+
+### CI (required checks)
+
+Workflow: `.github/workflows/ci.yml`
+
+Runs on PRs and on pushes to `dev`/`main`:
+- `pnpm lint`
+- `pnpm typecheck`
+- `pnpm test`
+- `pnpm -w export:web:sudoku` (web export smoke)
+
+Note: the CI web export uses **safe dummy** `EXPO_PUBLIC_SUPABASE_*` values for the smoke step. Real values are set in Netlify environments.
+
+### CD: Supabase deploy (staging/prod)
+
+Workflow: `.github/workflows/supabase-deploy.yml`
+
+- Push to `dev` deploys to **GitHub Environment** `staging`
+- Push to `main` deploys to **GitHub Environment** `production`
+- Deploy runs only when `supabase/**` changes.
+
+#### Required GitHub Environment secrets
+
+Create two GitHub Environments in repo settings: `staging` and `production`. Add these secrets to each:
+
+- `SUPABASE_ACCESS_TOKEN`: Supabase personal access token (CI user)
+- `SUPABASE_PROJECT_REF`: Supabase project ref (staging/prod)
+- `SUPABASE_DB_PASSWORD`: DB password for the project (staging/prod)
+
+The deploy workflow runs:
+- `supabase db push` (migrations under `supabase/migrations/`)
+- `supabase functions deploy` (Edge Functions under `supabase/functions/`)
+
+### GitHub branch protection (recommended)
+
+In GitHub repo settings, enable branch protection for **both** `dev` and `main`:
+- Require a pull request before merging
+- Require status checks to pass before merging (CI workflow)
+- Require linear history (optional but recommended)
+- Disallow force pushes
+
+### Netlify deploy settings (staging/prod)
+
+Netlify config is in `apps/sudoku/netlify.toml`:
+- Build command: `pnpm -w export:web:sudoku`
+- Publish directory: `apps/sudoku/dist`
+
+In Netlify UI:
+- Set **Production branch** to `main`
+- Enable **Branch deploys** for `dev` (this is your staging URL)
+- Set environment variables (recommended: set per-context/branch):
+  - `EXPO_PUBLIC_SUPABASE_URL`
+  - `EXPO_PUBLIC_SUPABASE_ANON_KEY`
+  - `EXPO_PUBLIC_SUPABASE_FUNCTIONS_URL`
 
 ## Add the next game
 
