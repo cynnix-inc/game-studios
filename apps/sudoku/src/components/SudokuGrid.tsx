@@ -107,6 +107,7 @@ export function SudokuGrid({
   onToggleNotesMode,
   onUndo,
   onRedo,
+  onEscape,
 }: {
   puzzle: Grid;
   givensMask: boolean[];
@@ -119,12 +120,20 @@ export function SudokuGrid({
   onToggleNotesMode?: () => void;
   onUndo?: () => void;
   onRedo?: () => void;
+  onEscape?: () => void;
 }) {
   const [focused, setFocused] = useState(false);
 
   const handleKey = useCallback(
     (key: string, preventDefault?: () => void) => {
       const lower = key.toLowerCase();
+
+      // Esc: close-only (modal/overlay) per PRD 7.2. If nothing is open, this is a no-op.
+      if (key === 'Escape') {
+        preventDefault?.();
+        onEscape?.();
+        return;
+      }
 
       if (lower === 'n') {
         preventDefault?.();
@@ -172,7 +181,7 @@ export function SudokuGrid({
         }
       }
     },
-    [onClear, onDigit, onRedo, onSelectCell, onToggleNotesMode, onUndo, selectedIndex],
+    [onClear, onDigit, onEscape, onRedo, onSelectCell, onToggleNotesMode, onUndo, selectedIndex],
   );
 
   useEffect(() => {

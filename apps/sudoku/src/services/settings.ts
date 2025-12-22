@@ -10,6 +10,13 @@ const SLOT = 'settings';
 
 const saveService = createSaveService();
 
+const SETTINGS_WRITE_DEBOUNCE_MS = 250;
+const SETTINGS_SYNC_DEBOUNCE_MS = 800;
+
+let pendingSettingsWrite: SudokuSettingsV1 | null = null;
+let writeTimer: ReturnType<typeof setTimeout> | null = null;
+let syncTimer: ReturnType<typeof setTimeout> | null = null;
+
 function defaultSettings(deviceId: string): SudokuSettingsV1 {
   return {
     schemaVersion: 1,
@@ -18,6 +25,32 @@ function defaultSettings(deviceId: string): SudokuSettingsV1 {
     updatedByDeviceId: deviceId,
     extra: {},
   };
+}
+
+/**
+ * Update settings immediately in the in-memory store, then persist + (best-effort) sync
+ * in a debounced manner to avoid spamming storage/network while users drag controls.
+ */
+export function updateLocalSettings(next: SudokuSettingsV1): void {
+  const store = useSettingsStore.getState();
+  store.setSettings(next);
+
+  pendingSettingsWrite = next;
+
+  if (writeTimer) clearTimeout(writeTimer);
+  writeTimer = setTimeout(() => {
+    const toWrite = pendingSettingsWrite;
+    pendingSettingsWrite = null;
+    writeTimer = null;
+    if (!toWrite) return;
+    void saveService.local.write({ gameKey: GAME_KEY, slot: SLOT, data: toWrite });
+  }, SETTINGS_WRITE_DEBOUNCE_MS);
+
+  if (syncTimer) clearTimeout(syncTimer);
+  syncTimer = setTimeout(() => {
+    syncTimer = null;
+    void syncSettingsOnce();
+  }, SETTINGS_SYNC_DEBOUNCE_MS);
 }
 
 export async function loadLocalSettings(): Promise<SudokuSettingsV1> {
