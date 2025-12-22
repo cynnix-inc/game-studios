@@ -96,7 +96,8 @@ export async function submitDailyRun(input: Omit<SubmitDailyRunInput, 'client_su
       body: JSON.stringify(payload),
     },
     // Idempotent via client_submission_id.
-    { timeoutMs: 10_000, maxAttempts: 3, idempotent: true },
+    // NOTE: Do not retry POST inline; we queue failures and flush later.
+    { timeoutMs: 10_000, maxAttempts: 1, idempotent: true },
   );
 
     const json = (await res.json().catch(() => null)) as unknown;
@@ -146,7 +147,8 @@ export async function flushPendingDailySubmissions(): Promise<{ ok: true; flushe
           },
           body: JSON.stringify(sub),
         },
-        { timeoutMs: 10_000, maxAttempts: 3, idempotent: true },
+        // NOTE: Do not retry POST inline; flush itself is the retry mechanism.
+        { timeoutMs: 10_000, maxAttempts: 1, idempotent: true },
       );
       if (!res.ok) continue;
       // success -> remove
