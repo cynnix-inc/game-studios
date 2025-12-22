@@ -1,5 +1,5 @@
 import { createSaveService } from '@cynnix-studios/game-foundation';
-import type { Difficulty, HintType, RunTimer } from '@cynnix-studios/sudoku-core';
+import type { Difficulty, HintType, RunTimer, SudokuMove } from '@cynnix-studios/sudoku-core';
 
 import { GAME_KEY, usePlayerStore } from '../state/usePlayerStore';
 
@@ -10,6 +10,9 @@ const SLOT = 'main';
 type InProgressSaveV1Free = {
   v: 1;
   mode: 'free';
+  deviceId?: string | null;
+  revision?: number;
+  moves?: SudokuMove[];
   serializedPuzzle: string;
   serializedSolution: string;
   givensMask: boolean[];
@@ -24,6 +27,9 @@ type InProgressSaveV1Free = {
 type InProgressSaveV1Daily = {
   v: 1;
   mode: 'daily';
+  deviceId?: string | null;
+  revision?: number;
+  moves?: SudokuMove[];
   dailyDateKey: string;
   serializedPuzzle: string;
   givensMask: boolean[];
@@ -45,6 +51,27 @@ function isRunTimer(v: unknown): v is RunTimer {
   return typeof v.startedAtMs === 'number' && typeof v.totalPausedMs === 'number' && (v.pausedAtMs === null || typeof v.pausedAtMs === 'number');
 }
 
+function isSudokuMove(v: unknown): v is SudokuMove {
+  if (!isObject(v)) return false;
+  return (
+    v.schemaVersion === 1 &&
+    typeof v.device_id === 'string' &&
+    typeof v.rev === 'number' &&
+    typeof v.ts === 'number' &&
+    typeof v.kind === 'string'
+  );
+}
+
+function parseMoveLog(raw: unknown): SudokuMove[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  const out: SudokuMove[] = [];
+  for (const m of raw) {
+    if (!isSudokuMove(m)) return undefined;
+    out.push(m);
+  }
+  return out;
+}
+
 function forcePaused(timer: RunTimer, nowMs: number): RunTimer {
   if (timer.pausedAtMs != null) return timer;
   return { ...timer, pausedAtMs: nowMs };
@@ -54,6 +81,10 @@ function parseInProgressSaveV1(raw: unknown): InProgressSaveV1 | null {
   if (!isObject(raw)) return null;
   if (raw.v !== 1) return null;
   if (raw.mode === 'free') {
+    if (raw.deviceId != null && typeof raw.deviceId !== 'string') return null;
+    if (raw.revision != null && typeof raw.revision !== 'number') return null;
+    const moves = raw.moves == null ? undefined : parseMoveLog(raw.moves);
+    if (raw.moves != null && !moves) return null;
     if (typeof raw.serializedPuzzle !== 'string') return null;
     if (typeof raw.serializedSolution !== 'string') return null;
     if (!Array.isArray(raw.givensMask)) return null;
@@ -70,9 +101,13 @@ function parseInProgressSaveV1(raw: unknown): InProgressSaveV1 | null {
       raw.difficulty !== 'extreme'
     )
       return null;
-    return raw as InProgressSaveV1Free;
+    return { ...(raw as InProgressSaveV1Free), moves };
   }
   if (raw.mode === 'daily') {
+    if (raw.deviceId != null && typeof raw.deviceId !== 'string') return null;
+    if (raw.revision != null && typeof raw.revision !== 'number') return null;
+    const moves = raw.moves == null ? undefined : parseMoveLog(raw.moves);
+    if (raw.moves != null && !moves) return null;
     if (typeof raw.dailyDateKey !== 'string') return null;
     if (typeof raw.serializedPuzzle !== 'string') return null;
     if (!Array.isArray(raw.givensMask)) return null;
@@ -81,7 +116,7 @@ function parseInProgressSaveV1(raw: unknown): InProgressSaveV1 | null {
     if (!isObject(raw.hintBreakdown)) return null;
     if (!isRunTimer(raw.runTimer)) return null;
     if (raw.runStatus !== 'running' && raw.runStatus !== 'paused' && raw.runStatus !== 'completed') return null;
-    return raw as InProgressSaveV1Daily;
+    return { ...(raw as InProgressSaveV1Daily), moves };
   }
   return null;
 }
@@ -146,6 +181,9 @@ export async function loadLocalSave() {
 
   const nowMs = Date.now();
   usePlayerStore.getState().hydrateFromSave(saved.serializedPuzzle, saved.serializedSolution, saved.givensMask, {
+    deviceId: saved.deviceId ?? undefined,
+    revision: saved.revision ?? undefined,
+    moves: saved.moves ?? undefined,
     mistakes: saved.mistakes,
     hintBreakdown: saved.hintBreakdown ?? {},
     hintsUsedCount: saved.hintsUsedCount,

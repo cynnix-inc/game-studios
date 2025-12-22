@@ -3,6 +3,7 @@ import { create } from 'zustand';
 import type { PlayerProfile } from '@cynnix-studios/game-foundation';
 import {
   createRunTimer,
+  foldMovesToState,
   generate,
   nowUtcDateKey,
   parseGrid,
@@ -14,6 +15,7 @@ import {
   type Grid,
   type HintType,
   type RunTimer,
+  type SudokuMove,
 } from '@cynnix-studios/sudoku-core';
 
 import { loadDailyByDateKey, type DailyLoadUnavailable } from '../services/daily';
@@ -21,6 +23,10 @@ import { loadDailyByDateKey, type DailyLoadUnavailable } from '../services/daily
 type SudokuState = {
   profile: PlayerProfile | null;
   guestEnabled: boolean;
+
+  deviceId: string | null;
+  revision: number;
+  moves: SudokuMove[];
 
   mode: 'free' | 'daily';
   dailyDateKey: string | null;
@@ -40,6 +46,7 @@ type SudokuState = {
   completedAtMs: number | null;
   completionClientSubmissionId: string | null;
 
+  setDeviceId: (deviceId: string) => void;
   setProfile: (p: PlayerProfile | null) => void;
   continueAsGuest: () => void;
   newPuzzle: (difficulty?: Difficulty) => void;
@@ -60,6 +67,9 @@ type SudokuState = {
     serializedSolution: string,
     givensMask: boolean[],
     meta?: {
+      deviceId?: string;
+      revision?: number;
+      moves?: SudokuMove[];
       mistakes?: number;
       runTimer?: RunTimer;
       startedAtMs?: number;
@@ -84,6 +94,9 @@ type SudokuState = {
     | {
         v: 1;
         mode: 'free';
+        deviceId: string | null;
+        revision: number;
+        moves: SudokuMove[];
         serializedPuzzle: string;
         serializedSolution: string;
         givensMask: boolean[];
@@ -97,6 +110,9 @@ type SudokuState = {
     | {
         v: 1;
         mode: 'daily';
+        deviceId: string | null;
+        revision: number;
+        moves: SudokuMove[];
         dailyDateKey: string;
         serializedPuzzle: string;
         givensMask: boolean[];
@@ -121,6 +137,10 @@ export const usePlayerStore = create<SudokuState>((set, get) => ({
   profile: null,
   guestEnabled: false,
 
+  deviceId: null,
+  revision: 0,
+  moves: [],
+
   mode: 'free',
   dailyDateKey: null,
   dailyLoad: { status: 'idle' },
@@ -139,6 +159,7 @@ export const usePlayerStore = create<SudokuState>((set, get) => ({
   completedAtMs: null,
   completionClientSubmissionId: null,
 
+  setDeviceId: (deviceId) => set({ deviceId }),
   setProfile: (p) => set({ profile: p, guestEnabled: p?.mode === 'guest' }),
 
   continueAsGuest: () =>
@@ -155,6 +176,8 @@ export const usePlayerStore = create<SudokuState>((set, get) => ({
       dailyDateKey: null,
       dailyLoad: { status: 'idle' },
       dailySource: null,
+      revision: 0,
+      moves: [],
       difficulty,
       puzzle: gen.puzzle,
       solution: gen.solution,
@@ -190,6 +213,8 @@ export const usePlayerStore = create<SudokuState>((set, get) => ({
       dailyDateKey: res.payload.date_key,
       dailyLoad: { status: 'ready' },
       dailySource: res.source,
+      revision: 0,
+      moves: [],
       difficulty: res.payload.difficulty,
       puzzle: res.payload.puzzle as unknown as Grid,
       solution: res.payload.solution as unknown as Grid,
@@ -210,29 +235,47 @@ export const usePlayerStore = create<SudokuState>((set, get) => ({
   selectCell: (i) => set({ selectedIndex: i }),
 
   inputDigit: (d) => {
-    const { selectedIndex, puzzle, givensMask, solution, mistakes } = get();
+    const { selectedIndex, puzzle, givensMask, solution, mistakes, deviceId, revision, moves } = get();
     if (selectedIndex == null) return;
     if (givensMask[selectedIndex]) return;
     const next = puzzle.slice() as number[];
     next[selectedIndex] = d;
     const correct = solution[selectedIndex] === d;
+    const ts = Date.now();
+    const nextMoves: SudokuMove[] = deviceId
+      ? [
+          ...moves,
+          { schemaVersion: 1, device_id: deviceId, rev: revision + 1, ts, kind: 'set', cell: selectedIndex, value: d },
+          ...(correct ? [] : [{ schemaVersion: 1, device_id: deviceId, rev: revision + 2, ts, kind: 'mistake' } as const]),
+        ]
+      : moves;
     set({
       puzzle: next as unknown as Grid,
       mistakes: correct ? mistakes : mistakes + 1,
+      revision: deviceId ? revision + (correct ? 1 : 2) : revision,
+      moves: nextMoves,
     });
   },
 
   clearCell: () => {
-    const { selectedIndex, puzzle, givensMask } = get();
+    const { selectedIndex, puzzle, givensMask, deviceId, revision, moves } = get();
     if (selectedIndex == null) return;
     if (givensMask[selectedIndex]) return;
     const next = puzzle.slice() as number[];
     next[selectedIndex] = 0;
-    set({ puzzle: next as unknown as Grid });
+    const ts = Date.now();
+    const nextMoves: SudokuMove[] = deviceId
+      ? [...moves, { schemaVersion: 1, device_id: deviceId, rev: revision + 1, ts, kind: 'clear', cell: selectedIndex }]
+      : moves;
+    set({
+      puzzle: next as unknown as Grid,
+      revision: deviceId ? revision + 1 : revision,
+      moves: nextMoves,
+    });
   },
 
   hintRevealCellValue: () => {
-    const { selectedIndex, puzzle, givensMask, solution, hintBreakdown, hintsUsedCount } = get();
+    const { selectedIndex, puzzle, givensMask, solution, hintBreakdown, hintsUsedCount, deviceId, revision, moves } = get();
     if (selectedIndex == null) return;
     if (givensMask[selectedIndex]) return;
 
@@ -250,58 +293,90 @@ export const usePlayerStore = create<SudokuState>((set, get) => ({
     const nextBreakdown: Partial<Record<HintType, number>> = { ...hintBreakdown };
     nextBreakdown.reveal_cell_value = (nextBreakdown.reveal_cell_value ?? 0) + 1;
 
+    const ts = Date.now();
+    const nextMoves: SudokuMove[] = deviceId
+      ? [
+          ...moves,
+          { schemaVersion: 1, device_id: deviceId, rev: revision + 1, ts, kind: 'set', cell: selectedIndex, value: correctValue },
+          { schemaVersion: 1, device_id: deviceId, rev: revision + 2, ts, kind: 'hint', hintType: 'reveal_cell_value' },
+        ]
+      : moves;
+
     set({
       puzzle: next as unknown as Grid,
       hintsUsedCount: hintsUsedCount + 1,
       hintBreakdown: nextBreakdown,
+      revision: deviceId ? revision + 2 : revision,
+      moves: nextMoves,
     });
   },
 
   pauseRun: (nowMs) => {
-    const { runTimer, runStatus } = get();
+    const { runTimer, runStatus, deviceId, revision, moves } = get();
     if (runStatus === 'completed') return;
+    const ts = nowMs ?? Date.now();
+    const nextMoves: SudokuMove[] = deviceId ? [...moves, { schemaVersion: 1, device_id: deviceId, rev: revision + 1, ts, kind: 'pause' }] : moves;
     set({
-      runTimer: pauseRunTimer(runTimer, nowMs ?? Date.now()),
+      runTimer: pauseRunTimer(runTimer, ts),
       runStatus: 'paused',
+      revision: deviceId ? revision + 1 : revision,
+      moves: nextMoves,
     });
   },
 
   resumeRun: (nowMs) => {
-    const { runTimer, runStatus } = get();
+    const { runTimer, runStatus, deviceId, revision, moves } = get();
     if (runStatus === 'completed') return;
+    const ts = nowMs ?? Date.now();
+    const nextMoves: SudokuMove[] = deviceId ? [...moves, { schemaVersion: 1, device_id: deviceId, rev: revision + 1, ts, kind: 'resume' }] : moves;
     set({
-      runTimer: resumeRunTimer(runTimer, nowMs ?? Date.now()),
+      runTimer: resumeRunTimer(runTimer, ts),
       runStatus: 'running',
+      revision: deviceId ? revision + 1 : revision,
+      moves: nextMoves,
     });
   },
 
   markCompleted: ({ clientSubmissionId, completedAtMs, nowMs }) => {
-    const { runTimer, runStatus } = get();
+    const { runTimer, runStatus, deviceId, revision, moves } = get();
     if (runStatus === 'completed') return;
     const ts = completedAtMs ?? nowMs ?? Date.now();
+    const nextMoves: SudokuMove[] = deviceId
+      ? [...moves, { schemaVersion: 1, device_id: deviceId, rev: revision + 1, ts, kind: 'complete', clientSubmissionId }]
+      : moves;
     set({
       runTimer: pauseRunTimer(runTimer, nowMs ?? ts),
       runStatus: 'completed',
       completedAtMs: ts,
       completionClientSubmissionId: clientSubmissionId,
+      revision: deviceId ? revision + 1 : revision,
+      moves: nextMoves,
     });
   },
 
   hydrateFromSave: (serializedPuzzle, serializedSolution, givensMask, meta) => {
     const nowMs = Date.now();
+    const baseMoves = meta?.moves ?? [];
+    const folded =
+      baseMoves.length > 0
+        ? foldMovesToState({ startedAtMs: meta?.startedAtMs ?? nowMs, puzzle: parseGrid(serializedPuzzle) }, baseMoves)
+        : null;
     set({
       mode: 'free',
       dailyDateKey: null,
       dailyLoad: { status: 'idle' },
       dailySource: null,
-      puzzle: parseGrid(serializedPuzzle),
+      deviceId: meta?.deviceId ?? null,
+      revision: meta?.revision ?? 0,
+      moves: baseMoves,
+      puzzle: (folded?.puzzle ?? parseGrid(serializedPuzzle)) as unknown as Grid,
       solution: parseGrid(serializedSolution),
       givensMask: [...givensMask],
-      mistakes: meta?.mistakes ?? 0,
-      hintsUsedCount: meta?.hintsUsedCount ?? 0,
-      hintBreakdown: meta?.hintBreakdown ?? {},
-      runTimer: meta?.runTimer ?? createRunTimer(meta?.startedAtMs ?? nowMs),
-      runStatus: meta?.runStatus ?? 'running',
+      mistakes: folded?.mistakesCount ?? meta?.mistakes ?? 0,
+      hintsUsedCount: folded?.hintsUsedCount ?? meta?.hintsUsedCount ?? 0,
+      hintBreakdown: folded?.hintBreakdown ?? meta?.hintBreakdown ?? {},
+      runTimer: folded?.runTimer ?? meta?.runTimer ?? createRunTimer(meta?.startedAtMs ?? nowMs),
+      runStatus: folded?.runStatus ?? meta?.runStatus ?? 'running',
       completedAtMs: null,
       completionClientSubmissionId: null,
       selectedIndex: null,
@@ -331,13 +406,17 @@ export const usePlayerStore = create<SudokuState>((set, get) => ({
   },
 
   getSavePayload: () => {
-    const { mode, dailyDateKey, puzzle, solution, givensMask, mistakes, hintsUsedCount, hintBreakdown, runTimer, runStatus, difficulty } = get();
+    const { mode, dailyDateKey, puzzle, solution, givensMask, mistakes, hintsUsedCount, hintBreakdown, runTimer, runStatus, difficulty, deviceId, revision, moves } =
+      get();
 
     if (mode === 'daily') {
       if (!dailyDateKey) return null;
       return {
         v: 1,
         mode: 'daily',
+        deviceId,
+        revision,
+        moves,
         dailyDateKey,
         serializedPuzzle: serializeGrid(puzzle),
         givensMask: [...givensMask],
@@ -352,6 +431,9 @@ export const usePlayerStore = create<SudokuState>((set, get) => ({
     return {
       v: 1,
       mode: 'free',
+      deviceId,
+      revision,
+      moves,
       serializedPuzzle: serializeGrid(puzzle),
       serializedSolution: serializeGrid(solution),
       givensMask: [...givensMask],

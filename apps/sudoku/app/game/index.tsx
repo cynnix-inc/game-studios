@@ -6,6 +6,7 @@ import { getRunTimerElapsedMs } from '@cynnix-studios/sudoku-core';
 
 import { usePlayerStore } from '../../src/state/usePlayerStore';
 import { loadLocalSave, writeLocalSave } from '../../src/services/saves';
+import { pullAndMergeCurrentPuzzle, pushCurrentPuzzle } from '../../src/services/sync';
 import { NumberPad } from '../../src/components/NumberPad';
 import { SudokuGrid } from '../../src/components/SudokuGrid';
 
@@ -42,9 +43,18 @@ export default function GameScreen() {
     [],
   );
 
+  const debouncedPush = useMemo(
+    () =>
+      debounce(() => {
+        void pushCurrentPuzzle();
+      }, 1500),
+    [],
+  );
+
   useEffect(() => {
     void (async () => {
       await loadLocalSave();
+      void pullAndMergeCurrentPuzzle();
       setHydrated(true);
     })();
   }, []);
@@ -52,14 +62,18 @@ export default function GameScreen() {
   useEffect(() => {
     if (!hydrated) return;
     debouncedSave();
-  }, [puzzle, mistakes, runTimer, hydrated, debouncedSave]);
+    debouncedPush();
+  }, [puzzle, mistakes, runTimer, hydrated, debouncedSave, debouncedPush]);
 
   useEffect(() => {
     const sub = AppState.addEventListener('change', (state) => {
       if (state !== 'active') {
         pauseRun();
         void writeLocalSave();
+        void pushCurrentPuzzle();
+        return;
       }
+      void pullAndMergeCurrentPuzzle();
     });
     return () => sub.remove();
   }, [pauseRun]);
