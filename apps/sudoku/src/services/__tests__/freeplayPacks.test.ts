@@ -150,7 +150,7 @@ describe('free play packs', () => {
     );
 
     // Allow the background refresh chain to flush.
-    await new Promise((r) => setImmediate(r));
+    await new Promise<void>((resolve) => setImmediate(() => resolve()));
   });
 });
 
