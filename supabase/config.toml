@@ -1,4 +1,40 @@
-# Placeholder Supabase config for local dev.
-# See: https://supabase.com/docs/guides/cli/local-development
+project_id = "cynnix-studios-games"
+
+# Supabase CLI config for local development.
+# Generated/maintained to support `supabase start` + local migrations/functions.
+# Docs: https://supabase.com/docs/guides/cli/local-development
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "storage", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 65432
+shadow_port = 65430
+major_version = 15
+
+[studio]
+enabled = true
+port = 54323
+
+[inbucket]
+enabled = true
+port = 54324
+
+[auth]
+enabled = true
+site_url = "http://localhost:3000"
+additional_redirect_urls = []
+jwt_expiry = 3600
+enable_signup = true
+
+[storage]
+enabled = true
+
+[edge_runtime]
+enabled = true
 
 
