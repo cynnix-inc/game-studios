@@ -28,11 +28,17 @@ type SubmitScoreBody = {
   mistakes_count: number;
   hints_used_count?: number;
   hint_breakdown?: Partial<Record<HintType, number>>;
+  client_submission_id?: string; // UUID (idempotency key)
 };
 
 function toNonNegativeInt(n: unknown): number {
   if (typeof n !== 'number' || !Number.isFinite(n)) return 0;
   return Math.max(0, Math.floor(n));
+}
+
+function isUuid(v: string): boolean {
+  // Accept lowercase/uppercase canonical UUIDs.
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v);
 }
 
 function computeScoreMs(input: {
@@ -60,6 +66,21 @@ function computeScoreMs(input: {
   }
 
   return raw + mistakes * 30_000 + hintPenalty;
+}
+
+function computeHintsUsedCount(breakdown: Partial<Record<HintType, number>> | null | undefined): number {
+  const b = breakdown ?? {};
+  let total = 0;
+  const keys: HintType[] = [
+    'explain_technique',
+    'show_candidates',
+    'highlight_next_move',
+    'check_selected_cell',
+    'check_whole_board',
+    'reveal_cell_value',
+  ];
+  for (const k of keys) total += toNonNegativeInt((b as Record<string, unknown>)[k]);
+  return total;
 }
 
 export default async function handler(req: Request): Promise<Response> {
@@ -135,6 +156,22 @@ export default async function handler(req: Request): Promise<Response> {
       ok: false,
     });
     return res;
+  }
+
+  const clientSubmissionId = body.client_submission_id;
+  if (clientSubmissionId != null) {
+    if (typeof clientSubmissionId !== 'string' || !isUuid(clientSubmissionId)) {
+      const res = err(400, EDGE_ERROR_CODE.VALIDATION_ERROR, 'Invalid client_submission_id', requestId);
+      logEdgeResult({
+        requestId,
+        functionName: 'submit-score',
+        method: req.method,
+        status: res.status,
+        durationMs: Date.now() - startedAt,
+        ok: false,
+      });
+      return res;
+    }
   }
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL');
@@ -231,41 +268,78 @@ export default async function handler(req: Request): Promise<Response> {
     mistakes_count: body.mistakes_count,
     hint_breakdown: body.hint_breakdown ?? {},
   });
-  const hintsUsed = toNonNegativeInt(body.hints_used_count ?? 0);
+  const hintBreakdown = body.hint_breakdown ?? {};
+  const hintsUsed = computeHintsUsedCount(hintBreakdown);
 
-  const { data: rankedExisting, error: rankedErr } = await supabase
-    .from('daily_runs')
-    .select('id')
-    .eq('player_id', playerId)
-    .eq('utc_date', utcDate)
-    .eq('ranked_submission', true)
-    .limit(1);
-  if (rankedErr) {
-    const res = err(500, EDGE_ERROR_CODE.INTERNAL, 'Failed to check ranked submission', requestId);
-    logEdgeResult({
-      requestId,
-      functionName: 'submit-score',
-      method: req.method,
-      status: res.status,
-      durationMs: Date.now() - startedAt,
-      ok: false,
-    });
-    return res;
-  }
-
-  const rankedSubmission = (rankedExisting?.length ?? 0) === 0;
-
-  const { error: runInsertErr } = await supabase.from('daily_runs').insert({
+  const baseInsert = {
     utc_date: utcDate,
     player_id: playerId,
     raw_time_ms: toNonNegativeInt(body.raw_time_ms),
     score_ms: scoreMs,
     mistakes_count: toNonNegativeInt(body.mistakes_count),
     hints_used_count: hintsUsed,
-    hint_breakdown: body.hint_breakdown ?? {},
-    ranked_submission: rankedSubmission,
-  });
-  if (runInsertErr) {
+    hint_breakdown: hintBreakdown,
+    client_submission_id: clientSubmissionId ?? null,
+  };
+
+  async function loadByClientSubmissionId(id: string) {
+    const { data, error } = await supabase
+      .from('daily_runs')
+      .select('utc_date, ranked_submission, raw_time_ms, score_ms, mistakes_count, hints_used_count, client_submission_id')
+      .eq('client_submission_id', id)
+      .maybeSingle();
+    return { data, error };
+  }
+
+  // Race-safe ranked-first-attempt enforcement:
+  // - Prefer inserting ranked_submission=true first (protected by a partial unique index on (player_id, utc_date) where ranked_submission=true).
+  // - If that conflicts, insert ranked_submission=false (replay).
+  const tryInsert = async (ranked: boolean) => {
+    return await supabase
+      .from('daily_runs')
+      .insert({ ...baseInsert, ranked_submission: ranked })
+      .select('utc_date, ranked_submission, raw_time_ms, score_ms, mistakes_count, hints_used_count, client_submission_id')
+      .single();
+  };
+
+  let inserted:
+    | {
+        utc_date: string;
+        ranked_submission: boolean;
+        raw_time_ms: number;
+        score_ms: number;
+        mistakes_count: number;
+        hints_used_count: number;
+        client_submission_id: string | null;
+      }
+    | null = null;
+
+  // First attempt: ranked
+  const rankedAttempt = await tryInsert(true);
+  if (!rankedAttempt.error) {
+    inserted = rankedAttempt.data as typeof inserted;
+  } else if (rankedAttempt.error.code === '23505' && clientSubmissionId) {
+    // Duplicate (idempotency or ranked-unique). If the id exists, return the previously inserted row.
+    const existing = await loadByClientSubmissionId(clientSubmissionId);
+    if (!existing.error && existing.data) {
+      inserted = existing.data as typeof inserted;
+    }
+  }
+
+  // If ranked insert failed because ranked submission already exists, insert replay.
+  if (!inserted) {
+    const replayAttempt = await tryInsert(false);
+    if (!replayAttempt.error) {
+      inserted = replayAttempt.data as typeof inserted;
+    } else if (replayAttempt.error.code === '23505' && clientSubmissionId) {
+      const existing = await loadByClientSubmissionId(clientSubmissionId);
+      if (!existing.error && existing.data) {
+        inserted = existing.data as typeof inserted;
+      }
+    }
+  }
+
+  if (!inserted) {
     const res = err(500, EDGE_ERROR_CODE.INTERNAL, 'Failed to insert daily run', requestId);
     logEdgeResult({
       requestId,
@@ -280,12 +354,13 @@ export default async function handler(req: Request): Promise<Response> {
 
   const res = ok(
     {
-    utc_date: utcDate,
-    ranked_submission: rankedSubmission,
-    raw_time_ms: toNonNegativeInt(body.raw_time_ms),
-    score_ms: scoreMs,
-    mistakes_count: toNonNegativeInt(body.mistakes_count),
-    hints_used_count: hintsUsed,
+      utc_date: inserted.utc_date,
+      ranked_submission: inserted.ranked_submission,
+      raw_time_ms: inserted.raw_time_ms,
+      score_ms: inserted.score_ms,
+      mistakes_count: inserted.mistakes_count,
+      hints_used_count: inserted.hints_used_count,
+      client_submission_id: inserted.client_submission_id,
     },
     requestId,
   );

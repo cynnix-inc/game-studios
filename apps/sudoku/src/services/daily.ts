@@ -22,7 +22,7 @@ export type DailyLoadOk = {
 
 export type DailyLoadUnavailable = {
   ok: false;
-  reason: 'missing_base_url' | 'not_cached_offline' | 'invalid_remote_payload';
+  reason: 'missing_base_url' | 'offline' | 'invalid_remote_payload';
 };
 
 export type DailyLoadResult = DailyLoadOk | DailyLoadUnavailable;
@@ -72,11 +72,8 @@ export async function fetchDailyPayload(url: string): Promise<DailyPayloadV1> {
 }
 
 export async function loadDailyByDateKey(dateKey: string): Promise<DailyLoadResult> {
-  const cached = await readCachedDaily(dateKey);
-
   const base = dailyBaseUrl();
   if (!base) {
-    if (cached) return { ok: true, payload: cached, source: 'cache' };
     return { ok: false, reason: 'missing_base_url' };
   }
 
@@ -84,16 +81,14 @@ export async function loadDailyByDateKey(dateKey: string): Promise<DailyLoadResu
     const manifest = await fetchDailyManifest();
     const entry = manifest.entries.find((e) => e.date_key === dateKey);
     if (!entry) {
-      if (cached) return { ok: true, payload: cached, source: 'cache' };
-      return { ok: false, reason: 'not_cached_offline' };
+      return { ok: false, reason: 'invalid_remote_payload' };
     }
 
     const payload = await fetchDailyPayload(entry.url.startsWith('http') ? entry.url : `${base}/${entry.url.replace(/^\//, '')}`);
     await writeCachedDaily(payload);
     return { ok: true, payload, source: 'remote' };
   } catch {
-    if (cached) return { ok: true, payload: cached, source: 'cache' };
-    return { ok: false, reason: 'not_cached_offline' };
+    return { ok: false, reason: 'offline' };
   }
 }
 

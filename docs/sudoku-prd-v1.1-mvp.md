@@ -94,7 +94,7 @@ MVP supports:
 ### 6.3 Offline behavior
 - If offline, user can still play:
   - Free Play using cached/built-in packs
-  - Daily only if already cached for that day (and archive cached)
+- Daily requires an internet connection (no offline play, even if previously cached)
 - Submitting ranked Daily results requires online connectivity at submission time
 - If offline at completion, store a pending submission and prompt to submit when back online
 
