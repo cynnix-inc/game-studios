@@ -49,6 +49,7 @@ Stay focused on what’s explicitly required. If you have additional ideas:
 
 - Prefer repo scripts (`pnpm ...`) and Turborepo tasks over shell-specific one-liners.
 - Avoid assuming a specific shell (PowerShell/Bash/zsh); keep instructions cross-platform.
+- GitHub PR automation: **GitHub CLI is available** on dev machines. Prefer `gh pr create` (non-interactive flags) when opening PRs.
 
 ## Git safety rules
 
