@@ -1,7 +1,20 @@
 import { create } from 'zustand';
 
 import type { PlayerProfile } from '@cynnix-studios/game-foundation';
-import { generate, nowUtcDateKey, serializeGrid, parseGrid, type Difficulty, type Grid, type CellValue } from '@cynnix-studios/sudoku-core';
+import {
+  createRunTimer,
+  generate,
+  nowUtcDateKey,
+  parseGrid,
+  pauseRunTimer,
+  resumeRunTimer,
+  serializeGrid,
+  type CellValue,
+  type Difficulty,
+  type Grid,
+  type HintType,
+  type RunTimer,
+} from '@cynnix-studios/sudoku-core';
 
 import { loadDailyByDateKey, type DailyLoadUnavailable } from '../services/daily';
 
@@ -20,7 +33,12 @@ type SudokuState = {
   givensMask: boolean[];
   selectedIndex: number | null;
   mistakes: number;
-  startedAtMs: number;
+  hintsUsedCount: number;
+  hintBreakdown: Partial<Record<HintType, number>>;
+  runTimer: RunTimer;
+  runStatus: 'running' | 'paused' | 'completed';
+  completedAtMs: number | null;
+  completionClientSubmissionId: string | null;
 
   setProfile: (p: PlayerProfile | null) => void;
   continueAsGuest: () => void;
@@ -32,14 +50,31 @@ type SudokuState = {
   selectCell: (i: number) => void;
   inputDigit: (d: CellValue) => void;
   clearCell: () => void;
+  hintRevealCellValue: () => void;
+  pauseRun: (nowMs?: number) => void;
+  resumeRun: (nowMs?: number) => void;
+  markCompleted: (args: { clientSubmissionId: string; completedAtMs?: number; nowMs?: number }) => void;
 
-  hydrateFromSave: (serializedPuzzle: string, serializedSolution: string, givensMask: boolean[], meta?: { mistakes?: number; startedAtMs?: number }) => void;
+  hydrateFromSave: (
+    serializedPuzzle: string,
+    serializedSolution: string,
+    givensMask: boolean[],
+    meta?: {
+      mistakes?: number;
+      runTimer?: RunTimer;
+      startedAtMs?: number;
+      hintsUsedCount?: number;
+      hintBreakdown?: Partial<Record<HintType, number>>;
+    },
+  ) => void;
   getSavePayload: () => {
     serializedPuzzle: string;
     serializedSolution: string;
     givensMask: boolean[];
     mistakes: number;
-    startedAtMs: number;
+    hintsUsedCount: number;
+    hintBreakdown: Partial<Record<HintType, number>>;
+    runTimer: RunTimer;
     difficulty: Difficulty;
   };
 };
@@ -67,7 +102,12 @@ export const usePlayerStore = create<SudokuState>((set, get) => ({
   givensMask: [...initial.givensMask],
   selectedIndex: null,
   mistakes: 0,
-  startedAtMs: Date.now(),
+  hintsUsedCount: 0,
+  hintBreakdown: {},
+  runTimer: createRunTimer(Date.now()),
+  runStatus: 'running',
+  completedAtMs: null,
+  completionClientSubmissionId: null,
 
   setProfile: (p) => set({ profile: p, guestEnabled: p?.mode === 'guest' }),
 
@@ -79,6 +119,7 @@ export const usePlayerStore = create<SudokuState>((set, get) => ({
 
   newPuzzle: (difficulty = get().difficulty) => {
     const gen = generate(difficulty);
+    const nowMs = Date.now();
     set({
       mode: 'free',
       dailyDateKey: null,
@@ -90,7 +131,12 @@ export const usePlayerStore = create<SudokuState>((set, get) => ({
       givensMask: [...gen.givensMask],
       selectedIndex: null,
       mistakes: 0,
-      startedAtMs: Date.now(),
+      hintsUsedCount: 0,
+      hintBreakdown: {},
+      runTimer: createRunTimer(nowMs),
+      runStatus: 'running',
+      completedAtMs: null,
+      completionClientSubmissionId: null,
     });
   },
 
@@ -108,6 +154,7 @@ export const usePlayerStore = create<SudokuState>((set, get) => ({
     }
 
     const givensMask = res.payload.puzzle.map((v) => v !== 0);
+    const nowMs = Date.now();
     set({
       mode: 'daily',
       dailyDateKey: res.payload.date_key,
@@ -119,7 +166,12 @@ export const usePlayerStore = create<SudokuState>((set, get) => ({
       givensMask,
       selectedIndex: null,
       mistakes: 0,
-      startedAtMs: Date.now(),
+      hintsUsedCount: 0,
+      hintBreakdown: {},
+      runTimer: createRunTimer(nowMs),
+      runStatus: 'running',
+      completedAtMs: null,
+      completionClientSubmissionId: null,
     });
   },
 
@@ -149,7 +201,64 @@ export const usePlayerStore = create<SudokuState>((set, get) => ({
     set({ puzzle: next as unknown as Grid });
   },
 
+  hintRevealCellValue: () => {
+    const { selectedIndex, puzzle, givensMask, solution, hintBreakdown, hintsUsedCount } = get();
+    if (selectedIndex == null) return;
+    if (givensMask[selectedIndex]) return;
+
+    const correctValue = solution[selectedIndex];
+    if (correctValue == null) return;
+    if (correctValue === 0) return;
+
+    // If already correct, don't count the hint again.
+    const existingValue = puzzle[selectedIndex];
+    if (existingValue != null && existingValue === correctValue) return;
+
+    const next = puzzle.slice() as number[];
+    next[selectedIndex] = correctValue;
+
+    const nextBreakdown: Partial<Record<HintType, number>> = { ...hintBreakdown };
+    nextBreakdown.reveal_cell_value = (nextBreakdown.reveal_cell_value ?? 0) + 1;
+
+    set({
+      puzzle: next as unknown as Grid,
+      hintsUsedCount: hintsUsedCount + 1,
+      hintBreakdown: nextBreakdown,
+    });
+  },
+
+  pauseRun: (nowMs) => {
+    const { runTimer, runStatus } = get();
+    if (runStatus === 'completed') return;
+    set({
+      runTimer: pauseRunTimer(runTimer, nowMs ?? Date.now()),
+      runStatus: 'paused',
+    });
+  },
+
+  resumeRun: (nowMs) => {
+    const { runTimer, runStatus } = get();
+    if (runStatus === 'completed') return;
+    set({
+      runTimer: resumeRunTimer(runTimer, nowMs ?? Date.now()),
+      runStatus: 'running',
+    });
+  },
+
+  markCompleted: ({ clientSubmissionId, completedAtMs, nowMs }) => {
+    const { runTimer, runStatus } = get();
+    if (runStatus === 'completed') return;
+    const ts = completedAtMs ?? nowMs ?? Date.now();
+    set({
+      runTimer: pauseRunTimer(runTimer, nowMs ?? ts),
+      runStatus: 'completed',
+      completedAtMs: ts,
+      completionClientSubmissionId: clientSubmissionId,
+    });
+  },
+
   hydrateFromSave: (serializedPuzzle, serializedSolution, givensMask, meta) => {
+    const nowMs = Date.now();
     set({
       mode: 'free',
       dailyDateKey: null,
@@ -159,19 +268,26 @@ export const usePlayerStore = create<SudokuState>((set, get) => ({
       solution: parseGrid(serializedSolution),
       givensMask: [...givensMask],
       mistakes: meta?.mistakes ?? 0,
-      startedAtMs: meta?.startedAtMs ?? Date.now(),
+      hintsUsedCount: meta?.hintsUsedCount ?? 0,
+      hintBreakdown: meta?.hintBreakdown ?? {},
+      runTimer: meta?.runTimer ?? createRunTimer(meta?.startedAtMs ?? nowMs),
+      runStatus: 'running',
+      completedAtMs: null,
+      completionClientSubmissionId: null,
       selectedIndex: null,
     });
   },
 
   getSavePayload: () => {
-    const { puzzle, solution, givensMask, mistakes, startedAtMs, difficulty } = get();
+    const { puzzle, solution, givensMask, mistakes, hintsUsedCount, hintBreakdown, runTimer, difficulty } = get();
     return {
       serializedPuzzle: serializeGrid(puzzle),
       serializedSolution: serializeGrid(solution),
       givensMask: [...givensMask],
       mistakes,
-      startedAtMs,
+      hintsUsedCount,
+      hintBreakdown,
+      runTimer,
       difficulty,
     };
   },

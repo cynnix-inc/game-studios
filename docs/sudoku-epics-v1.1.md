@@ -75,7 +75,7 @@ Primary references:
 - Load today’s Daily (UTC-keyed; globally identical).
 - Show next UTC rollover countdown (or equivalent UX).
 - Access last 30 days (archive) and load the correct puzzle per date.
-- Offline behavior for Daily: playable only if the payload is already cached.
+- Offline behavior for Daily: **blocked when offline** (Daily requires an internet connection).
 
 **Primary references:**
 - PRD: 4.1B (Daily), 6.1 (server-published Daily), 6.3 (Offline behavior)

@@ -27,7 +27,7 @@ Last updated: 2025-12-21
 | Requirement | Status | Evidence | Owning epic(s) | Notes |
 |---|---:|---|---|---|
 | Free Play works offline (cached/built-in) | Partial | `packages/sudoku-core` generator | Epic 8 | Uses generator, not packs/caching model from spec. |
-| Daily playable offline only if cached | Missing | N/A | Epic 2, Epic 8 | No daily caching layer. |
+| Daily blocked offline (requires internet) | Meets | `apps/sudoku/src/services/daily.ts` | Epic 2 | `loadDailyByDateKey` returns unavailable when fetch fails/offline; no cached fallback. |
 | If offline at Daily completion, store pending submission and prompt later | Missing | N/A | Epic 3, Epic 2 | Requires local queue + online detection. |
 
 ## Gameplay UX (PRD 7.1, 7.3)

@@ -1,12 +1,13 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Pressable, View } from 'react-native';
+import { AppState, Pressable, View } from 'react-native';
 
 import { AppButton, AppCard, AppText, Screen, theme } from '@cynnix-studios/ui';
-import { getLastNUtcDateKeys, msUntilNextUtcMidnight, nowUtcDateKey } from '@cynnix-studios/sudoku-core';
+import { getLastNUtcDateKeys, getRunTimerElapsedMs, msUntilNextUtcMidnight, nowUtcDateKey } from '@cynnix-studios/sudoku-core';
 
 import { usePlayerStore } from '../../src/state/usePlayerStore';
 import { NumberPad } from '../../src/components/NumberPad';
 import { SudokuGrid } from '../../src/components/SudokuGrid';
+import { createClientSubmissionId, flushPendingDailySubmissions, submitDailyRun } from '../../src/services/leaderboard';
 
 function formatCountdown(ms: number): string {
   const s = Math.max(0, Math.floor(ms / 1000));
@@ -24,9 +25,18 @@ export default function DailyScreen() {
   const dailySource = usePlayerStore((s) => s.dailySource);
 
   const puzzle = usePlayerStore((s) => s.puzzle);
+  const solution = usePlayerStore((s) => s.solution);
   const givensMask = usePlayerStore((s) => s.givensMask);
   const selectedIndex = usePlayerStore((s) => s.selectedIndex);
   const mistakes = usePlayerStore((s) => s.mistakes);
+  const hintsUsedCount = usePlayerStore((s) => s.hintsUsedCount);
+  const hintBreakdown = usePlayerStore((s) => s.hintBreakdown);
+  const runTimer = usePlayerStore((s) => s.runTimer);
+  const runStatus = usePlayerStore((s) => s.runStatus);
+  const completionClientSubmissionId = usePlayerStore((s) => s.completionClientSubmissionId);
+  const pauseRun = usePlayerStore((s) => s.pauseRun);
+  const resumeRun = usePlayerStore((s) => s.resumeRun);
+  const markCompleted = usePlayerStore((s) => s.markCompleted);
 
   const loadTodayDaily = usePlayerStore((s) => s.loadTodayDaily);
   const loadDaily = usePlayerStore((s) => s.loadDaily);
@@ -34,6 +44,7 @@ export default function DailyScreen() {
   const selectCell = usePlayerStore((s) => s.selectCell);
   const inputDigit = usePlayerStore((s) => s.inputDigit);
   const clearCell = usePlayerStore((s) => s.clearCell);
+  const hintRevealCellValue = usePlayerStore((s) => s.hintRevealCellValue);
 
   const todayKey = nowUtcDateKey(Date.now());
   const archive = useMemo(() => getLastNUtcDateKeys(Date.now(), 30), []);
@@ -49,6 +60,61 @@ export default function DailyScreen() {
   useEffect(() => {
     void loadTodayDaily();
   }, [loadTodayDaily]);
+
+  const [submitState, setSubmitState] = useState<'idle' | 'submitting' | 'queued' | 'submitted'>('idle');
+
+  useEffect(() => {
+    void flushPendingDailySubmissions();
+  }, []);
+
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') {
+        resumeRun();
+        void flushPendingDailySubmissions();
+        return;
+      }
+      pauseRun();
+    });
+    return () => sub.remove();
+  }, [pauseRun, resumeRun]);
+
+  useEffect(() => {
+    if (mode !== 'daily') return;
+    if (dailyLoad.status !== 'ready') return;
+    if (!dailyDateKey) return;
+    if (runStatus === 'completed') return;
+
+    // Solve check: every cell must match the solution and be non-zero.
+    for (let i = 0; i < 81; i++) {
+      const pv = puzzle[i];
+      const sv = solution[i];
+      if (pv == null || sv == null) return;
+      if (pv === 0) return;
+      if (pv !== sv) return;
+    }
+
+    const clientSubmissionId = createClientSubmissionId();
+    markCompleted({ clientSubmissionId });
+    setSubmitState('submitting');
+
+    void (async () => {
+      const rawTimeMs = getRunTimerElapsedMs(runTimer, Date.now());
+      const res = await submitDailyRun({
+        utc_date: dailyDateKey,
+        raw_time_ms: rawTimeMs,
+        mistakes_count: mistakes,
+        hint_breakdown: hintBreakdown,
+        client_submission_id: clientSubmissionId,
+      });
+      if (res.ok && !res.queued) setSubmitState('submitted');
+      else if (!res.ok && res.queued) setSubmitState('queued');
+      else setSubmitState('idle');
+    })();
+  }, [dailyDateKey, dailyLoad.status, hintBreakdown, markCompleted, mistakes, mode, puzzle, runStatus, runTimer, solution]);
+
+  const revealDisabled = selectedIndex == null ? true : givensMask[selectedIndex] === true;
+  const elapsedMs = getRunTimerElapsedMs(runTimer, Date.now());
 
   return (
     <Screen scroll>
@@ -72,11 +138,11 @@ export default function DailyScreen() {
         <AppCard style={{ marginBottom: theme.spacing.md }}>
           <AppText weight="semibold">Daily unavailable</AppText>
           <AppText tone="muted">
-            {dailyLoad.reason === 'not_cached_offline'
-              ? 'Offline and this date is not cached yet.'
+            {dailyLoad.reason === 'offline'
+              ? 'Offline. Daily requires an internet connection.'
               : dailyLoad.reason === 'missing_base_url'
                 ? 'Missing EXPO_PUBLIC_SUDOKU_DAILY_BASE_URL.'
-                : 'Remote payload was invalid.'}
+                : 'Daily payload was unavailable or invalid.'}
           </AppText>
         </AppCard>
       ) : null}
@@ -111,8 +177,26 @@ export default function DailyScreen() {
       </AppCard>
 
       <AppCard style={{ flex: 1, marginBottom: theme.spacing.md }}>
+        <AppText tone="muted">Time: {Math.round(elapsedMs / 1000)}s</AppText>
         <AppText tone="muted">Mistakes: {mistakes}</AppText>
+        <AppText tone="muted">Hints: {hintsUsedCount}</AppText>
+        {hintsUsedCount > 0 ? (
+          <AppText tone="muted">Reveal used: {hintBreakdown.reveal_cell_value ?? 0}</AppText>
+        ) : null}
+        {submitState === 'submitting' ? <AppText tone="muted">Submitting result…</AppText> : null}
+        {submitState === 'queued' ? <AppText tone="muted">Will submit when online.</AppText> : null}
+        {submitState === 'submitted' ? <AppText tone="muted">Submitted.</AppText> : null}
+        {completionClientSubmissionId ? <AppText tone="muted">Run id: {completionClientSubmissionId.slice(0, 8)}</AppText> : null}
       </AppCard>
+
+      <View style={{ flexDirection: 'row', gap: theme.spacing.sm, marginBottom: theme.spacing.md }}>
+        <AppButton
+          title="Reveal Cell (+120s)"
+          variant="secondary"
+          disabled={revealDisabled}
+          onPress={hintRevealCellValue}
+        />
+      </View>
 
       <View style={{ marginBottom: theme.spacing.lg }}>
         <SudokuGrid

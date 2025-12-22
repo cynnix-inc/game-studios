@@ -2,10 +2,10 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { AppState, View } from 'react-native';
 
 import { AppButton, AppCard, AppText, Screen, theme } from '@cynnix-studios/ui';
+import { getRunTimerElapsedMs } from '@cynnix-studios/sudoku-core';
 
 import { usePlayerStore } from '../../src/state/usePlayerStore';
 import { loadLocalSave, writeLocalSave } from '../../src/services/saves';
-import { submitScore } from '../../src/services/leaderboard';
 import { NumberPad } from '../../src/components/NumberPad';
 import { SudokuGrid } from '../../src/components/SudokuGrid';
 
@@ -22,12 +22,14 @@ export default function GameScreen() {
   const givensMask = usePlayerStore((s) => s.givensMask);
   const selectedIndex = usePlayerStore((s) => s.selectedIndex);
   const mistakes = usePlayerStore((s) => s.mistakes);
-  const startedAtMs = usePlayerStore((s) => s.startedAtMs);
+  const runTimer = usePlayerStore((s) => s.runTimer);
 
   const newPuzzle = usePlayerStore((s) => s.newPuzzle);
   const selectCell = usePlayerStore((s) => s.selectCell);
   const inputDigit = usePlayerStore((s) => s.inputDigit);
   const clearCell = usePlayerStore((s) => s.clearCell);
+  const pauseRun = usePlayerStore((s) => s.pauseRun);
+  const resumeRun = usePlayerStore((s) => s.resumeRun);
 
   const [hydrated, setHydrated] = useState(false);
 
@@ -49,16 +51,21 @@ export default function GameScreen() {
   useEffect(() => {
     if (!hydrated) return;
     debouncedSave();
-  }, [puzzle, mistakes, startedAtMs, hydrated, debouncedSave]);
+  }, [puzzle, mistakes, runTimer, hydrated, debouncedSave]);
 
   useEffect(() => {
     const sub = AppState.addEventListener('change', (state) => {
-      if (state !== 'active') void writeLocalSave();
+      if (state === 'active') {
+        resumeRun();
+        return;
+      }
+      pauseRun();
+      void writeLocalSave();
     });
     return () => sub.remove();
-  }, []);
+  }, [pauseRun, resumeRun]);
 
-  const elapsedMs = Math.max(0, Date.now() - startedAtMs);
+  const elapsedMs = getRunTimerElapsedMs(runTimer, Date.now());
 
   return (
     <Screen scroll>
@@ -90,14 +97,6 @@ export default function GameScreen() {
       <NumberPad onDigit={(d) => inputDigit(d)} onClear={clearCell} />
 
       <View style={{ height: theme.spacing.lg }} />
-
-      <AppButton
-        title="Submit Score (placeholder)"
-        variant="secondary"
-        onPress={async () => {
-          await submitScore({ mode: 'mistakes', value: mistakes });
-        }}
-      />
     </Screen>
   );
 }
