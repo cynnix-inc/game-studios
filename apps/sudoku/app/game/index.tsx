@@ -23,6 +23,7 @@ export default function GameScreen() {
   const selectedIndex = usePlayerStore((s) => s.selectedIndex);
   const mistakes = usePlayerStore((s) => s.mistakes);
   const runTimer = usePlayerStore((s) => s.runTimer);
+  const runStatus = usePlayerStore((s) => s.runStatus);
 
   const newPuzzle = usePlayerStore((s) => s.newPuzzle);
   const selectCell = usePlayerStore((s) => s.selectCell);
@@ -55,15 +56,13 @@ export default function GameScreen() {
 
   useEffect(() => {
     const sub = AppState.addEventListener('change', (state) => {
-      if (state === 'active') {
-        resumeRun();
-        return;
+      if (state !== 'active') {
+        pauseRun();
+        void writeLocalSave();
       }
-      pauseRun();
-      void writeLocalSave();
     });
     return () => sub.remove();
-  }, [pauseRun, resumeRun]);
+  }, [pauseRun]);
 
   const elapsedMs = getRunTimerElapsedMs(runTimer, Date.now());
 
@@ -79,22 +78,52 @@ export default function GameScreen() {
           <AppText tone="muted">Mistakes: {mistakes}</AppText>
         </AppCard>
         <View style={{ justifyContent: 'center' }}>
-          <AppButton title="New Puzzle" onPress={() => newPuzzle()} />
+          {runStatus === 'paused' ? (
+            <AppButton
+              title="Resume"
+              onPress={() => {
+                resumeRun();
+              }}
+            />
+          ) : (
+            <AppButton
+              title="Pause"
+              variant="secondary"
+              onPress={() => {
+                pauseRun();
+                void writeLocalSave();
+              }}
+            />
+          )}
         </View>
       </View>
 
-      <View style={{ marginBottom: theme.spacing.lg }}>
-        <SudokuGrid
-          puzzle={puzzle}
-          givensMask={givensMask}
-          selectedIndex={selectedIndex}
-          onSelectCell={selectCell}
-          onDigit={inputDigit}
-          onClear={clearCell}
-        />
-      </View>
+      {runStatus === 'paused' ? (
+        <AppCard style={{ marginBottom: theme.spacing.lg }}>
+          <AppText weight="semibold" style={{ marginBottom: theme.spacing.sm }}>
+            Paused
+          </AppText>
+          <AppText tone="muted">Your timer is stopped. Tap Resume to continue.</AppText>
+        </AppCard>
+      ) : (
+        <>
+          <View style={{ marginBottom: theme.spacing.lg }}>
+            <SudokuGrid
+              puzzle={puzzle}
+              givensMask={givensMask}
+              selectedIndex={selectedIndex}
+              onSelectCell={selectCell}
+              onDigit={inputDigit}
+              onClear={clearCell}
+            />
+          </View>
 
-      <NumberPad onDigit={(d) => inputDigit(d)} onClear={clearCell} />
+          <NumberPad onDigit={(d) => inputDigit(d)} onClear={clearCell} />
+        </>
+      )}
+
+      <View style={{ height: theme.spacing.md }} />
+      <AppButton title="New Puzzle" onPress={() => newPuzzle()} />
 
       <View style={{ height: theme.spacing.lg }} />
     </Screen>

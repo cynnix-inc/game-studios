@@ -65,18 +65,48 @@ type SudokuState = {
       startedAtMs?: number;
       hintsUsedCount?: number;
       hintBreakdown?: Partial<Record<HintType, number>>;
+      runStatus?: 'running' | 'paused' | 'completed';
     },
   ) => void;
-  getSavePayload: () => {
+
+  restoreDailyProgressFromSave: (args: {
+    dailyDateKey: string;
     serializedPuzzle: string;
-    serializedSolution: string;
     givensMask: boolean[];
     mistakes: number;
     hintsUsedCount: number;
     hintBreakdown: Partial<Record<HintType, number>>;
     runTimer: RunTimer;
-    difficulty: Difficulty;
-  };
+    runStatus: 'running' | 'paused' | 'completed';
+  }) => void;
+
+  getSavePayload: () =>
+    | {
+        v: 1;
+        mode: 'free';
+        serializedPuzzle: string;
+        serializedSolution: string;
+        givensMask: boolean[];
+        mistakes: number;
+        hintsUsedCount: number;
+        hintBreakdown: Partial<Record<HintType, number>>;
+        runTimer: RunTimer;
+        runStatus: 'running' | 'paused' | 'completed';
+        difficulty: Difficulty;
+      }
+    | {
+        v: 1;
+        mode: 'daily';
+        dailyDateKey: string;
+        serializedPuzzle: string;
+        givensMask: boolean[];
+        mistakes: number;
+        hintsUsedCount: number;
+        hintBreakdown: Partial<Record<HintType, number>>;
+        runTimer: RunTimer;
+        runStatus: 'running' | 'paused' | 'completed';
+      }
+    | null;
 };
 
 const GAME_KEY = 'sudoku';
@@ -271,7 +301,29 @@ export const usePlayerStore = create<SudokuState>((set, get) => ({
       hintsUsedCount: meta?.hintsUsedCount ?? 0,
       hintBreakdown: meta?.hintBreakdown ?? {},
       runTimer: meta?.runTimer ?? createRunTimer(meta?.startedAtMs ?? nowMs),
-      runStatus: 'running',
+      runStatus: meta?.runStatus ?? 'running',
+      completedAtMs: null,
+      completionClientSubmissionId: null,
+      selectedIndex: null,
+    });
+  },
+
+  restoreDailyProgressFromSave: ({ dailyDateKey, serializedPuzzle, givensMask, mistakes, hintsUsedCount, hintBreakdown, runTimer, runStatus }) => {
+    // Important: Daily resume should require online payload fetch. So we only
+    // restore player progress after the Daily payload (including solution) is loaded.
+    const { mode, dailyLoad: dl, dailyDateKey: currentKey } = get();
+    if (mode !== 'daily') return;
+    if (dl.status !== 'ready') return;
+    if (!currentKey || currentKey !== dailyDateKey) return;
+
+    set({
+      puzzle: parseGrid(serializedPuzzle),
+      givensMask: [...givensMask],
+      mistakes,
+      hintsUsedCount,
+      hintBreakdown,
+      runTimer,
+      runStatus,
       completedAtMs: null,
       completionClientSubmissionId: null,
       selectedIndex: null,
@@ -279,8 +331,27 @@ export const usePlayerStore = create<SudokuState>((set, get) => ({
   },
 
   getSavePayload: () => {
-    const { puzzle, solution, givensMask, mistakes, hintsUsedCount, hintBreakdown, runTimer, difficulty } = get();
+    const { mode, dailyDateKey, puzzle, solution, givensMask, mistakes, hintsUsedCount, hintBreakdown, runTimer, runStatus, difficulty } = get();
+
+    if (mode === 'daily') {
+      if (!dailyDateKey) return null;
+      return {
+        v: 1,
+        mode: 'daily',
+        dailyDateKey,
+        serializedPuzzle: serializeGrid(puzzle),
+        givensMask: [...givensMask],
+        mistakes,
+        hintsUsedCount,
+        hintBreakdown,
+        runTimer,
+        runStatus,
+      };
+    }
+
     return {
+      v: 1,
+      mode: 'free',
       serializedPuzzle: serializeGrid(puzzle),
       serializedSolution: serializeGrid(solution),
       givensMask: [...givensMask],
@@ -288,6 +359,7 @@ export const usePlayerStore = create<SudokuState>((set, get) => ({
       hintsUsedCount,
       hintBreakdown,
       runTimer,
+      runStatus,
       difficulty,
     };
   },

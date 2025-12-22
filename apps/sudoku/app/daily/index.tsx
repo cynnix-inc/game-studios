@@ -5,9 +5,18 @@ import { AppButton, AppCard, AppText, Screen, theme } from '@cynnix-studios/ui';
 import { getLastNUtcDateKeys, getRunTimerElapsedMs, msUntilNextUtcMidnight, nowUtcDateKey } from '@cynnix-studios/sudoku-core';
 
 import { usePlayerStore } from '../../src/state/usePlayerStore';
+import { readLocalInProgressSave, writeLocalSave } from '../../src/services/saves';
 import { NumberPad } from '../../src/components/NumberPad';
 import { SudokuGrid } from '../../src/components/SudokuGrid';
 import { createClientSubmissionId, flushPendingDailySubmissions, submitDailyRun } from '../../src/services/leaderboard';
+
+function debounce<TArgs extends unknown[]>(fn: (...args: TArgs) => void, ms: number) {
+  let t: ReturnType<typeof setTimeout> | null = null;
+  return (...args: TArgs) => {
+    if (t) clearTimeout(t);
+    t = setTimeout(() => fn(...args), ms);
+  };
+}
 
 function formatCountdown(ms: number): string {
   const s = Math.max(0, Math.floor(ms / 1000));
@@ -37,8 +46,8 @@ export default function DailyScreen() {
   const pauseRun = usePlayerStore((s) => s.pauseRun);
   const resumeRun = usePlayerStore((s) => s.resumeRun);
   const markCompleted = usePlayerStore((s) => s.markCompleted);
+  const restoreDailyProgressFromSave = usePlayerStore((s) => s.restoreDailyProgressFromSave);
 
-  const loadTodayDaily = usePlayerStore((s) => s.loadTodayDaily);
   const loadDaily = usePlayerStore((s) => s.loadDaily);
   const exitDailyToFreePlay = usePlayerStore((s) => s.exitDailyToFreePlay);
   const selectCell = usePlayerStore((s) => s.selectCell);
@@ -57,9 +66,25 @@ export default function DailyScreen() {
 
   const countdown = formatCountdown(msUntilNextUtcMidnight(nowMs));
 
+  const [hydrated, setHydrated] = useState(false);
+  const [resumeDailyKey, setResumeDailyKey] = useState<string | null>(null);
+
+  const debouncedSave = useMemo(
+    () =>
+      debounce(() => {
+        void writeLocalSave();
+      }, 600),
+    [],
+  );
+
   useEffect(() => {
-    void loadTodayDaily();
-  }, [loadTodayDaily]);
+    void (async () => {
+      const saved = await readLocalInProgressSave();
+      if (saved?.mode === 'daily') setResumeDailyKey(saved.dailyDateKey);
+      await loadDaily(saved?.mode === 'daily' ? saved.dailyDateKey : todayKey);
+      setHydrated(true);
+    })();
+  }, [loadDaily, todayKey]);
 
   const [submitState, setSubmitState] = useState<'idle' | 'submitting' | 'queued' | 'submitted'>('idle');
 
@@ -69,15 +94,42 @@ export default function DailyScreen() {
 
   useEffect(() => {
     const sub = AppState.addEventListener('change', (state) => {
-      if (state === 'active') {
-        resumeRun();
-        void flushPendingDailySubmissions();
+      if (state !== 'active') {
+        pauseRun();
+        void writeLocalSave();
         return;
       }
-      pauseRun();
+      void flushPendingDailySubmissions();
     });
     return () => sub.remove();
-  }, [pauseRun, resumeRun]);
+  }, [pauseRun]);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    debouncedSave();
+  }, [debouncedSave, hydrated, hintBreakdown, hintsUsedCount, puzzle, runTimer, runStatus]);
+
+  useEffect(() => {
+    if (dailyLoad.status !== 'ready') return;
+    if (!resumeDailyKey) return;
+    if (dailyDateKey !== resumeDailyKey) return;
+    void (async () => {
+      const saved = await readLocalInProgressSave();
+      if (!saved || saved.mode !== 'daily') return;
+      // Ensure time while the app was closed/backgrounded doesn't count.
+      const now = Date.now();
+      restoreDailyProgressFromSave({
+        dailyDateKey: saved.dailyDateKey,
+        serializedPuzzle: saved.serializedPuzzle,
+        givensMask: saved.givensMask,
+        mistakes: saved.mistakes,
+        hintsUsedCount: saved.hintsUsedCount,
+        hintBreakdown: saved.hintBreakdown,
+        runTimer: saved.runTimer.pausedAtMs == null ? { ...saved.runTimer, pausedAtMs: now } : saved.runTimer,
+        runStatus: 'paused',
+      });
+    })();
+  }, [dailyDateKey, dailyLoad.status, restoreDailyProgressFromSave, resumeDailyKey]);
 
   useEffect(() => {
     if (mode !== 'daily') return;
@@ -196,20 +248,48 @@ export default function DailyScreen() {
           disabled={revealDisabled}
           onPress={hintRevealCellValue}
         />
+        {runStatus === 'paused' ? (
+          <AppButton
+            title="Resume"
+            onPress={() => {
+              resumeRun();
+            }}
+          />
+        ) : (
+          <AppButton
+            title="Pause"
+            variant="secondary"
+            onPress={() => {
+              pauseRun();
+              void writeLocalSave();
+            }}
+          />
+        )}
       </View>
 
-      <View style={{ marginBottom: theme.spacing.lg }}>
-        <SudokuGrid
-          puzzle={puzzle}
-          givensMask={givensMask}
-          selectedIndex={selectedIndex}
-          onSelectCell={selectCell}
-          onDigit={inputDigit}
-          onClear={clearCell}
-        />
-      </View>
+      {runStatus === 'paused' ? (
+        <AppCard style={{ marginBottom: theme.spacing.lg }}>
+          <AppText weight="semibold" style={{ marginBottom: theme.spacing.sm }}>
+            Paused
+          </AppText>
+          <AppText tone="muted">Your timer is stopped. Tap Resume to continue.</AppText>
+        </AppCard>
+      ) : (
+        <>
+          <View style={{ marginBottom: theme.spacing.lg }}>
+            <SudokuGrid
+              puzzle={puzzle}
+              givensMask={givensMask}
+              selectedIndex={selectedIndex}
+              onSelectCell={selectCell}
+              onDigit={inputDigit}
+              onClear={clearCell}
+            />
+          </View>
 
-      <NumberPad onDigit={(d) => inputDigit(d)} onClear={clearCell} />
+          <NumberPad onDigit={(d) => inputDigit(d)} onClear={clearCell} />
+        </>
+      )}
     </Screen>
   );
 }
