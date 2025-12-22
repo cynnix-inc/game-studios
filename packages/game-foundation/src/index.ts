@@ -11,5 +11,6 @@ export * from './featureFlags/flags';
 export * from './config/env';
 
 export * from './http/fetchWithTimeout';
+export * from './http/fetchJsonWithEtagCache';
 
 

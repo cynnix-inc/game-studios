@@ -19,6 +19,7 @@ import {
 } from '@cynnix-studios/sudoku-core';
 
 import { loadDailyByDateKey, type DailyLoadUnavailable } from '../services/daily';
+import { freePlayPacksService } from '../services/freeplayPacks';
 
 type SudokuState = {
   profile: PlayerProfile | null;
@@ -217,7 +218,8 @@ export const usePlayerStore = create<SudokuState>((set, get) => ({
     }),
 
   newPuzzle: (difficulty = get().difficulty) => {
-    const gen = generate(difficulty);
+    const pick = freePlayPacksService.getPuzzleSync(difficulty);
+    const givensMask = pick.puzzle.map((v) => v !== 0);
     const nowMs = Date.now();
     set({
       mode: 'free',
@@ -231,9 +233,9 @@ export const usePlayerStore = create<SudokuState>((set, get) => ({
       undoStack: [],
       redoStack: [],
       difficulty,
-      puzzle: gen.puzzle,
-      solution: gen.solution,
-      givensMask: [...gen.givensMask],
+      puzzle: pick.puzzle as unknown as Grid,
+      solution: pick.solution as unknown as Grid,
+      givensMask,
       selectedIndex: null,
       mistakes: 0,
       hintsUsedCount: 0,

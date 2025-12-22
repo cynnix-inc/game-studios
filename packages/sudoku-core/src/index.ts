@@ -10,5 +10,6 @@ export * from './engine/utc';
 export * from './engine/puzzleKeys';
 export * from './engine/dailyValidation';
 export * from './engine/dailyCachePolicy';
+export * from './engine/freePlayPacksValidation';
 
 

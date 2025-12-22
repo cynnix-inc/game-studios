@@ -5,6 +5,8 @@ import { theme } from '@cynnix-studios/ui';
 
 import { AuthBootstrap } from '../src/bootstrap/AuthBootstrap';
 import { getOrCreateDeviceId } from '../src/services/deviceId';
+import { initFreePlayPacks } from '../src/services/freeplayPacks';
+import { warmDailyCacheInBackground } from '../src/services/daily';
 import { loadLocalSettings, syncSettingsOnce } from '../src/services/settings';
 import { loadLocalStats, syncStatsOnce } from '../src/services/stats';
 import { usePlayerStore } from '../src/state/usePlayerStore';
@@ -18,6 +20,8 @@ export default function RootLayout() {
       void syncSettingsOnce();
       await loadLocalStats();
       void syncStatsOnce();
+      void initFreePlayPacks();
+      warmDailyCacheInBackground();
     })();
   }, []);
 
