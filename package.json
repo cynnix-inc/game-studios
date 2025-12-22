@@ -9,9 +9,9 @@
     "dev:sudoku": "corepack pnpm -C apps/sudoku dev",
     "web:sudoku": "corepack pnpm -C apps/sudoku web",
     "export:web:sudoku": "corepack pnpm -C apps/sudoku export:web",
-    "lint": "PATH=$(pwd):$PATH turbo lint",
-    "typecheck": "PATH=$(pwd):$PATH turbo typecheck",
-    "test": "PATH=$(pwd):$PATH turbo test",
+    "lint": "node scripts/turbo.mjs lint",
+    "typecheck": "node scripts/turbo.mjs typecheck",
+    "test": "node scripts/turbo.mjs test",
     "format": "prettier -w ."
   },
   "devDependencies": {

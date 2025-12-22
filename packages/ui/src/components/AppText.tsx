@@ -1,7 +1,7 @@
 import React from 'react';
 import { Text, type TextProps } from 'react-native';
 
-import { theme } from '../theme';
+import { theme } from '../tokens';
 
 export type AppTextProps = TextProps & {
   tone?: 'default' | 'muted' | 'danger';

@@ -1,0 +1,47 @@
+{
+  "tasks": {
+    "rule_compliance_audit": {
+      "last_completed": null,
+      "interval_days": 30,
+      "description": "Review .cursor/rules/*.mdc vs current Sudoku scope and docs. Ensure rules match the repo's actual tech stack and docs sources of truth.",
+      "checklist_location": "docs/sudoku-tech-spec-v1.1.md"
+    },
+    "dependency_updates_review": {
+      "last_completed": null,
+      "interval_days": 14,
+      "description": "Review and update dependencies (Expo, React Native, Supabase, testing toolchain) per versioning/toolchain rules."
+    },
+    "code_quality_review": {
+      "last_completed": null,
+      "interval_days": 30,
+      "description": "Review code quality (lint, types, test stability) and track high-signal improvements."
+    },
+    "security_audit": {
+      "last_completed": null,
+      "interval_days": 90,
+      "description": "Security audit and vulnerability check (dependency advisories, Supabase RLS policies review)."
+    },
+    "performance_review": {
+      "last_completed": null,
+      "interval_days": 60,
+      "description": "Performance review (grid input latency, generation time, startup)."
+    },
+    "documentation_updates": {
+      "last_completed": null,
+      "interval_days": 30,
+      "description": "Ensure docs stay current with implementation and decisions."
+    },
+    "schema_documentation_sync": {
+      "last_completed": null,
+      "interval_days": 14,
+      "description": "Sync schema documentation with migrations (SQLite + Supabase). Ensure new tables/columns are documented with intent and constraints."
+    },
+    "supabase_migrations_review": {
+      "last_completed": null,
+      "interval_days": 14,
+      "description": "Review Supabase schema/migrations and RLS policies for correctness and security."
+    }
+  }
+}
+
+

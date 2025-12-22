@@ -3,6 +3,16 @@
 // enforces “first completion per UTC date is ranked”, and inserts a daily_runs row.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
+import {
+  EDGE_ERROR_CODE,
+  edgeStartTimer,
+  err,
+  getRequestId,
+  handleOptions,
+  logEdgeResult,
+  ok,
+  withTimeoutFetch,
+} from '../_shared/http.ts';
 
 type HintType =
   | 'explain_technique'
@@ -19,29 +29,6 @@ type SubmitScoreBody = {
   hints_used_count?: number;
   hint_breakdown?: Partial<Record<HintType, number>>;
 };
-
-type ErrorCode =
-  | 'method_not_allowed'
-  | 'invalid_json'
-  | 'invalid_payload'
-  | 'not_authenticated'
-  | 'server_misconfigured'
-  | 'db_error';
-
-function json(status: number, payload: unknown) {
-  return new Response(JSON.stringify(payload), {
-    status,
-    headers: { 'content-type': 'application/json' },
-  });
-}
-
-function ok<T>(data: T) {
-  return json(200, { ok: true, data });
-}
-
-function err(code: ErrorCode, message: string, status = 400) {
-  return json(status, { ok: false, error: { code, message } });
-}
 
 function toNonNegativeInt(n: unknown): number {
   if (typeof n !== 'number' || !Number.isFinite(n)) return 0;
@@ -76,36 +63,127 @@ function computeScoreMs(input: {
 }
 
 export default async function handler(req: Request): Promise<Response> {
-  if (req.method !== 'POST') return err('method_not_allowed', 'Method not allowed', 405);
+  const requestId = getRequestId(req);
+  const startedAt = edgeStartTimer();
+
+  // CORS preflight: handle OPTIONS and set Access-Control-Allow-Origin / Allow-Methods / Allow-Headers.
+  // Request correlation: accepts incoming `x-request-id` if provided, otherwise generates one.
+  if (req.method === 'OPTIONS') return handleOptions(req, requestId) ?? new Response(null, { status: 204 });
+
+  if (req.method !== 'POST') {
+    const res = err(405, EDGE_ERROR_CODE.VALIDATION_ERROR, 'Method not allowed', requestId);
+    logEdgeResult({
+      requestId,
+      functionName: 'submit-score',
+      method: req.method,
+      status: res.status,
+      durationMs: Date.now() - startedAt,
+      ok: false,
+    });
+    return res;
+  }
 
   let body: SubmitScoreBody;
   try {
     body = (await req.json()) as SubmitScoreBody;
   } catch {
-    return err('invalid_json', 'Invalid JSON', 400);
+    const res = err(400, EDGE_ERROR_CODE.VALIDATION_ERROR, 'Invalid JSON', requestId);
+    logEdgeResult({
+      requestId,
+      functionName: 'submit-score',
+      method: req.method,
+      status: res.status,
+      durationMs: Date.now() - startedAt,
+      ok: false,
+    });
+    return res;
   }
 
   const utcDate = body?.utc_date;
   if (typeof utcDate !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(utcDate)) {
-    return err('invalid_payload', 'Invalid utc_date', 400);
+    const res = err(400, EDGE_ERROR_CODE.VALIDATION_ERROR, 'Invalid utc_date', requestId);
+    logEdgeResult({
+      requestId,
+      functionName: 'submit-score',
+      method: req.method,
+      status: res.status,
+      durationMs: Date.now() - startedAt,
+      ok: false,
+    });
+    return res;
   }
-  if (!Number.isFinite(body.raw_time_ms) || body.raw_time_ms < 0) return err('invalid_payload', 'Invalid raw_time_ms');
-  if (!Number.isFinite(body.mistakes_count) || body.mistakes_count < 0) return err('invalid_payload', 'Invalid mistakes_count');
+  if (!Number.isFinite(body.raw_time_ms) || body.raw_time_ms < 0) {
+    const res = err(400, EDGE_ERROR_CODE.VALIDATION_ERROR, 'Invalid raw_time_ms', requestId);
+    logEdgeResult({
+      requestId,
+      functionName: 'submit-score',
+      method: req.method,
+      status: res.status,
+      durationMs: Date.now() - startedAt,
+      ok: false,
+    });
+    return res;
+  }
+  if (!Number.isFinite(body.mistakes_count) || body.mistakes_count < 0) {
+    const res = err(400, EDGE_ERROR_CODE.VALIDATION_ERROR, 'Invalid mistakes_count', requestId);
+    logEdgeResult({
+      requestId,
+      functionName: 'submit-score',
+      method: req.method,
+      status: res.status,
+      durationMs: Date.now() - startedAt,
+      ok: false,
+    });
+    return res;
+  }
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL');
   const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-  if (!supabaseUrl || !serviceRoleKey) return err('server_misconfigured', 'Missing Supabase env', 500);
+  if (!supabaseUrl || !serviceRoleKey) {
+    const res = err(500, EDGE_ERROR_CODE.INTERNAL, 'Server misconfigured', requestId);
+    logEdgeResult({
+      requestId,
+      functionName: 'submit-score',
+      method: req.method,
+      status: res.status,
+      durationMs: Date.now() - startedAt,
+      ok: false,
+    });
+    return res;
+  }
 
   const authHeader = req.headers.get('authorization') ?? req.headers.get('Authorization');
-  if (!authHeader) return err('not_authenticated', 'Missing Authorization header', 401);
+  if (!authHeader) {
+    const res = err(401, EDGE_ERROR_CODE.UNAUTHENTICATED, 'Missing Authorization header', requestId);
+    logEdgeResult({
+      requestId,
+      functionName: 'submit-score',
+      method: req.method,
+      status: res.status,
+      durationMs: Date.now() - startedAt,
+      ok: false,
+    });
+    return res;
+  }
 
   const supabase = createClient(supabaseUrl, serviceRoleKey, {
-    global: { headers: { Authorization: authHeader } },
     auth: { persistSession: false, autoRefreshToken: false },
+    global: { headers: { Authorization: authHeader }, fetch: withTimeoutFetch(8_000) },
   });
 
   const { data: userData, error: userErr } = await supabase.auth.getUser();
-  if (userErr || !userData.user) return err('not_authenticated', 'Invalid auth token', 401);
+  if (userErr || !userData.user) {
+    const res = err(401, EDGE_ERROR_CODE.UNAUTHENTICATED, 'Invalid auth token', requestId);
+    logEdgeResult({
+      requestId,
+      functionName: 'submit-score',
+      method: req.method,
+      status: res.status,
+      durationMs: Date.now() - startedAt,
+      ok: false,
+    });
+    return res;
+  }
 
   const userId = userData.user.id;
   const { data: existingPlayer, error: playerSelectErr } = await supabase
@@ -113,7 +191,18 @@ export default async function handler(req: Request): Promise<Response> {
     .select('id')
     .eq('user_id', userId)
     .maybeSingle();
-  if (playerSelectErr) return err('db_error', 'Failed to load player', 500);
+  if (playerSelectErr) {
+    const res = err(500, EDGE_ERROR_CODE.INTERNAL, 'Failed to load player', requestId);
+    logEdgeResult({
+      requestId,
+      functionName: 'submit-score',
+      method: req.method,
+      status: res.status,
+      durationMs: Date.now() - startedAt,
+      ok: false,
+    });
+    return res;
+  }
 
   let playerId = existingPlayer?.id as string | undefined;
   if (!playerId) {
@@ -122,7 +211,18 @@ export default async function handler(req: Request): Promise<Response> {
       .insert({ user_id: userId })
       .select('id')
       .single();
-    if (insertErr) return err('db_error', 'Failed to create player', 500);
+    if (insertErr) {
+      const res = err(500, EDGE_ERROR_CODE.INTERNAL, 'Failed to create player', requestId);
+      logEdgeResult({
+        requestId,
+        functionName: 'submit-score',
+        method: req.method,
+        status: res.status,
+        durationMs: Date.now() - startedAt,
+        ok: false,
+      });
+      return res;
+    }
     playerId = inserted.id as string;
   }
 
@@ -140,7 +240,18 @@ export default async function handler(req: Request): Promise<Response> {
     .eq('utc_date', utcDate)
     .eq('ranked_submission', true)
     .limit(1);
-  if (rankedErr) return err('db_error', 'Failed to check ranked submission', 500);
+  if (rankedErr) {
+    const res = err(500, EDGE_ERROR_CODE.INTERNAL, 'Failed to check ranked submission', requestId);
+    logEdgeResult({
+      requestId,
+      functionName: 'submit-score',
+      method: req.method,
+      status: res.status,
+      durationMs: Date.now() - startedAt,
+      ok: false,
+    });
+    return res;
+  }
 
   const rankedSubmission = (rankedExisting?.length ?? 0) === 0;
 
@@ -154,16 +265,39 @@ export default async function handler(req: Request): Promise<Response> {
     hint_breakdown: body.hint_breakdown ?? {},
     ranked_submission: rankedSubmission,
   });
-  if (runInsertErr) return err('db_error', 'Failed to insert daily run', 500);
+  if (runInsertErr) {
+    const res = err(500, EDGE_ERROR_CODE.INTERNAL, 'Failed to insert daily run', requestId);
+    logEdgeResult({
+      requestId,
+      functionName: 'submit-score',
+      method: req.method,
+      status: res.status,
+      durationMs: Date.now() - startedAt,
+      ok: false,
+    });
+    return res;
+  }
 
-  return ok({
+  const res = ok(
+    {
     utc_date: utcDate,
     ranked_submission: rankedSubmission,
     raw_time_ms: toNonNegativeInt(body.raw_time_ms),
     score_ms: scoreMs,
     mistakes_count: toNonNegativeInt(body.mistakes_count),
     hints_used_count: hintsUsed,
+    },
+    requestId,
+  );
+  logEdgeResult({
+    requestId,
+    functionName: 'submit-score',
+    method: req.method,
+    status: res.status,
+    durationMs: Date.now() - startedAt,
+    ok: true,
   });
+  return res;
 }
 
 

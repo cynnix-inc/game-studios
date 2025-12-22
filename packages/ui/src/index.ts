@@ -1,4 +1,4 @@
-export * from './theme';
+export * from './tokens';
 export * from './components/AppButton';
 export * from './components/AppCard';
 export * from './components/AppText';

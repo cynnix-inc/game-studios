@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, type ViewProps } from 'react-native';
 
-import { theme } from '../theme';
+import { theme } from '../tokens';
 
 export function AppCard({ style, ...rest }: ViewProps) {
   return (

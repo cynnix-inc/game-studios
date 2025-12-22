@@ -115,7 +115,14 @@ export default function DailyScreen() {
       </AppCard>
 
       <View style={{ marginBottom: theme.spacing.lg }}>
-        <SudokuGrid puzzle={puzzle} givensMask={givensMask} selectedIndex={selectedIndex} onSelectCell={selectCell} />
+        <SudokuGrid
+          puzzle={puzzle}
+          givensMask={givensMask}
+          selectedIndex={selectedIndex}
+          onSelectCell={selectCell}
+          onDigit={inputDigit}
+          onClear={clearCell}
+        />
       </View>
 
       <NumberPad onDigit={(d) => inputDigit(d)} onClear={clearCell} />

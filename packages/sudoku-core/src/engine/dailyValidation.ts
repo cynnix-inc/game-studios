@@ -35,7 +35,7 @@ function assertArrayLen(name: string, v: unknown, len: number): asserts v is unk
   }
 }
 
-function assertCellValues(name: string, v: unknown[]): void {
+function assertCellValues(name: string, v: unknown[]): asserts v is number[] {
   for (let i = 0; i < v.length; i++) {
     const n = v[i];
     if (typeof n !== 'number' || !Number.isFinite(n) || n < 0 || n > 9 || Math.floor(n) !== n) {
@@ -49,17 +49,26 @@ function assertCellValues(name: string, v: unknown[]): void {
  */
 export function assertDailyManifest(input: unknown): DailyManifestV1 {
   if (typeof input !== 'object' || input === null) throw new Error('manifest must be an object');
-  const schema_version = (input as any).schema_version;
+  const obj = input as Record<string, unknown>;
+  const schema_version = obj.schema_version;
   if (schema_version !== 1) throw new Error('manifest.schema_version must be 1');
-  const entries = (input as any).entries;
+  const entries = obj.entries;
   if (!Array.isArray(entries)) throw new Error('manifest.entries must be an array');
 
-  const out: DailyManifestEntry[] = entries.map((e: any, idx: number) => {
-    if (typeof e !== 'object' || e === null) throw new Error(`manifest.entries[${idx}] must be an object`);
-    if (!isDateKey(e.date_key)) throw new Error(`manifest.entries[${idx}].date_key must be YYYY-MM-DD`);
-    if (typeof e.url !== 'string' || e.url.length === 0) throw new Error(`manifest.entries[${idx}].url must be a string`);
-    if (e.sha256 != null && typeof e.sha256 !== 'string') throw new Error(`manifest.entries[${idx}].sha256 must be a string`);
-    return { date_key: e.date_key, url: e.url, sha256: e.sha256 };
+  const out: DailyManifestEntry[] = entries.map((entry: unknown, idx: number) => {
+    if (typeof entry !== 'object' || entry === null) throw new Error(`manifest.entries[${idx}] must be an object`);
+    const e = entry as Record<string, unknown>;
+    const date_key = e.date_key;
+    const url = e.url;
+    const sha256Raw = e.sha256;
+
+    if (!isDateKey(date_key)) throw new Error(`manifest.entries[${idx}].date_key must be YYYY-MM-DD`);
+    if (typeof url !== 'string' || url.length === 0) throw new Error(`manifest.entries[${idx}].url must be a string`);
+    if (sha256Raw != null && typeof sha256Raw !== 'string') {
+      throw new Error(`manifest.entries[${idx}].sha256 must be a string`);
+    }
+    const sha256 = sha256Raw === null ? undefined : sha256Raw;
+    return { date_key, url, sha256 };
   });
 
   return { schema_version: 1, entries: out };
@@ -70,15 +79,16 @@ export function assertDailyManifest(input: unknown): DailyManifestV1 {
  */
 export function assertDailyPayload(input: unknown): DailyPayloadV1 {
   if (typeof input !== 'object' || input === null) throw new Error('payload must be an object');
-  const schema_version = (input as any).schema_version;
+  const obj = input as Record<string, unknown>;
+  const schema_version = obj.schema_version;
   if (schema_version !== 1) throw new Error('payload.schema_version must be 1');
-  const date_key = (input as any).date_key;
+  const date_key = obj.date_key;
   if (!isDateKey(date_key)) throw new Error('payload.date_key must be YYYY-MM-DD');
-  const difficulty = (input as any).difficulty;
+  const difficulty = obj.difficulty;
   if (!isDifficulty(difficulty)) throw new Error('payload.difficulty must be a valid difficulty');
 
-  const puzzle = (input as any).puzzle;
-  const solution = (input as any).solution;
+  const puzzle = obj.puzzle;
+  const solution = obj.solution;
   assertArrayLen('payload.puzzle', puzzle, 81);
   assertArrayLen('payload.solution', solution, 81);
   assertCellValues('payload.puzzle', puzzle);
@@ -88,8 +98,8 @@ export function assertDailyPayload(input: unknown): DailyPayloadV1 {
     schema_version: 1,
     date_key,
     difficulty,
-    puzzle: puzzle as number[],
-    solution: solution as number[],
+    puzzle,
+    solution,
   };
 }
 

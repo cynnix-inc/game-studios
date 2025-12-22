@@ -1,3 +1,5 @@
+import { fetchWithTimeout } from '@cynnix-studios/game-foundation';
+
 export type LeaderboardMode = 'time_ms' | 'mistakes';
 
 export type LeaderboardEntry = {
@@ -14,18 +16,23 @@ export async function submitScore(input: { mode: LeaderboardMode; value: number 
   const token = await getAccessToken();
   if (!token) return;
 
-  await fetch(`${base}/submit-score`, {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      authorization: `Bearer ${token}`,
+  await fetchWithTimeout(
+    `${base}/submit-score`,
+    {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        game_key: 'sudoku',
+        mode: input.mode,
+        value: input.value,
+      }),
     },
-    body: JSON.stringify({
-      game_key: 'sudoku',
-      mode: input.mode,
-      value: input.value,
-    }),
-  });
+    // Non-idempotent POST: timeout required, retries disabled.
+    { timeoutMs: 10_000, maxAttempts: 1, idempotent: false },
+  );
 }
 
 export async function getTop50(mode: LeaderboardMode): Promise<LeaderboardEntry[]> {
