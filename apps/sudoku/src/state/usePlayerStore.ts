@@ -3,8 +3,10 @@ import { create } from 'zustand';
 import type { PlayerProfile } from '@cynnix-studios/game-foundation';
 import {
   createRunTimer,
+  computeScoreMs,
   foldMovesToState,
   generate,
+  getRunTimerElapsedMs,
   nowUtcDateKey,
   parseGrid,
   pauseRunTimer,
@@ -20,6 +22,7 @@ import {
 
 import { loadDailyByDateKey, type DailyLoadUnavailable } from '../services/daily';
 import { freePlayPacksService } from '../services/freeplayPacks';
+import { trackEvent } from '../services/telemetry';
 
 type SudokuState = {
   profile: PlayerProfile | null;
@@ -286,6 +289,8 @@ export const usePlayerStore = create<SudokuState>((set, get) => ({
       completedAtMs: null,
       completionClientSubmissionId: null,
     });
+
+    void trackEvent({ name: 'start_daily', props: { utc_date: res.payload.date_key } });
   },
 
   exitDailyToFreePlay: () => set({ mode: 'free', dailyDateKey: null, dailyLoad: { status: 'idle' }, dailySource: null }),
@@ -562,6 +567,8 @@ export const usePlayerStore = create<SudokuState>((set, get) => ({
       revision: deviceId ? revision + 2 : revision,
       moves: nextMoves,
     });
+
+    void trackEvent({ name: 'hint_used', props: { type: 'reveal_cell_value' } });
   },
 
   pauseRun: (nowMs) => {
@@ -591,7 +598,7 @@ export const usePlayerStore = create<SudokuState>((set, get) => ({
   },
 
   markCompleted: ({ clientSubmissionId, completedAtMs, nowMs }) => {
-    const { runTimer, runStatus, deviceId, revision, moves } = get();
+    const { runTimer, runStatus, deviceId, revision, moves, mode, difficulty, mistakes, hintsUsedCount, hintBreakdown, dailyDateKey } = get();
     if (runStatus === 'completed') return;
     const ts = completedAtMs ?? nowMs ?? Date.now();
     const nextMoves: SudokuMove[] = deviceId
@@ -604,6 +611,25 @@ export const usePlayerStore = create<SudokuState>((set, get) => ({
       completionClientSubmissionId: clientSubmissionId,
       revision: deviceId ? revision + 1 : revision,
       moves: nextMoves,
+    });
+
+    // Telemetry: emit completion with ranked=null for Daily (resolved later after submit-score),
+    // and ranked=false for Free Play.
+    const rawTimeMs = getRunTimerElapsedMs(runTimer, nowMs ?? ts);
+    const scoreMs = computeScoreMs({ raw_time_ms: rawTimeMs, mistakes_count: mistakes, hint_breakdown: hintBreakdown });
+    void trackEvent({
+      name: 'complete_puzzle',
+      props: {
+        mode,
+        difficulty,
+        raw_time_ms: rawTimeMs,
+        mistakes_count: mistakes,
+        hints_used_count: hintsUsedCount,
+        score_ms: scoreMs,
+        ranked: mode === 'daily' ? null : false,
+        correlation_id: clientSubmissionId,
+        ...(mode === 'daily' && dailyDateKey ? { utc_date: dailyDateKey } : {}),
+      },
     });
   },
 

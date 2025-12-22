@@ -1,5 +1,6 @@
 import { createSaveService, fetchWithTimeout } from '@cynnix-studios/game-foundation';
 import type { HintType } from '@cynnix-studios/sudoku-core';
+import { getLastNUtcDateKeys } from '@cynnix-studios/sudoku-core';
 import { getSupabasePublicEnv } from '@cynnix-studios/supabase';
 
 type LeaderboardTab = 'score' | 'raw_time';
@@ -96,6 +97,11 @@ const GAME_KEY = 'sudoku';
 const SLOT = 'pending_daily_submissions';
 const pendingSaveService = createSaveService();
 
+function isUtcDateWithinLast30Days(utcDate: string, nowMs: number = Date.now()): boolean {
+  // Archive window: last 30 days including today.
+  return getLastNUtcDateKeys(nowMs, 30).includes(utcDate);
+}
+
 async function readPendingDailySubmissions(): Promise<PendingDailySubmissionsSave> {
   const saved = await pendingSaveService.local.read<PendingDailySubmissionsSave>(GAME_KEY, SLOT);
   return saved?.data ?? { byUtcDate: {} };
@@ -140,6 +146,11 @@ function extractRankedSubmissionFromEdgeResponse(json: unknown): boolean | null 
 export async function submitDailyRun(input: Omit<SubmitDailyRunInput, 'client_submission_id'> & { client_submission_id?: string }): Promise<SubmitDailyRunResult> {
   const base = process.env.EXPO_PUBLIC_SUPABASE_FUNCTIONS_URL;
   if (!base) return { ok: false, queued: false, error: { code: 'missing_functions_url', message: 'Missing EXPO_PUBLIC_SUPABASE_FUNCTIONS_URL' } };
+
+  // Product policy: accept ranked submissions only within the Daily archive window (30 days, UTC-keyed).
+  if (!isUtcDateWithinLast30Days(input.utc_date)) {
+    return { ok: false, queued: false, error: { code: 'utc_date_out_of_range', message: 'Daily submission is outside the 30-day window' } };
+  }
 
   const { getAccessToken } = await import('./auth');
   const token = await getAccessToken();
@@ -204,6 +215,11 @@ export async function flushPendingDailySubmissions(): Promise<{ ok: true; flushe
   const remaining: PendingDailySubmissionsSave = { byUtcDate: { ...existing.byUtcDate } };
 
   for (const sub of entries) {
+    // Drop submissions that are no longer eligible (outside last 30 days).
+    if (!isUtcDateWithinLast30Days(sub.utc_date)) {
+      delete remaining.byUtcDate[sub.utc_date];
+      continue;
+    }
     try {
       const res = await fetchWithTimeout(
         `${base}/submit-score`,

@@ -5,6 +5,7 @@ import { getLastNUtcDateKeys, nowUtcDateKey } from '@cynnix-studios/sudoku-core'
 import { AppCard, AppText, Screen, theme } from '@cynnix-studios/ui';
 
 import { getDailyAroundYou, getDailyTop100, type DailyLeaderboardRow } from '../../src/services/leaderboard';
+import { trackEvent } from '../../src/services/telemetry';
 
 type LeaderboardTab = 'score' | 'raw_time';
 
@@ -46,6 +47,10 @@ export default function LeaderboardScreen() {
 
   const [utcDate, setUtcDate] = useState<string>(todayKey);
   const [tab, setTab] = useState<LeaderboardTab>('score');
+
+  useEffect(() => {
+    void trackEvent({ name: 'leaderboard_view', props: { tab, utc_date: utcDate } });
+  }, [tab, utcDate]);
 
   const [top, setTop] = useState<DailyLeaderboardRow[]>([]);
   const [topStatus, setTopStatus] = useState<'idle' | 'loading' | 'error'>('idle');
