@@ -195,10 +195,11 @@ export async function loadLocalSave() {
 export async function writeLocalSave() {
   const payload = usePlayerStore.getState().getSavePayload();
   if (!payload) return;
+  const clientUpdatedAtMs = Date.now();
   await saveService.local.write({
     gameKey: GAME_KEY,
     slot: SLOT,
-    data: payload,
+    data: { ...payload, clientUpdatedAtMs },
   });
 }
 

@@ -1,5 +1,7 @@
 import { createTypedSupabaseClient } from '@cynnix-studios/supabase';
 import {
+  getSession,
+  onAuthStateChange,
   signInWithApple,
   signInWithGoogle,
   signInWithOAuthRedirect,
@@ -44,6 +46,20 @@ export async function signInGoogleWeb(redirectTo?: string) {
 
 export async function signOutAll() {
   return signOut(getSupabase());
+}
+
+export type SessionUserInfo = { id: string; email?: string | null };
+
+export async function getSessionUser(): Promise<SessionUserInfo | null> {
+  if (!isSupabaseConfigured()) return null;
+  const session = await getSession(getSupabase());
+  if (!session?.user?.id) return null;
+  return { id: session.user.id, email: session.user.email ?? null };
+}
+
+export function subscribeToAuthEvents(cb: (event: string) => void): () => void {
+  if (!isSupabaseConfigured()) return () => {};
+  return onAuthStateChange(getSupabase(), cb);
 }
 
 export async function getAccessToken(): Promise<string | null> {
