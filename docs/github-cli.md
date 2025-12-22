@@ -4,18 +4,25 @@ This repo supports using GitHub CLI to create PRs from feature branches to `dev`
 
 ## Verify `gh` is installed and authenticated
 
-In this environment, `gh` may exist but not be on `PATH`. If `gh` fails with “command not found”, try the absolute path:
-
-```bash
-/opt/homebrew/bin/gh --version
-/opt/homebrew/bin/gh auth status
-```
-
-If `gh` is on `PATH`, the equivalent commands are:
+If `gh` is on your `PATH`, use:
 
 ```bash
 gh --version
 gh auth status
+```
+
+If `gh` fails with “command not found” but you’re on macOS (Apple Silicon) with Homebrew, ensure your shell PATH includes `/opt/homebrew/bin` (example for zsh):
+
+```bash
+echo 'export PATH="/opt/homebrew/bin:$PATH"' >> ~/.zshrc
+source ~/.zshrc
+```
+
+In some environments, `gh` may exist but still not be on `PATH`. In that case, use the absolute path:
+
+```bash
+/opt/homebrew/bin/gh --version
+/opt/homebrew/bin/gh auth status
 ```
 
 ## Create a PR to `dev` (non-interactive)
