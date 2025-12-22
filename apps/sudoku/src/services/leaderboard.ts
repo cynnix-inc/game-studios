@@ -105,7 +105,7 @@ async function writePendingDailySubmissions(next: PendingDailySubmissionsSave): 
   await pendingSaveService.local.write({
     gameKey: GAME_KEY,
     slot: SLOT,
-    data: next,
+    data: { ...next, clientUpdatedAtMs: Date.now() },
   });
 }
 
