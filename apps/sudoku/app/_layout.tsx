@@ -1,9 +1,22 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Tabs } from 'expo-router';
 
 import { theme } from '@cynnix-studios/ui';
 
+import { getOrCreateDeviceId } from '../src/services/deviceId';
+import { loadLocalSettings, syncSettingsOnce } from '../src/services/settings';
+import { usePlayerStore } from '../src/state/usePlayerStore';
+
 export default function RootLayout() {
+  useEffect(() => {
+    void (async () => {
+      const deviceId = await getOrCreateDeviceId();
+      usePlayerStore.getState().setDeviceId(deviceId);
+      await loadLocalSettings();
+      void syncSettingsOnce();
+    })();
+  }, []);
+
   return (
     <Tabs
       screenOptions={{

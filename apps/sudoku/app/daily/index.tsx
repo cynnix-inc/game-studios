@@ -6,6 +6,7 @@ import { getLastNUtcDateKeys, getRunTimerElapsedMs, msUntilNextUtcMidnight, nowU
 
 import { usePlayerStore } from '../../src/state/usePlayerStore';
 import { readLocalInProgressSave, writeLocalSave } from '../../src/services/saves';
+import { pullAndMergeCurrentPuzzle, pushCurrentPuzzle } from '../../src/services/sync';
 import { NumberPad } from '../../src/components/NumberPad';
 import { SudokuGrid } from '../../src/components/SudokuGrid';
 import { createClientSubmissionId, flushPendingDailySubmissions, submitDailyRun } from '../../src/services/leaderboard';
@@ -77,6 +78,14 @@ export default function DailyScreen() {
     [],
   );
 
+  const debouncedPush = useMemo(
+    () =>
+      debounce(() => {
+        void pushCurrentPuzzle();
+      }, 1500),
+    [],
+  );
+
   useEffect(() => {
     void (async () => {
       const saved = await readLocalInProgressSave();
@@ -97,9 +106,11 @@ export default function DailyScreen() {
       if (state !== 'active') {
         pauseRun();
         void writeLocalSave();
+        void pushCurrentPuzzle();
         return;
       }
       void flushPendingDailySubmissions();
+      void pullAndMergeCurrentPuzzle();
     });
     return () => sub.remove();
   }, [pauseRun]);
@@ -107,7 +118,14 @@ export default function DailyScreen() {
   useEffect(() => {
     if (!hydrated) return;
     debouncedSave();
-  }, [debouncedSave, hydrated, hintBreakdown, hintsUsedCount, puzzle, runTimer, runStatus]);
+    debouncedPush();
+  }, [debouncedSave, debouncedPush, hydrated, hintBreakdown, hintsUsedCount, puzzle, runTimer, runStatus]);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    if (dailyLoad.status !== 'ready') return;
+    void pullAndMergeCurrentPuzzle();
+  }, [hydrated, dailyLoad.status, dailyDateKey]);
 
   useEffect(() => {
     if (dailyLoad.status !== 'ready') return;

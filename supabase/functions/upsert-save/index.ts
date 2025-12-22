@@ -19,6 +19,124 @@ type UpsertSaveBody = {
   data: unknown;
 };
 
+function isObject(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null;
+}
+
+type PuzzleSaveV1 = {
+  schemaVersion: 1;
+  kind: 'sudoku_puzzle_save';
+  puzzle_key: string;
+  startedAtMs: number;
+  givensMask: boolean[];
+  serializedGivensPuzzle: string;
+  mode: 'free' | 'daily';
+  difficulty?: string;
+  dailyDateKey?: string;
+  device_id: string;
+  revision: number;
+  moves: Array<{
+    schemaVersion: 1;
+    device_id: string;
+    rev: number;
+    ts: number;
+    kind: string;
+    cell?: number;
+    value?: number;
+    hintType?: string;
+    clientSubmissionId?: string;
+  }>;
+};
+
+type SettingsV1 = {
+  schemaVersion: 1;
+  kind: 'sudoku_settings';
+  updatedAtMs: number;
+  updatedByDeviceId: string;
+  ui?: unknown;
+  toggles?: unknown;
+  extra?: unknown;
+};
+
+function isFiniteNumber(v: unknown): v is number {
+  return typeof v === 'number' && Number.isFinite(v);
+}
+
+function isPuzzleSaveV1(v: unknown): v is PuzzleSaveV1 {
+  if (!isObject(v)) return false;
+  if (v.schemaVersion !== 1) return false;
+  if (v.kind !== 'sudoku_puzzle_save') return false;
+  if (typeof v.puzzle_key !== 'string' || v.puzzle_key.length === 0) return false;
+  if (!isFiniteNumber(v.startedAtMs) || v.startedAtMs < 0) return false;
+  if (!Array.isArray(v.givensMask)) return false;
+  if (typeof v.serializedGivensPuzzle !== 'string') return false;
+  if (v.mode !== 'free' && v.mode !== 'daily') return false;
+  if (typeof v.device_id !== 'string' || v.device_id.length === 0) return false;
+  if (!isFiniteNumber(v.revision) || v.revision < 0) return false;
+  if (!Array.isArray(v.moves)) return false;
+  for (const m of v.moves) {
+    if (!isObject(m)) return false;
+    if (m.schemaVersion !== 1) return false;
+    if (typeof m.device_id !== 'string' || m.device_id.length === 0) return false;
+    if (!isFiniteNumber(m.rev) || m.rev < 0) return false;
+    if (!isFiniteNumber(m.ts) || m.ts < 0) return false;
+    if (typeof m.kind !== 'string' || m.kind.length === 0) return false;
+  }
+  return true;
+}
+
+function isSettingsV1(v: unknown): v is SettingsV1 {
+  if (!isObject(v)) return false;
+  if (v.schemaVersion !== 1) return false;
+  if (v.kind !== 'sudoku_settings') return false;
+  if (!isFiniteNumber(v.updatedAtMs) || v.updatedAtMs < 0) return false;
+  if (typeof v.updatedByDeviceId !== 'string' || v.updatedByDeviceId.length === 0) return false;
+  return true;
+}
+
+function mergeMoveLogs(
+  existing: PuzzleSaveV1['moves'],
+  incoming: PuzzleSaveV1['moves'],
+): PuzzleSaveV1['moves'] {
+  const byKey = new Map<string, PuzzleSaveV1['moves'][number]>();
+  const push = (m: PuzzleSaveV1['moves'][number]) => {
+    const key = `${m.device_id}:${m.rev}`;
+    if (!byKey.has(key)) byKey.set(key, m);
+  };
+  for (const m of existing) push(m);
+  for (const m of incoming) push(m);
+  const out = Array.from(byKey.values());
+  out.sort((a, b) => {
+    if (a.ts !== b.ts) return a.ts - b.ts;
+    if (a.device_id !== b.device_id) return a.device_id < b.device_id ? -1 : 1;
+    return a.rev - b.rev;
+  });
+  return out;
+}
+
+function mergePuzzleSaves(existing: PuzzleSaveV1, incoming: PuzzleSaveV1): { ok: true; data: PuzzleSaveV1 } | { ok: false; reason: string } {
+  if (existing.puzzle_key !== incoming.puzzle_key) return { ok: false, reason: 'puzzle_key_mismatch' };
+  if (existing.serializedGivensPuzzle !== incoming.serializedGivensPuzzle) return { ok: false, reason: 'givens_mismatch' };
+
+  return {
+    ok: true,
+    data: {
+      ...existing,
+      // Keep puzzle identity from existing; treat latest writer metadata as incoming.
+      startedAtMs: Math.min(existing.startedAtMs, incoming.startedAtMs),
+      device_id: incoming.device_id,
+      revision: incoming.revision,
+      moves: mergeMoveLogs(existing.moves, incoming.moves),
+    },
+  };
+}
+
+function mergeSettings(existing: SettingsV1, incoming: SettingsV1): SettingsV1 {
+  if (incoming.updatedAtMs > existing.updatedAtMs) return incoming;
+  if (incoming.updatedAtMs < existing.updatedAtMs) return existing;
+  return incoming.updatedByDeviceId > existing.updatedByDeviceId ? incoming : existing;
+}
+
 export default async function handler(req: Request): Promise<Response> {
   const requestId = getRequestId(req);
   const startedAt = edgeStartTimer();
@@ -199,6 +317,106 @@ export default async function handler(req: Request): Promise<Response> {
   }
 
   const finalSlot = slot ?? 'main';
+
+  // Validate supported save shapes (Epic 6: puzzle save + settings).
+  const isPuzzle = isPuzzleSaveV1(data);
+  const isSettings = isSettingsV1(data);
+  if (!isPuzzle && !isSettings) {
+    const res = err(400, EDGE_ERROR_CODE.VALIDATION_ERROR, 'Unsupported save data shape', requestId);
+    logEdgeResult({
+      requestId,
+      functionName: 'upsert-save',
+      method: req.method,
+      status: res.status,
+      durationMs: Date.now() - startedAt,
+      ok: false,
+    });
+    return res;
+  }
+
+  // Load existing save for merge (service role bypasses RLS).
+  const { data: existingSaveRow, error: existingSaveErr } = await supabase
+    .from('saves')
+    .select('data')
+    .eq('player_id', playerId)
+    .eq('game_key', game_key)
+    .eq('slot', finalSlot)
+    .maybeSingle();
+  if (existingSaveErr) {
+    const res = err(500, EDGE_ERROR_CODE.INTERNAL, 'Failed to load existing save', requestId);
+    logEdgeResult({
+      requestId,
+      functionName: 'upsert-save',
+      method: req.method,
+      status: res.status,
+      durationMs: Date.now() - startedAt,
+      ok: false,
+    });
+    return res;
+  }
+
+  let canonical: unknown = data;
+  const existingData = existingSaveRow?.data as unknown | undefined;
+  if (existingData) {
+    if (isPuzzle) {
+      if (!isPuzzleSaveV1(existingData)) {
+        const res = err(409, EDGE_ERROR_CODE.CONFLICT, 'Existing save has incompatible shape', requestId);
+        logEdgeResult({
+          requestId,
+          functionName: 'upsert-save',
+          method: req.method,
+          status: res.status,
+          durationMs: Date.now() - startedAt,
+          ok: false,
+        });
+        return res;
+      }
+      const merged = mergePuzzleSaves(existingData, data);
+      if (!merged.ok) {
+        const res = err(409, EDGE_ERROR_CODE.CONFLICT, `Save conflict: ${merged.reason}`, requestId);
+        logEdgeResult({
+          requestId,
+          functionName: 'upsert-save',
+          method: req.method,
+          status: res.status,
+          durationMs: Date.now() - startedAt,
+          ok: false,
+        });
+        return res;
+      }
+      canonical = merged.data;
+    } else if (isSettings) {
+      if (!isSettingsV1(existingData)) {
+        const res = err(409, EDGE_ERROR_CODE.CONFLICT, 'Existing save has incompatible shape', requestId);
+        logEdgeResult({
+          requestId,
+          functionName: 'upsert-save',
+          method: req.method,
+          status: res.status,
+          durationMs: Date.now() - startedAt,
+          ok: false,
+        });
+        return res;
+      }
+      canonical = mergeSettings(existingData, data);
+    }
+  }
+
+  // Re-check size guard post-merge.
+  const canonicalRaw = JSON.stringify(canonical);
+  if (canonicalRaw.length > 250_000) {
+    const res = err(413, EDGE_ERROR_CODE.VALIDATION_ERROR, 'Save data too large', requestId);
+    logEdgeResult({
+      requestId,
+      functionName: 'upsert-save',
+      method: req.method,
+      status: res.status,
+      durationMs: Date.now() - startedAt,
+      ok: false,
+    });
+    return res;
+  }
+
   const { data: upserted, error: upsertErr } = await supabase
     .from('saves')
     .upsert(
@@ -206,12 +424,12 @@ export default async function handler(req: Request): Promise<Response> {
         player_id: playerId,
         game_key,
         slot: finalSlot,
-        data,
+        data: canonical,
         updated_at: new Date().toISOString(),
       },
       { onConflict: 'player_id,game_key,slot' },
     )
-    .select('player_id, game_key, slot, updated_at')
+    .select('player_id, game_key, slot, updated_at, data')
     .single();
   if (upsertErr) {
     const res = err(500, EDGE_ERROR_CODE.INTERNAL, 'Failed to upsert save', requestId);
@@ -232,6 +450,7 @@ export default async function handler(req: Request): Promise<Response> {
       game_key: upserted.game_key,
       slot: upserted.slot,
       updated_at: upserted.updated_at,
+      data: upserted.data,
     },
     requestId,
   );

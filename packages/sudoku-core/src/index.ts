@@ -4,6 +4,7 @@ export * from './engine/generator';
 export * from './engine/serialize';
 export * from './engine/difficulty';
 export * from './engine/scoring';
+export * from './engine/moveLog';
 export * from './engine/runTimer';
 export * from './engine/utc';
 export * from './engine/puzzleKeys';
