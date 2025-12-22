@@ -8,6 +8,10 @@ build
 lib
 .DS_Store
 
+# Supabase local dev (CLI state)
+supabase/.branches/
+supabase/.temp/
+
 # Expo / RN
 *.jks
 *.keystore
