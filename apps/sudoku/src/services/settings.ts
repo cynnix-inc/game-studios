@@ -106,6 +106,11 @@ export async function syncSettingsOnce(): Promise<void> {
       store.setSync({ syncStatus: 'error', lastError: pushed.error.message });
       return;
     }
+    // If not applied (expected when not configured / signed out), report idle rather than ok.
+    if (!pushed.applied) {
+      store.setSync({ syncStatus: 'idle', lastError: null });
+      return;
+    }
   }
 
   store.setSync({ syncStatus: 'ok', lastSyncAtMs: Date.now(), lastError: null });
