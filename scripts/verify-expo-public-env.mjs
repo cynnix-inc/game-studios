@@ -6,8 +6,15 @@
  *
  * This script fails the build early with clear diagnostics (without printing secrets).
  */
-const required = ['EXPO_PUBLIC_SUPABASE_URL', 'EXPO_PUBLIC_SUPABASE_ANON_KEY'];
-const optional = ['EXPO_PUBLIC_SUPABASE_FUNCTIONS_URL'];
+const required = [
+  'EXPO_PUBLIC_SUPABASE_URL',
+  'EXPO_PUBLIC_SUPABASE_ANON_KEY',
+];
+const optional = [
+  'EXPO_PUBLIC_SUPABASE_FUNCTIONS_URL',
+  'EXPO_PUBLIC_SUDOKU_DAILY_BASE_URL',
+  'EXPO_PUBLIC_SUDOKU_FREEPLAY_BASE_URL',
+];
 
 function isPresent(value) {
   return typeof value === 'string' && value.trim().length > 0;
@@ -62,6 +69,17 @@ if (missingRequired.length > 0) {
     ].join('\n'),
   );
   process.exit(1);
+}
+
+// eslint-disable-next-line no-console
+if (!envPresence('EXPO_PUBLIC_SUDOKU_DAILY_BASE_URL')) {
+  console.log(
+    [
+      '[env] Note: EXPO_PUBLIC_SUDOKU_DAILY_BASE_URL is not set.',
+      '[env] Web builds will default to `${window.location.origin}/puzzles/daily` at runtime.',
+      '[env] Native builds still require EXPO_PUBLIC_SUDOKU_DAILY_BASE_URL to be set.',
+    ].join('\n'),
+  );
 }
 
 

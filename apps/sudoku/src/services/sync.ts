@@ -161,10 +161,40 @@ export async function pushSave(slot: string, data: unknown): Promise<SyncResult>
       // Idempotent if backend upsert is deterministic for a given payload.
       { timeoutMs: 10_000, maxAttempts: 3, idempotent: true },
     );
-    if (!res.ok) return { ok: false, error: { code: 'push_failed', message: 'Failed to push save' } };
+
+    if (!res.ok) {
+      const status = res.status;
+      let detail: string | null = null;
+      try {
+        const text = await res.text();
+        if (text && text.trim().length > 0) {
+          // Try to extract the stable edge-function error envelope if present: { ok:false, error:{message}, requestId }
+          try {
+            const parsed = JSON.parse(text) as unknown;
+            if (typeof parsed === 'object' && parsed != null) {
+              const p = parsed as Record<string, unknown>;
+              const errObj = p.error;
+              if (typeof errObj === 'object' && errObj != null) {
+                const msg = (errObj as Record<string, unknown>).message;
+                if (typeof msg === 'string' && msg.trim().length > 0) detail = msg.trim();
+              }
+            }
+          } catch {
+            // Not JSON; keep a short snippet.
+            detail = text.trim().slice(0, 140);
+          }
+        }
+      } catch {
+        // ignore
+      }
+
+      const baseMsg = `Failed to push save (HTTP ${status})`;
+      return { ok: false, error: { code: 'push_failed', message: detail ? `${baseMsg}: ${detail}` : baseMsg } };
+    }
     return { ok: true, applied: true };
-  } catch {
-    return { ok: false, error: { code: 'push_failed', message: 'Failed to push save' } };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return { ok: false, error: { code: 'push_failed', message: msg ? `Failed to push save: ${msg}` : 'Failed to push save' } };
   }
 }
 

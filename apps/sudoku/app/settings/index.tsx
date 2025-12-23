@@ -69,55 +69,61 @@ export default function SettingsScreen() {
           <AppText style={{ marginBottom: theme.spacing.xs }}>
             Grid size: {Math.round(sizing.gridSize)} px
           </AppText>
-          <Slider
-            accessibilityLabel="Grid size"
-            value={sizing.gridSize}
-            min={UI_SIZING_LIMITS.gridSize.min}
-            max={UI_SIZING_LIMITS.gridSize.max}
-            step={UI_SIZING_LIMITS.gridSize.step}
-            onChange={(gridSize) => {
-              const next = setUiSizingSettings(settings, { gridSize }, { updatedAtMs: Date.now(), updatedByDeviceId: deviceId });
-              updateLocalSettings(next);
-            }}
-          />
+          <View style={{ alignSelf: 'stretch' }}>
+            <Slider
+              accessibilityLabel="Grid size"
+              value={sizing.gridSize}
+              min={UI_SIZING_LIMITS.gridSize.min}
+              max={UI_SIZING_LIMITS.gridSize.max}
+              step={UI_SIZING_LIMITS.gridSize.step}
+              onChange={(gridSize) => {
+                const next = setUiSizingSettings(settings, { gridSize }, { updatedAtMs: Date.now(), updatedByDeviceId: deviceId });
+                updateLocalSettings(next);
+              }}
+            />
+          </View>
         </View>
 
         <View style={{ marginBottom: theme.spacing.md }}>
           <AppText style={{ marginBottom: theme.spacing.xs }}>
             Primary number size: {sizing.numberFontScale.toFixed(2)}×
           </AppText>
-          <Slider
-            accessibilityLabel="Primary number font size"
-            value={sizing.numberFontScale}
-            min={UI_SIZING_LIMITS.numberFontScale.min}
-            max={UI_SIZING_LIMITS.numberFontScale.max}
-            step={UI_SIZING_LIMITS.numberFontScale.step}
-            onChange={(numberFontScale) => {
-              const next = setUiSizingSettings(
-                settings,
-                { numberFontScale },
-                { updatedAtMs: Date.now(), updatedByDeviceId: deviceId },
-              );
-              updateLocalSettings(next);
-            }}
-          />
+          <View style={{ alignSelf: 'stretch' }}>
+            <Slider
+              accessibilityLabel="Primary number font size"
+              value={sizing.numberFontScale}
+              min={UI_SIZING_LIMITS.numberFontScale.min}
+              max={UI_SIZING_LIMITS.numberFontScale.max}
+              step={UI_SIZING_LIMITS.numberFontScale.step}
+              onChange={(numberFontScale) => {
+                const next = setUiSizingSettings(
+                  settings,
+                  { numberFontScale },
+                  { updatedAtMs: Date.now(), updatedByDeviceId: deviceId },
+                );
+                updateLocalSettings(next);
+              }}
+            />
+          </View>
         </View>
 
         <View style={{ marginBottom: theme.spacing.sm }}>
           <AppText style={{ marginBottom: theme.spacing.xs }}>
             Note size: {sizing.noteFontScale.toFixed(2)}×
           </AppText>
-          <Slider
-            accessibilityLabel="Note font size"
-            value={sizing.noteFontScale}
-            min={UI_SIZING_LIMITS.noteFontScale.min}
-            max={UI_SIZING_LIMITS.noteFontScale.max}
-            step={UI_SIZING_LIMITS.noteFontScale.step}
-            onChange={(noteFontScale) => {
-              const next = setUiSizingSettings(settings, { noteFontScale }, { updatedAtMs: Date.now(), updatedByDeviceId: deviceId });
-              updateLocalSettings(next);
-            }}
-          />
+          <View style={{ alignSelf: 'stretch' }}>
+            <Slider
+              accessibilityLabel="Note font size"
+              value={sizing.noteFontScale}
+              min={UI_SIZING_LIMITS.noteFontScale.min}
+              max={UI_SIZING_LIMITS.noteFontScale.max}
+              step={UI_SIZING_LIMITS.noteFontScale.step}
+              onChange={(noteFontScale) => {
+                const next = setUiSizingSettings(settings, { noteFontScale }, { updatedAtMs: Date.now(), updatedByDeviceId: deviceId });
+                updateLocalSettings(next);
+              }}
+            />
+          </View>
         </View>
       </AppCard>
 
