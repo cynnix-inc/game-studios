@@ -63,6 +63,11 @@ export function subscribeToAuthEvents(cb: (event: string) => void): () => void {
 }
 
 export async function getAccessToken(): Promise<string | null> {
+  // E2E test override (web export inlines EXPO_PUBLIC_* at build time).
+  // This allows deterministic Playwright smoke tests without real OAuth.
+  const e2e = process.env.EXPO_PUBLIC_E2E_ACCESS_TOKEN;
+  if (e2e && e2e.length > 0) return e2e;
+
   if (!isSupabaseConfigured()) return null;
   const supabase = getSupabase();
   const { data } = await supabase.auth.getSession();

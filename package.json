@@ -9,6 +9,7 @@
     "dev:sudoku": "corepack pnpm -C apps/sudoku dev",
     "web:sudoku": "corepack pnpm -C apps/sudoku web",
     "export:web:sudoku": "corepack pnpm -C apps/sudoku export:web",
+    "test:e2e:sudoku": "corepack pnpm -C apps/sudoku test:e2e",
     "supabase:start": "node scripts/supabase.mjs start --exclude logflare,vector",
     "supabase:stop": "node scripts/supabase.mjs stop",
     "supabase:status": "node scripts/supabase.mjs status",

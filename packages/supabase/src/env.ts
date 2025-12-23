@@ -7,9 +7,18 @@ export type SupabasePublicEnv = {
 export function getSupabasePublicEnv(): SupabasePublicEnv {
   // IMPORTANT (Expo web): EXPO_PUBLIC_* values are injected at build time, but only for
   // statically-referenced keys. Avoid `process.env[key]` here or Metro won't inline them.
-  const url = process.env.EXPO_PUBLIC_SUPABASE_URL;
-  const anonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
-  const functionsUrl = process.env.EXPO_PUBLIC_SUPABASE_FUNCTIONS_URL;
+  const e2eToken = process.env.EXPO_PUBLIC_E2E_ACCESS_TOKEN;
+  const e2eGlobals = e2eToken
+    ? (globalThis as unknown as {
+        __E2E_EXPO_PUBLIC_SUPABASE_URL?: string;
+        __E2E_EXPO_PUBLIC_SUPABASE_ANON_KEY?: string;
+        __E2E_EXPO_PUBLIC_SUPABASE_FUNCTIONS_URL?: string;
+      })
+    : null;
+
+  const url = process.env.EXPO_PUBLIC_SUPABASE_URL ?? e2eGlobals?.__E2E_EXPO_PUBLIC_SUPABASE_URL;
+  const anonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? e2eGlobals?.__E2E_EXPO_PUBLIC_SUPABASE_ANON_KEY;
+  const functionsUrl = process.env.EXPO_PUBLIC_SUPABASE_FUNCTIONS_URL ?? e2eGlobals?.__E2E_EXPO_PUBLIC_SUPABASE_FUNCTIONS_URL;
 
   if (!url) {
     throw new Error('Missing EXPO_PUBLIC_SUPABASE_URL (set it in .env from .env.example)');

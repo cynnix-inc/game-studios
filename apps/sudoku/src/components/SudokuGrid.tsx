@@ -205,6 +205,8 @@ export function SudokuGrid({
       accessibilityHint={`Use arrow keys to move between cells. Use number keys 1 through 9 to enter. Use Backspace or Delete to clear. Notes mode is ${notesMode ? 'on' : 'off'}.`}
       onFocus={() => setFocused(true)}
       onBlur={() => setFocused(false)}
+      // On web, clicking a cell should enable keyboard immediately (not only when the wrapper receives DOM focus).
+      onPress={() => setFocused(true)}
       style={() => ({
         alignItems: 'center',
         padding: theme.spacing.xs,
@@ -222,7 +224,10 @@ export function SudokuGrid({
             notes={notes?.[i]}
             selected={selectedIndex === i}
             given={!!givensMask[i]}
-            onPress={() => onSelectCell(i)}
+            onPress={() => {
+              setFocused(true);
+              onSelectCell(i);
+            }}
           />
         ))}
       </View>

@@ -144,7 +144,12 @@ function extractRankedSubmissionFromEdgeResponse(json: unknown): boolean | null 
 }
 
 export async function submitDailyRun(input: Omit<SubmitDailyRunInput, 'client_submission_id'> & { client_submission_id?: string }): Promise<SubmitDailyRunResult> {
-  const base = process.env.EXPO_PUBLIC_SUPABASE_FUNCTIONS_URL;
+  const e2eToken = process.env.EXPO_PUBLIC_E2E_ACCESS_TOKEN;
+  const base =
+    process.env.EXPO_PUBLIC_SUPABASE_FUNCTIONS_URL ??
+    (e2eToken
+      ? (globalThis as unknown as { __E2E_EXPO_PUBLIC_SUPABASE_FUNCTIONS_URL?: string }).__E2E_EXPO_PUBLIC_SUPABASE_FUNCTIONS_URL
+      : undefined);
   if (!base) return { ok: false, queued: false, error: { code: 'missing_functions_url', message: 'Missing EXPO_PUBLIC_SUPABASE_FUNCTIONS_URL' } };
 
   // Product policy: accept ranked submissions only within the Daily archive window (30 days, UTC-keyed).
@@ -200,7 +205,12 @@ export async function submitDailyRun(input: Omit<SubmitDailyRunInput, 'client_su
 }
 
 export async function flushPendingDailySubmissions(): Promise<{ ok: true; flushed: number } | { ok: false; flushed: number }> {
-  const base = process.env.EXPO_PUBLIC_SUPABASE_FUNCTIONS_URL;
+  const e2eToken = process.env.EXPO_PUBLIC_E2E_ACCESS_TOKEN;
+  const base =
+    process.env.EXPO_PUBLIC_SUPABASE_FUNCTIONS_URL ??
+    (e2eToken
+      ? (globalThis as unknown as { __E2E_EXPO_PUBLIC_SUPABASE_FUNCTIONS_URL?: string }).__E2E_EXPO_PUBLIC_SUPABASE_FUNCTIONS_URL
+      : undefined);
   if (!base) return { ok: false, flushed: 0 };
 
   const { getAccessToken } = await import('./auth');
