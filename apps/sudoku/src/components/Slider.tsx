@@ -3,6 +3,8 @@ import { PanResponder, Pressable, View, type LayoutChangeEvent } from 'react-nat
 
 import { theme } from '@cynnix-studios/ui';
 
+import { ratioFromValue, valueFromDragDx, valueFromX } from './sliderMath';
+
 type SliderProps = {
   value: number;
   min: number;
@@ -12,24 +14,12 @@ type SliderProps = {
   accessibilityLabel: string;
 };
 
-function clamp(v: number, min: number, max: number): number {
-  return Math.max(min, Math.min(max, v));
-}
-
-function roundToStep(v: number, min: number, step: number): number {
-  const n = Math.round((v - min) / step);
-  const next = min + n * step;
-  const places = step < 1 ? Math.min(6, String(step).split('.')[1]?.length ?? 0) : 0;
-  return places > 0 ? Number(next.toFixed(places)) : next;
-}
-
 export function Slider({ value, min, max, step, onChange, accessibilityLabel }: SliderProps) {
   const [trackWidth, setTrackWidth] = useState(0);
   const activeThumbStartValueRef = useRef(value);
 
   const ratio = useMemo(() => {
-    if (max <= min) return 0;
-    return clamp((value - min) / (max - min), 0, 1);
+    return ratioFromValue(value, min, max);
   }, [max, min, value]);
 
   const thumbX = useMemo(() => {
@@ -43,11 +33,9 @@ export function Slider({ value, min, max, step, onChange, accessibilityLabel }: 
 
   const setFromX = useCallback(
     (x: number) => {
-      if (trackWidth <= 0) return;
-      const r = clamp(x / trackWidth, 0, 1);
-      const raw = min + r * (max - min);
-      const stepped = roundToStep(raw, min, step);
-      onChange(clamp(stepped, min, max));
+      const next = valueFromX({ x, trackWidth, min, max, step });
+      if (next == null) return;
+      onChange(next);
     },
     [max, min, onChange, step, trackWidth],
   );
@@ -61,12 +49,19 @@ export function Slider({ value, min, max, step, onChange, accessibilityLabel }: 
           activeThumbStartValueRef.current = value;
         },
         onPanResponderMove: (_evt, gestureState) => {
-          const startRatio = max <= min ? 0 : clamp((activeThumbStartValueRef.current - min) / (max - min), 0, 1);
-          const startX = startRatio * trackWidth;
-          setFromX(startX + gestureState.dx);
+          const next = valueFromDragDx({
+            startValue: activeThumbStartValueRef.current,
+            dx: gestureState.dx,
+            trackWidth,
+            min,
+            max,
+            step,
+          });
+          if (next == null) return;
+          onChange(next);
         },
       }),
-    [max, min, setFromX, trackWidth, value],
+    [max, min, onChange, step, trackWidth, value],
   );
 
   return (
@@ -77,6 +72,7 @@ export function Slider({ value, min, max, step, onChange, accessibilityLabel }: 
       style={{
         height: 32,
         justifyContent: 'center',
+        width: '100%',
       }}
       onLayout={onLayout}
       {...responder.panHandlers}
@@ -84,6 +80,7 @@ export function Slider({ value, min, max, step, onChange, accessibilityLabel }: 
       <View
         style={{
           height: 6,
+          width: '100%',
           backgroundColor: theme.colors.surface2,
           borderColor: theme.colors.border,
           borderWidth: 1,

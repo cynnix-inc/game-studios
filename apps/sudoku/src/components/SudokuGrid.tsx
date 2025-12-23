@@ -4,6 +4,8 @@ import { Platform, Pressable, View } from 'react-native';
 import { AppText, theme } from '@cynnix-studios/ui';
 import type { Grid } from '@cynnix-studios/sudoku-core';
 
+import { computeGridHighlights } from './gridHighlight';
+
 type Digit = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
 
 function digitFromKey(key: string): Digit | null {
@@ -36,6 +38,8 @@ function Cell({
   value,
   notes,
   selected,
+  highlightRowCol,
+  highlightSameValue,
   given,
   onPress,
 }: {
@@ -43,6 +47,8 @@ function Cell({
   value: number;
   notes?: ReadonlySet<number>;
   selected: boolean;
+  highlightRowCol: boolean;
+  highlightSameValue: boolean;
   given: boolean;
   onPress: () => void;
 }) {
@@ -53,6 +59,8 @@ function Cell({
   const thickR = c === 8;
   const thickB = r === 8;
   const selectedBoost = selected ? 1 : 0;
+  const highlightBoost = highlightRowCol || highlightSameValue ? 1 : 0;
+  const highlightBorder = highlightSameValue ? theme.colors.accent : theme.colors.border;
 
   return (
     <Pressable
@@ -64,12 +72,12 @@ function Cell({
         height: 36,
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: selected ? theme.colors.surface2 : theme.colors.surface,
-        borderColor: selected ? theme.colors.accent : theme.colors.border,
-        borderLeftWidth: (thickL ? 2 : 1) + selectedBoost,
-        borderTopWidth: (thickT ? 2 : 1) + selectedBoost,
-        borderRightWidth: (thickR ? 2 : 1) + selectedBoost,
-        borderBottomWidth: (thickB ? 2 : 1) + selectedBoost,
+        backgroundColor: selected || highlightRowCol || highlightSameValue ? theme.colors.surface2 : theme.colors.surface,
+        borderColor: selected ? theme.colors.accent : highlightBoost ? highlightBorder : theme.colors.border,
+        borderLeftWidth: (thickL ? 2 : 1) + selectedBoost + highlightBoost,
+        borderTopWidth: (thickT ? 2 : 1) + selectedBoost + highlightBoost,
+        borderRightWidth: (thickR ? 2 : 1) + selectedBoost + highlightBoost,
+        borderBottomWidth: (thickB ? 2 : 1) + selectedBoost + highlightBoost,
       }}
     >
       {value === 0 ? (
@@ -123,6 +131,7 @@ export function SudokuGrid({
   onEscape?: () => void;
 }) {
   const [focused, setFocused] = useState(false);
+  const highlights = React.useMemo(() => computeGridHighlights({ puzzle, selectedIndex }), [puzzle, selectedIndex]);
 
   const handleKey = useCallback(
     (key: string, preventDefault?: () => void) => {
@@ -223,6 +232,8 @@ export function SudokuGrid({
             value={v}
             notes={notes?.[i]}
             selected={selectedIndex === i}
+            highlightRowCol={selectedIndex != null && (highlights.row.has(i) || highlights.col.has(i))}
+            highlightSameValue={selectedIndex != null && highlights.sameValue.has(i)}
             given={!!givensMask[i]}
             onPress={() => {
               setFocused(true);

@@ -1,5 +1,5 @@
 import React from 'react';
-import { View } from 'react-native';
+import { Switch, View } from 'react-native';
 
 import { AppCard, AppText, Screen, theme } from '@cynnix-studios/ui';
 
@@ -7,7 +7,7 @@ import { usePlayerStore } from '../../src/state/usePlayerStore';
 import { useSettingsStore } from '../../src/state/useSettingsStore';
 import { Slider } from '../../src/components/Slider';
 import { SudokuSizingPreview } from '../../src/components/SudokuSizingPreview';
-import { getUiSizingSettings, setUiSizingSettings, UI_SIZING_LIMITS } from '../../src/services/settingsModel';
+import { getSettingsToggles, getUiSizingSettings, setSettingsToggles, setUiSizingSettings, UI_SIZING_LIMITS } from '../../src/services/settingsModel';
 import { updateLocalSettings } from '../../src/services/settings';
 
 export default function SettingsScreen() {
@@ -36,6 +36,15 @@ export default function SettingsScreen() {
   }
 
   const sizing = getUiSizingSettings(settings);
+  const toggles = getSettingsToggles(settings);
+
+  const signedIn = profile?.mode === 'supabase';
+  const cloudSyncLabel = signedIn ? syncStatus : 'signed out';
+  const cloudLastSyncLabel = signedIn && syncStatus === 'ok' && lastSyncAtMs ? new Date(lastSyncAtMs).toLocaleString() : '—';
+
+  const puzzleSyncLabel = signedIn ? puzzleSyncStatus : 'signed out';
+  const puzzleLastSyncLabel =
+    signedIn && puzzleSyncStatus === 'ok' && puzzleLastSyncAtMs ? new Date(puzzleLastSyncAtMs).toLocaleString() : '—';
 
   return (
     <Screen>
@@ -113,26 +122,53 @@ export default function SettingsScreen() {
       </AppCard>
 
       <AppCard>
+        <AppText weight="semibold" style={{ marginBottom: theme.spacing.sm }}>
+          Toggles
+        </AppText>
+
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: theme.spacing.sm }}>
+          <AppText>Sound</AppText>
+          <Switch
+            accessibilityLabel="Sound toggle"
+            value={toggles.soundEnabled}
+            onValueChange={(soundEnabled) => {
+              const next = setSettingsToggles(settings, { soundEnabled }, { updatedAtMs: Date.now(), updatedByDeviceId: deviceId });
+              updateLocalSettings(next);
+            }}
+          />
+        </View>
+
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <AppText>Haptics</AppText>
+          <Switch
+            accessibilityLabel="Haptics toggle"
+            value={toggles.hapticsEnabled}
+            onValueChange={(hapticsEnabled) => {
+              const next = setSettingsToggles(settings, { hapticsEnabled }, { updatedAtMs: Date.now(), updatedByDeviceId: deviceId });
+              updateLocalSettings(next);
+            }}
+          />
+        </View>
+
+        <View style={{ height: theme.spacing.lg }} />
+
         <AppText tone="muted">Profile: {profile ? profile.mode : 'none'}</AppText>
         <AppText tone="muted">Difficulty: {difficulty}</AppText>
         <AppText tone="muted" style={{ marginTop: theme.spacing.md }}>
-          Cloud sync: {syncStatus}
+          Cloud sync: {cloudSyncLabel}
         </AppText>
         <AppText tone="muted">
-          Last sync: {lastSyncAtMs ? new Date(lastSyncAtMs).toLocaleString() : 'never'}
+          Last sync: {cloudLastSyncLabel}
         </AppText>
-        {lastError ? <AppText tone="muted">Last error: {lastError}</AppText> : null}
+        {signedIn && lastError ? <AppText tone="muted">Last error: {lastError}</AppText> : null}
 
         <AppText tone="muted" style={{ marginTop: theme.spacing.md }}>
-          Puzzle sync: {puzzleSyncStatus}
+          Puzzle sync: {puzzleSyncLabel}
         </AppText>
         <AppText tone="muted">
-          Puzzle last sync: {puzzleLastSyncAtMs ? new Date(puzzleLastSyncAtMs).toLocaleString() : 'never'}
+          Puzzle last sync: {puzzleLastSyncLabel}
         </AppText>
-        {puzzleLastSyncError ? <AppText tone="muted">Puzzle last error: {puzzleLastSyncError}</AppText> : null}
-        <AppText tone="muted" style={{ marginTop: theme.spacing.md }}>
-          TODO: add toggles (sound, haptics, etc.)
-        </AppText>
+        {signedIn && puzzleLastSyncError ? <AppText tone="muted">Puzzle last error: {puzzleLastSyncError}</AppText> : null}
       </AppCard>
     </Screen>
   );

@@ -30,7 +30,13 @@ export function AuthBootstrap() {
 
     const init = async () => {
       // Prefer Supabase session if configured/present.
-      const user = await getSessionUser();
+      let user: Awaited<ReturnType<typeof getSessionUser>> = null;
+      try {
+        user = await getSessionUser();
+      } catch {
+        // Best-effort: if auth is temporarily unavailable/misconfigured, fall back to guest restore.
+        user = null;
+      }
       if (cancelled) return;
       if (user) {
         const prev = usePlayerStore.getState().profile;
@@ -64,7 +70,12 @@ export function AuthBootstrap() {
     const unsubscribeAuth = subscribeToAuthEvents(() => {
       // Keep it simple: on any auth event, re-read session user and update profile.
       void (async () => {
-        const user = await getSessionUser();
+        let user: Awaited<ReturnType<typeof getSessionUser>> = null;
+        try {
+          user = await getSessionUser();
+        } catch {
+          user = null;
+        }
         if (cancelled) return;
         if (user) {
           const prev = usePlayerStore.getState().profile;

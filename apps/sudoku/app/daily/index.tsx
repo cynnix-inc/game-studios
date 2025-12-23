@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { AppState, Platform, Pressable, View } from 'react-native';
+import { AppState, Platform, View } from 'react-native';
 
 import { AppButton, AppCard, AppText, Screen, theme } from '@cynnix-studios/ui';
 import { getLastNUtcDateKeys, getRunTimerElapsedMs, msUntilNextUtcMidnight, nowUtcDateKey } from '@cynnix-studios/sudoku-core';
@@ -9,7 +9,10 @@ import { readLocalInProgressSave, writeLocalSave } from '../../src/services/save
 import { pullAndMergeCurrentPuzzle, pushCurrentPuzzle } from '../../src/services/sync';
 import { NumberPad } from '../../src/components/NumberPad';
 import { SudokuGrid } from '../../src/components/SudokuGrid';
+import { DailyCalendar } from '../../src/components/DailyCalendar';
+import { IconButton } from '../../src/components/IconButton';
 import { createClientSubmissionId, flushPendingDailySubmissions, submitDailyRun } from '../../src/services/leaderboard';
+import { markDailyCompleted } from '../../src/services/dailyCompletion';
 import { recordDailyCompleted, recordDailySubmissionResult } from '../../src/services/stats';
 import { trackEvent } from '../../src/services/telemetry';
 
@@ -106,6 +109,7 @@ export default function DailyScreen() {
   }, [loadDaily, todayKey]);
 
   const [submitState, setSubmitState] = useState<'idle' | 'submitting' | 'queued' | 'submitted'>('idle');
+  const [calendarRefresh, setCalendarRefresh] = useState(0);
 
   useEffect(() => {
     void flushPendingDailySubmissions();
@@ -208,6 +212,8 @@ export default function DailyScreen() {
     const clientSubmissionId = createClientSubmissionId();
     markCompleted({ clientSubmissionId });
     void recordDailyCompleted();
+    void markDailyCompleted({ dateKey: dailyDateKey });
+    setCalendarRefresh((x) => x + 1);
     setSubmitState('submitting');
 
     void (async () => {
@@ -290,37 +296,19 @@ export default function DailyScreen() {
       ) : null}
 
       <AppCard style={{ marginBottom: theme.spacing.md, gap: theme.spacing.sm }}>
-        <AppText weight="semibold">Archive (last 30 days)</AppText>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: theme.spacing.sm }}>
-          {archive.map((k) => {
-            const active = mode === 'daily' && dailyDateKey === k;
-            return (
-              <Pressable
-                key={k}
-                onPress={() => {
-                  if (hydrated && runStatus !== 'completed' && movesLen > 0) {
-                    void trackEvent({ name: 'abandon_puzzle', props: { mode: 'daily', reason: 'switch_day' } });
-                  }
-                  void loadDaily(k);
-                }}
-                accessibilityRole="button"
-                accessibilityLabel={`Load Daily ${k}`}
-                style={{
-                  paddingVertical: theme.spacing.xs,
-                  paddingHorizontal: theme.spacing.sm,
-                  borderRadius: theme.radius.md,
-                  backgroundColor: active ? theme.colors.accent : theme.colors.surface2,
-                  borderWidth: 1,
-                  borderColor: theme.colors.border,
-                }}
-              >
-                <AppText weight="semibold" tone={active ? 'default' : 'muted'}>
-                  {k.slice(5)}
-                </AppText>
-              </Pressable>
-            );
-          })}
-        </View>
+        <AppText weight="semibold">Archive</AppText>
+        <DailyCalendar
+          todayKey={todayKey}
+          selectedDateKey={mode === 'daily' ? dailyDateKey : null}
+          availableDateKeys={archive}
+          refreshToken={calendarRefresh}
+          onSelectDate={(k) => {
+            if (hydrated && runStatus !== 'completed' && movesLen > 0) {
+              void trackEvent({ name: 'abandon_puzzle', props: { mode: 'daily', reason: 'switch_day' } });
+            }
+            void loadDaily(k);
+          }}
+        />
       </AppCard>
 
       <AppCard style={{ flex: 1, marginBottom: theme.spacing.md }}>
@@ -338,26 +326,16 @@ export default function DailyScreen() {
       </AppCard>
 
       <View style={{ flexDirection: 'row', gap: theme.spacing.sm, marginBottom: theme.spacing.md, flexWrap: 'wrap' }}>
-        <AppButton
-          title="Reveal Cell (+120s)"
-          variant="secondary"
-          disabled={revealDisabled}
-          onPress={hintRevealCellValue}
-        />
-        <AppButton title={notesMode ? 'Notes: ON (N)' : 'Notes: OFF (N)'} variant="secondary" onPress={toggleNotesMode} />
-        <AppButton title="Undo (U)" variant="secondary" disabled={undoStackLen === 0} onPress={undo} />
-        <AppButton title="Redo (R)" variant="secondary" disabled={redoStackLen === 0} onPress={redo} />
+        <IconButton icon="◉" label="Reveal cell (+120s)" disabled={revealDisabled} onPress={hintRevealCellValue} />
+        <IconButton icon="✎" label="Notes (N)" active={notesMode} onPress={toggleNotesMode} />
+        <IconButton icon="↶" label="Undo (U)" disabled={undoStackLen === 0} onPress={undo} />
+        <IconButton icon="↷" label="Redo (R)" disabled={redoStackLen === 0} onPress={redo} />
         {runStatus === 'paused' ? (
-          <AppButton
-            title="Resume"
-            onPress={() => {
-              resumeRun();
-            }}
-          />
+          <IconButton icon="▶" label="Resume" onPress={() => resumeRun()} />
         ) : (
-          <AppButton
-            title="Pause"
-            variant="secondary"
+          <IconButton
+            icon="⏸"
+            label="Pause"
             onPress={() => {
               pauseRun();
               void writeLocalSave();

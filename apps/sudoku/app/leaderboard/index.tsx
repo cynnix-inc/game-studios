@@ -174,6 +174,7 @@ export default function LeaderboardScreen() {
         </AppText>
         {topStatus === 'loading' ? <AppText tone="muted">Loading…</AppText> : null}
         {topStatus === 'error' ? <AppText tone="muted">Unable to load leaderboard.</AppText> : null}
+        {topStatus === 'idle' && top.length === 0 ? <AppText tone="muted">No ranked runs yet for this day.</AppText> : null}
         {top.map((r) => (
           <Row key={`${r.utc_date}-${r.rank}-${r.player_id}`} r={r} mePlayerId={mePlayerId} />
         ))}
