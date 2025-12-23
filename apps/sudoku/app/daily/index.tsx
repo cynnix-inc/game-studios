@@ -289,7 +289,7 @@ export default function DailyScreen() {
             {dailyLoad.reason === 'offline'
               ? 'Offline. Daily requires an internet connection.'
               : dailyLoad.reason === 'missing_base_url'
-                ? 'Missing EXPO_PUBLIC_SUDOKU_DAILY_BASE_URL.'
+                ? 'Missing EXPO_PUBLIC_SUDOKU_DAILY_BASE_URL (set it in apps/sudoku/.env from docs/env.example).'
                 : 'Daily payload was unavailable or invalid.'}
           </AppText>
         </AppCard>

@@ -6,8 +6,13 @@
  *
  * This script fails the build early with clear diagnostics (without printing secrets).
  */
-const required = ['EXPO_PUBLIC_SUPABASE_URL', 'EXPO_PUBLIC_SUPABASE_ANON_KEY'];
-const optional = ['EXPO_PUBLIC_SUPABASE_FUNCTIONS_URL'];
+const required = [
+  'EXPO_PUBLIC_SUPABASE_URL',
+  'EXPO_PUBLIC_SUPABASE_ANON_KEY',
+  // Daily requires a base URL for manifest/payload hosting; without it the app shows "Daily unavailable".
+  'EXPO_PUBLIC_SUDOKU_DAILY_BASE_URL',
+];
+const optional = ['EXPO_PUBLIC_SUPABASE_FUNCTIONS_URL', 'EXPO_PUBLIC_SUDOKU_FREEPLAY_BASE_URL'];
 
 function isPresent(value) {
   return typeof value === 'string' && value.trim().length > 0;
