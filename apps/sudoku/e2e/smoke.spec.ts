@@ -36,7 +36,7 @@ test('leaderboard: renders score and raw time tabs (mocked)', async ({ page }) =
 
 test('game: can navigate to free play and see the grid', async ({ page }) => {
   await page.goto('/game');
-  await expect(page.getByText('Sudoku')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Ultimate Sudoku' })).toBeVisible();
   await expect(page.getByLabel('Sudoku grid')).toBeVisible();
 });
 

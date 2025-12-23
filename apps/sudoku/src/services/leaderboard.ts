@@ -3,6 +3,8 @@ import type { HintType } from '@cynnix-studios/sudoku-core';
 import { getLastNUtcDateKeys } from '@cynnix-studios/sudoku-core';
 import { getSupabasePublicEnv } from '@cynnix-studios/supabase';
 
+import { buildSupabaseRestUrl } from './leaderboardRestUrl';
+
 type LeaderboardTab = 'score' | 'raw_time';
 
 export type DailyLeaderboardRow = {
@@ -33,16 +35,7 @@ function supabaseAnonKey(): string {
 }
 
 function buildRestUrl(path: string, params: Record<string, string | string[]>): string {
-  const base = supabaseRestBaseUrl();
-  const u = new URL(`${base}${path.startsWith('/') ? '' : '/'}${path}`);
-  for (const [k, v] of Object.entries(params)) {
-    if (Array.isArray(v)) {
-      for (const item of v) u.searchParams.append(k, item);
-      continue;
-    }
-    u.searchParams.set(k, v);
-  }
-  return u.toString();
+  return buildSupabaseRestUrl(supabaseRestBaseUrl(), path, params);
 }
 
 async function restGetJson<T>(args: {

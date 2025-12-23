@@ -30,11 +30,21 @@ export type UiSizingSettings = {
   noteFontScale: number;
 };
 
+export type SettingsToggles = {
+  soundEnabled: boolean;
+  hapticsEnabled: boolean;
+};
+
 export const UI_SIZING_LIMITS = {
   gridSize: { min: 28, max: 56, step: 1, default: 36 },
   numberFontScale: { min: 0.85, max: 1.35, step: 0.05, default: 1.0 },
   noteFontScale: { min: 0.7, max: 1.25, step: 0.05, default: 1.0 },
 } as const;
+
+const TOGGLES_DEFAULTS: SettingsToggles = {
+  soundEnabled: true,
+  hapticsEnabled: true,
+};
 
 function isObject(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null;
@@ -43,6 +53,10 @@ function isObject(v: unknown): v is Record<string, unknown> {
 function clampFiniteNumber(v: unknown, min: number, max: number, fallback: number): number {
   if (typeof v !== 'number' || !Number.isFinite(v)) return fallback;
   return Math.max(min, Math.min(max, v));
+}
+
+function readBool(v: unknown, fallback: boolean): boolean {
+  return typeof v === 'boolean' ? v : fallback;
 }
 
 export function isSudokuSettingsV1(v: unknown): v is SudokuSettingsV1 {
@@ -75,6 +89,14 @@ export function getUiSizingSettings(settings: SudokuSettingsV1): UiSizingSetting
       UI_SIZING_LIMITS.noteFontScale.max,
       UI_SIZING_LIMITS.noteFontScale.default,
     ),
+  };
+}
+
+export function getSettingsToggles(settings: SudokuSettingsV1): SettingsToggles {
+  const t = settings.toggles;
+  return {
+    soundEnabled: readBool(t?.sound, TOGGLES_DEFAULTS.soundEnabled),
+    hapticsEnabled: readBool(t?.haptics, TOGGLES_DEFAULTS.hapticsEnabled),
   };
 }
 
@@ -114,6 +136,29 @@ export function setUiSizingSettings(
       gridSize: next.gridSize,
       numberFontScale: next.numberFontScale,
       noteFontScale: next.noteFontScale,
+    },
+  };
+}
+
+export function setSettingsToggles(
+  settings: SudokuSettingsV1,
+  patch: Partial<SettingsToggles>,
+  args: { updatedByDeviceId: string; updatedAtMs: number },
+): SudokuSettingsV1 {
+  const current = getSettingsToggles(settings);
+  const next: SettingsToggles = {
+    soundEnabled: patch.soundEnabled ?? current.soundEnabled,
+    hapticsEnabled: patch.hapticsEnabled ?? current.hapticsEnabled,
+  };
+
+  return {
+    ...settings,
+    updatedAtMs: args.updatedAtMs,
+    updatedByDeviceId: args.updatedByDeviceId,
+    toggles: {
+      ...(isObject(settings.toggles) ? settings.toggles : undefined),
+      sound: next.soundEnabled,
+      haptics: next.hapticsEnabled,
     },
   };
 }

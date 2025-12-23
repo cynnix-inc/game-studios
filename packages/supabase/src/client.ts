@@ -11,10 +11,17 @@ type AsyncStorageLike = {
   removeItem(key: string): Promise<void>;
 };
 
+function isWebRuntime(): boolean {
+  // Expo web / react-native-web provides a DOM; true React Native does not.
+  return typeof window !== 'undefined' && typeof document !== 'undefined';
+}
+
 function isReactNativeRuntime(): boolean {
   // RN sets navigator.product = 'ReactNative'. Web/Node do not.
   const nav = (globalThis as unknown as { navigator?: { product?: string } }).navigator;
-  return nav?.product === 'ReactNative';
+  // NOTE: On Expo Web, navigator.product may still be 'ReactNative' (react-native-web),
+  // but we must treat that as web so OAuth redirect sessions are detected in the URL.
+  return nav?.product === 'ReactNative' && !isWebRuntime();
 }
 
 export function createTypedSupabaseClient(env?: SupabasePublicEnv): TypedSupabaseClient {

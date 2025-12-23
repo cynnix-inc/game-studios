@@ -10,6 +10,7 @@ import { pullAndMergeCurrentPuzzle, pushCurrentPuzzle } from '../../src/services
 import { createClientSubmissionId } from '../../src/services/leaderboard';
 import { recordFreePlayCompleted } from '../../src/services/stats';
 import { trackEvent } from '../../src/services/telemetry';
+import { IconButton } from '../../src/components/IconButton';
 import { NumberPad } from '../../src/components/NumberPad';
 import { SudokuGrid } from '../../src/components/SudokuGrid';
 
@@ -141,9 +142,7 @@ export default function GameScreen() {
 
   return (
     <Screen scroll>
-      <AppText style={{ fontSize: theme.fontSize.xl, marginBottom: theme.spacing.lg }} weight="bold">
-        Sudoku
-      </AppText>
+      <View style={{ height: theme.spacing.md }} />
 
       <View style={{ flexDirection: 'row', gap: theme.spacing.md, marginBottom: theme.spacing.md }}>
         <AppCard style={{ flex: 1 }}>
@@ -154,16 +153,11 @@ export default function GameScreen() {
         </AppCard>
         <View style={{ justifyContent: 'center' }}>
           {runStatus === 'paused' ? (
-            <AppButton
-              title="Resume"
-              onPress={() => {
-                resumeRun();
-              }}
-            />
+            <IconButton icon="▶" label="Resume" onPress={() => resumeRun()} />
           ) : (
-            <AppButton
-              title="Pause"
-              variant="secondary"
+            <IconButton
+              icon="⏸"
+              label="Pause"
               onPress={() => {
                 pauseRun();
                 void writeLocalSave();
@@ -183,13 +177,9 @@ export default function GameScreen() {
       ) : (
         <>
           <View style={{ flexDirection: 'row', gap: theme.spacing.sm, marginBottom: theme.spacing.md }}>
-            <AppButton
-              title={notesMode ? 'Notes: ON (N)' : 'Notes: OFF (N)'}
-              variant="secondary"
-              onPress={toggleNotesMode}
-            />
-            <AppButton title="Undo (U)" variant="secondary" disabled={undoStackLen === 0} onPress={undo} />
-            <AppButton title="Redo (R)" variant="secondary" disabled={redoStackLen === 0} onPress={redo} />
+            <IconButton icon="✎" label="Notes (N)" active={notesMode} onPress={toggleNotesMode} />
+            <IconButton icon="↶" label="Undo (U)" disabled={undoStackLen === 0} onPress={undo} />
+            <IconButton icon="↷" label="Redo (R)" disabled={redoStackLen === 0} onPress={redo} />
           </View>
 
           <View style={{ marginBottom: theme.spacing.lg }}>

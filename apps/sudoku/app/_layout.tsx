@@ -39,7 +39,7 @@ export default function RootLayout() {
           tabBarInactiveTintColor: theme.colors.muted,
         }}
       >
-        <Tabs.Screen name="game/index" options={{ title: 'Game' }} />
+        <Tabs.Screen name="game/index" options={{ title: 'Ultimate Sudoku' }} />
         <Tabs.Screen name="daily/index" options={{ title: 'Daily' }} />
         <Tabs.Screen name="leaderboard/index" options={{ title: 'Leaderboard' }} />
         <Tabs.Screen name="settings/index" options={{ title: 'Settings' }} />
