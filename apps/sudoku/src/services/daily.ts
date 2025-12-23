@@ -19,7 +19,12 @@ function dailySlot(dateKey: string) {
 }
 
 function dailyBaseUrl(): string | null {
-  const base = process.env.EXPO_PUBLIC_SUDOKU_DAILY_BASE_URL;
+  const e2eToken = process.env.EXPO_PUBLIC_E2E_ACCESS_TOKEN;
+  const base =
+    process.env.EXPO_PUBLIC_SUDOKU_DAILY_BASE_URL ??
+    (e2eToken
+      ? (globalThis as unknown as { __E2E_EXPO_PUBLIC_SUDOKU_DAILY_BASE_URL?: string }).__E2E_EXPO_PUBLIC_SUDOKU_DAILY_BASE_URL
+      : undefined);
   if (!base) return null;
   return base.endsWith('/') ? base.slice(0, -1) : base;
 }
