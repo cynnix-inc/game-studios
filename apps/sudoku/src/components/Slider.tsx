@@ -45,6 +45,9 @@ export function Slider({ value, min, max, step, onChange, accessibilityLabel }: 
       PanResponder.create({
         onStartShouldSetPanResponder: () => true,
         onMoveShouldSetPanResponder: () => true,
+        onStartShouldSetPanResponderCapture: () => true,
+        onMoveShouldSetPanResponderCapture: () => true,
+        onPanResponderTerminationRequest: () => false,
         onPanResponderGrant: () => {
           activeThumbStartValueRef.current = value;
         },
@@ -73,6 +76,7 @@ export function Slider({ value, min, max, step, onChange, accessibilityLabel }: 
         height: 32,
         justifyContent: 'center',
         width: '100%',
+        alignSelf: 'stretch',
       }}
       onLayout={onLayout}
       {...responder.panHandlers}
