@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "expo start",
     "web": "expo start --web",
-    "export:web": "node ../../scripts/verify-expo-public-env.mjs && expo export -p web --output-dir dist",
+    "export:web": "node ../../scripts/generate-daily-static.mjs --out apps/sudoku/public/puzzles/daily --daysPast 30 --daysFuture 370 && node ../../scripts/verify-expo-public-env.mjs && expo export -p web --output-dir dist",
     "lint": "corepack pnpm exec eslint .",
     "typecheck": "corepack pnpm exec tsc -p tsconfig.json --noEmit",
     "test": "corepack pnpm exec jest",

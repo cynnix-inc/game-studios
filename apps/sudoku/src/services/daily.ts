@@ -25,7 +25,13 @@ function dailyBaseUrl(): string | null {
     (e2eToken
       ? (globalThis as unknown as { __E2E_EXPO_PUBLIC_SUDOKU_DAILY_BASE_URL?: string }).__E2E_EXPO_PUBLIC_SUDOKU_DAILY_BASE_URL
       : undefined);
-  if (!base) return null;
+  if (!base) {
+    // Zero-config web default: host daily JSON in the same site under /puzzles/daily.
+    if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+      return `${window.location.origin}/puzzles/daily`;
+    }
+    return null;
+  }
   return base.endsWith('/') ? base.slice(0, -1) : base;
 }
 
