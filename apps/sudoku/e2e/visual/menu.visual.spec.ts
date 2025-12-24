@@ -9,6 +9,7 @@ test.describe('visual: menu (Ultimate Sudoku)', () => {
 
     const screen = page.getByTestId('make-screen');
     await expect(screen).toBeVisible();
+    await page.mouse.move(0, 0);
     await expect(screen).toHaveScreenshot('menu.mobile.png');
   });
 
@@ -19,6 +20,7 @@ test.describe('visual: menu (Ultimate Sudoku)', () => {
 
     const screen = page.getByTestId('make-screen');
     await expect(screen).toBeVisible();
+    await page.mouse.move(0, 0);
     await expect(screen).toHaveScreenshot('menu.tablet.png');
   });
 
@@ -29,6 +31,7 @@ test.describe('visual: menu (Ultimate Sudoku)', () => {
 
     const screen = page.getByTestId('make-screen');
     await expect(screen).toBeVisible();
+    await page.mouse.move(0, 0);
     await expect(screen).toHaveScreenshot('menu.desktop.png');
   });
 });

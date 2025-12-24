@@ -1,10 +1,11 @@
 import React from 'react';
-import { Pressable, useWindowDimensions, View } from 'react-native';
+import { Platform, Pressable, useWindowDimensions, View } from 'react-native';
 import { ArrowLeft, Flame, Skull, Target, Zap } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
 import { theme } from '@cynnix-studios/ui';
 
+import { MakeCard } from '../../components/make/MakeCard';
 import { MakeScreen } from '../../components/make/MakeScreen';
 import { MakeText } from '../../components/make/MakeText';
 import { MakeButton } from '../../components/make/MakeButton';
@@ -67,17 +68,17 @@ export function UltimateDifficultyScreen({
   const { theme: makeTheme } = useMakeTheme();
 
   return (
-    <MakeScreen style={{ paddingHorizontal: isMd ? 32 : 16 }}>
+    <MakeScreen style={{ padding: isMd ? 32 : 16 }}>
       <View style={{ width: '100%', maxWidth: 896, alignSelf: 'center' }}>
         {/* Header */}
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
           <MakeButton
             accessibilityLabel="Back"
             title="Back"
-            variant="secondary"
+            variant="ghost"
             onPress={onBack}
             leftIcon={<ArrowLeft width={20} height={20} color={makeTheme.text.primary} />}
-            contentStyle={{ paddingVertical: 10, paddingHorizontal: 14 }}
+            contentStyle={{ paddingVertical: 10, paddingHorizontal: 12 }}
           />
 
           <MakeText style={{ fontSize: isMd ? 28 : 22 }} weight="bold">
@@ -100,89 +101,105 @@ export function UltimateDifficultyScreen({
                   accessibilityRole="button"
                   accessibilityLabel={d.title}
                   onPress={() => onSelectDifficulty(d.level)}
-                  style={({ pressed }) => ({
+                  style={(state) => ({
                     width: cardWidth as unknown as number,
-                    borderRadius: 24,
-                    borderWidth: 1,
-                    borderColor: makeTheme.card.border,
-                    backgroundColor: makeTheme.card.background,
-                    padding: 18,
-                    opacity: pressed ? 0.94 : 1,
+                    opacity: state.pressed ? 0.96 : 1,
+                    ...(Platform.OS === 'web'
+                      ? ({
+                          transform: state.hovered ? 'scale(1.03)' : 'scale(1)',
+                          transition: 'transform 250ms ease, opacity 150ms ease',
+                        } as unknown as object)
+                      : null),
                   })}
                 >
-                  <View style={{ gap: 12 }}>
-                    <LinearGradient
-                      colors={d.gradient}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 1 }}
-                      style={{ padding: 14, borderRadius: 18, alignSelf: 'flex-start' }}
-                    >
-                      <Icon width={36} height={36} color={d.iconColor} />
-                    </LinearGradient>
+                  {({ hovered }) => (
+                    <MakeCard style={{ borderRadius: 24 }}>
+                      <View style={{ padding: 32, gap: 16 }}>
+                        <LinearGradient
+                          colors={d.gradient}
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 1 }}
+                          style={{ padding: 16, borderRadius: 16, alignSelf: 'flex-start' }}
+                        >
+                          <Icon width={40} height={40} color={d.iconColor} />
+                        </LinearGradient>
 
-                    <View>
-                      <MakeText style={{ fontSize: 22 }} weight="bold">
-                        {d.title}
-                      </MakeText>
-                      <MakeText tone="muted" style={{ marginTop: 2 }}>
-                        {d.description}
-                      </MakeText>
-                    </View>
+                        <View>
+                          <MakeText style={{ fontSize: isMd ? 30 : 24 }} weight="bold">
+                            {d.title}
+                          </MakeText>
+                          <MakeText tone="muted" style={{ marginTop: 4, fontSize: 14 }}>
+                            {d.description}
+                          </MakeText>
+                        </View>
 
-                    <View style={{ borderTopWidth: 1, borderTopColor: makeTheme.card.border, paddingTop: 10, gap: 6 }}>
-                      <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                        <MakeText tone="secondary">Completion Rate</MakeText>
-                        <MakeText>
-                          {d.level === 'easy' ? '95%' : d.level === 'medium' ? '75%' : d.level === 'hard' ? '45%' : '20%'}
-                        </MakeText>
+                        <View style={{ borderTopWidth: 1, borderTopColor: makeTheme.card.border, paddingTop: 16, gap: 10 }}>
+                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <MakeText tone="secondary" style={{ fontSize: 14 }}>
+                              Completion Rate
+                            </MakeText>
+                            <MakeText style={{ fontSize: 14 }}>
+                              {d.level === 'easy' ? '95%' : d.level === 'medium' ? '75%' : d.level === 'hard' ? '45%' : '20%'}
+                            </MakeText>
+                          </View>
+                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <MakeText tone="secondary" style={{ fontSize: 14 }}>
+                              Avg. Time
+                            </MakeText>
+                            <MakeText style={{ fontSize: 14 }}>
+                              {d.level === 'easy'
+                                ? '8-12 min'
+                                : d.level === 'medium'
+                                  ? '15-25 min'
+                                  : d.level === 'hard'
+                                    ? '30-45 min'
+                                    : '45+ min'}
+                            </MakeText>
+                          </View>
+                        </View>
+
+                        {/* Hover-only indicator (web) */}
+                        <View style={{ alignItems: 'center', paddingTop: 6 }}>
+                          <MakeText
+                            style={{
+                              fontSize: 14,
+                              color: makeTheme.accent,
+                              opacity: Platform.OS === 'web' && hovered ? 1 : 0,
+                            }}
+                          >
+                            Click to play →
+                          </MakeText>
+                        </View>
                       </View>
-                      <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                        <MakeText tone="secondary">Avg. Time</MakeText>
-                        <MakeText>
-                          {d.level === 'easy'
-                            ? '8-12 min'
-                            : d.level === 'medium'
-                              ? '15-25 min'
-                              : d.level === 'hard'
-                                ? '30-45 min'
-                                : '45+ min'}
-                        </MakeText>
-                      </View>
-                    </View>
-                  </View>
+                    </MakeCard>
+                  )}
                 </Pressable>
               );
             })}
           </View>
 
           {/* Info */}
-          <View
-            style={{
-              borderRadius: 18,
-              borderWidth: 1,
-              borderColor: makeTheme.card.border,
-              backgroundColor: makeTheme.card.background,
-              padding: 18,
-            }}
-          >
-            <MakeText weight="semibold" style={{ marginBottom: 10 }}>
-              About Difficulty Levels
-            </MakeText>
-            <View style={{ gap: 6 }}>
-              <MakeText tone="secondary">
-                • <MakeText>Easy:</MakeText> Perfect for beginners and quick games
+          <MakeCard style={{ borderRadius: 16 }}>
+            <View style={{ padding: 24 }}>
+              <MakeText weight="semibold" style={{ marginBottom: 12 }}>
+                About Difficulty Levels
               </MakeText>
-              <MakeText tone="secondary">
-                • <MakeText>Medium:</MakeText> Balanced challenge for regular play
-              </MakeText>
-              <MakeText tone="secondary">
-                • <MakeText>Hard:</MakeText> Requires advanced strategies
-              </MakeText>
-              <MakeText tone="secondary">
-                • <MakeText>Expert:</MakeText> Only for true Sudoku masters
-              </MakeText>
+              <View style={{ gap: 8 }}>
+                <MakeText tone="secondary" style={{ fontSize: 14 }}>
+                  • <MakeText>Easy:</MakeText> Perfect for beginners and quick games
+                </MakeText>
+                <MakeText tone="secondary" style={{ fontSize: 14 }}>
+                  • <MakeText>Medium:</MakeText> Balanced challenge for regular play
+                </MakeText>
+                <MakeText tone="secondary" style={{ fontSize: 14 }}>
+                  • <MakeText>Hard:</MakeText> Requires advanced strategies
+                </MakeText>
+                <MakeText tone="secondary" style={{ fontSize: 14 }}>
+                  • <MakeText>Expert:</MakeText> Only for true Sudoku masters
+                </MakeText>
+              </View>
             </View>
-          </View>
+          </MakeCard>
         </View>
       </View>
     </MakeScreen>
