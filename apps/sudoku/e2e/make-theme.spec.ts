@@ -24,8 +24,9 @@ test('make theme: home hub renders glass background + card + primary button', as
 });
 
 test('make theme: settings screen uses Make theme wrappers', async ({ page }) => {
-  await page.goto('/settings');
-  await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible();
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Settings' }).click();
+  await expect(page.getByText('Settings', { exact: true })).toBeVisible();
 
   const screen = page.getByTestId('make-screen');
   await expect(screen).toBeVisible();
