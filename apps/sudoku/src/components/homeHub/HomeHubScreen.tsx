@@ -1,6 +1,5 @@
 import React from 'react';
 import { Pressable, useWindowDimensions, View } from 'react-native';
-import { router } from 'expo-router';
 import { BarChart3, Grid3X3, LogIn, Play, Settings, Trophy, User } from 'lucide-react-native';
 
 import { theme } from '@cynnix-studios/ui';
@@ -97,7 +96,8 @@ export function HomeHubScreen() {
             accessibilityLabel="Sign In"
             title={isMd ? 'Sign In' : ''}
             variant="secondary"
-            onPress={() => router.push('/auth')}
+            // Legacy route removed; keep this screen non-navigable if it is ever rendered.
+            onPress={() => {}}
             leftIcon={<LogIn width={isMd ? 20 : 16} height={isMd ? 20 : 16} color={makeThemeCurrent.text.primary} />}
             contentStyle={{ paddingVertical: isMd ? 12 : 10, paddingHorizontal: isMd ? 14 : 12 }}
           />
@@ -143,7 +143,7 @@ export function HomeHubScreen() {
           <View style={{ width: '100%', maxWidth: 448, paddingHorizontal: 16, marginBottom: isMd ? 24 : 16 }}>
             <DailyChallengeCard
               nowMs={Date.now()}
-              onNavigateDaily={() => router.push('/daily')}
+              onNavigateDaily={() => {}}
               dailyEntryEnabled={dailyEntryEnabled}
             />
           </View>
@@ -153,7 +153,7 @@ export function HomeHubScreen() {
             <MakeButton
               accessibilityLabel="Play Game"
               title="Play Game"
-              onPress={() => router.push('/game')}
+              onPress={() => {}}
               leftIcon={<Play width={isMd ? 24 : 20} height={isMd ? 24 : 20} color={makeThemeCurrent.button.textOnPrimary} />}
               contentStyle={{ height: isMd ? 64 : 56 }}
             />
@@ -162,8 +162,8 @@ export function HomeHubScreen() {
           {/* Icon tiles */}
           <View style={{ flexDirection: 'row', justifyContent: 'center', gap: isMd ? 16 : 12, paddingTop: isMd ? 24 : 16 }}>
             <TileButton label="Stats" icon={BarChart3} disabled={!statsEnabled} onPress={statsEnabled ? () => {} : undefined} />
-            <TileButton label="Leaderboard" icon={Trophy} onPress={() => router.push('/leaderboard')} />
-            <TileButton label="Settings" icon={Settings} onPress={() => router.push('/settings')} />
+            <TileButton label="Leaderboard" icon={Trophy} onPress={() => {}} />
+            <TileButton label="Settings" icon={Settings} onPress={() => {}} />
           </View>
 
           {/* Footer */}
