@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { AppState, Platform, View } from 'react-native';
 
-import { AppButton, AppCard, AppText, Screen, theme } from '@cynnix-studios/ui';
+import { theme } from '@cynnix-studios/ui';
 import { getLastNUtcDateKeys, getRunTimerElapsedMs, msUntilNextUtcMidnight, nowUtcDateKey } from '@cynnix-studios/sudoku-core';
 
 import { usePlayerStore } from '../../src/state/usePlayerStore';
@@ -15,6 +15,10 @@ import { createClientSubmissionId, flushPendingDailySubmissions, submitDailyRun 
 import { markDailyCompleted } from '../../src/services/dailyCompletion';
 import { recordDailyCompleted, recordDailySubmissionResult } from '../../src/services/stats';
 import { trackEvent } from '../../src/services/telemetry';
+import { MakeButton } from '../../src/components/make/MakeButton';
+import { MakeCard } from '../../src/components/make/MakeCard';
+import { MakeScreen } from '../../src/components/make/MakeScreen';
+import { MakeText } from '../../src/components/make/MakeText';
 
 function debounce<TArgs extends unknown[]>(fn: (...args: TArgs) => void, ms: number) {
   let t: ReturnType<typeof setTimeout> | null = null;
@@ -248,20 +252,20 @@ export default function DailyScreen() {
   const elapsedMs = getRunTimerElapsedMs(runTimer, Date.now());
 
   return (
-    <Screen scroll>
-      <AppText style={{ fontSize: theme.fontSize.xl, marginBottom: theme.spacing.lg }} weight="bold">
+    <MakeScreen scroll>
+      <MakeText style={{ fontSize: theme.fontSize.xl, marginBottom: theme.spacing.lg }} weight="bold">
         Daily Sudoku
-      </AppText>
+      </MakeText>
 
-      <AppCard style={{ marginBottom: theme.spacing.md }}>
-        <AppText tone="muted">UTC rollover in: {countdown}</AppText>
-        <AppText tone="muted">Today: {todayKey}</AppText>
-        {mode === 'daily' && dailyDateKey ? <AppText tone="muted">Loaded: {dailyDateKey}</AppText> : null}
-        {dailySource ? <AppText tone="muted">Source: {dailySource}</AppText> : null}
-      </AppCard>
+      <MakeCard style={{ marginBottom: theme.spacing.md }}>
+        <MakeText tone="muted">UTC rollover in: {countdown}</MakeText>
+        <MakeText tone="muted">Today: {todayKey}</MakeText>
+        {mode === 'daily' && dailyDateKey ? <MakeText tone="muted">Loaded: {dailyDateKey}</MakeText> : null}
+        {dailySource ? <MakeText tone="muted">Source: {dailySource}</MakeText> : null}
+      </MakeCard>
 
       <View style={{ flexDirection: 'row', gap: theme.spacing.sm, marginBottom: theme.spacing.md }}>
-        <AppButton
+        <MakeButton
           title="Load Today"
           onPress={() => {
             if (hydrated && runStatus !== 'completed' && movesLen > 0) {
@@ -270,7 +274,7 @@ export default function DailyScreen() {
             void loadDaily(todayKey);
           }}
         />
-        <AppButton
+        <MakeButton
           title="Back to Free Play"
           variant="secondary"
           onPress={() => {
@@ -283,20 +287,20 @@ export default function DailyScreen() {
       </View>
 
       {dailyLoad.status === 'unavailable' ? (
-        <AppCard style={{ marginBottom: theme.spacing.md }}>
-          <AppText weight="semibold">Daily unavailable</AppText>
-          <AppText tone="muted">
+        <MakeCard style={{ marginBottom: theme.spacing.md }}>
+          <MakeText weight="semibold">Daily unavailable</MakeText>
+          <MakeText tone="muted">
             {dailyLoad.reason === 'offline'
               ? 'Offline. Daily requires an internet connection.'
               : dailyLoad.reason === 'missing_base_url'
                 ? 'Missing EXPO_PUBLIC_SUDOKU_DAILY_BASE_URL (set it in apps/sudoku/.env from docs/env.example).'
                 : 'Daily payload was unavailable or invalid.'}
-          </AppText>
-        </AppCard>
+          </MakeText>
+        </MakeCard>
       ) : null}
 
-      <AppCard style={{ marginBottom: theme.spacing.md, gap: theme.spacing.sm }}>
-        <AppText weight="semibold">Archive</AppText>
+      <MakeCard style={{ marginBottom: theme.spacing.md, gap: theme.spacing.sm }}>
+        <MakeText weight="semibold">Archive</MakeText>
         <DailyCalendar
           todayKey={todayKey}
           selectedDateKey={mode === 'daily' ? dailyDateKey : null}
@@ -309,21 +313,21 @@ export default function DailyScreen() {
             void loadDaily(k);
           }}
         />
-      </AppCard>
+      </MakeCard>
 
-      <AppCard style={{ flex: 1, marginBottom: theme.spacing.md }}>
-        <AppText tone="muted">Time: {Math.round(elapsedMs / 1000)}s</AppText>
-        <AppText tone="muted">Mistakes: {mistakes}</AppText>
-        <AppText tone="muted">Hints: {hintsUsedCount}</AppText>
-        <AppText tone="muted">Mode: {notesMode ? 'Notes' : 'Value'}</AppText>
+      <MakeCard style={{ flex: 1, marginBottom: theme.spacing.md }}>
+        <MakeText tone="muted">Time: {Math.round(elapsedMs / 1000)}s</MakeText>
+        <MakeText tone="muted">Mistakes: {mistakes}</MakeText>
+        <MakeText tone="muted">Hints: {hintsUsedCount}</MakeText>
+        <MakeText tone="muted">Mode: {notesMode ? 'Notes' : 'Value'}</MakeText>
         {hintsUsedCount > 0 ? (
-          <AppText tone="muted">Reveal used: {hintBreakdown.reveal_cell_value ?? 0}</AppText>
+          <MakeText tone="muted">Reveal used: {hintBreakdown.reveal_cell_value ?? 0}</MakeText>
         ) : null}
-        {submitState === 'submitting' ? <AppText tone="muted">Submitting result…</AppText> : null}
-        {submitState === 'queued' ? <AppText tone="muted">Will submit when online.</AppText> : null}
-        {submitState === 'submitted' ? <AppText tone="muted">Submitted.</AppText> : null}
-        {completionClientSubmissionId ? <AppText tone="muted">Run id: {completionClientSubmissionId.slice(0, 8)}</AppText> : null}
-      </AppCard>
+        {submitState === 'submitting' ? <MakeText tone="muted">Submitting result…</MakeText> : null}
+        {submitState === 'queued' ? <MakeText tone="muted">Will submit when online.</MakeText> : null}
+        {submitState === 'submitted' ? <MakeText tone="muted">Submitted.</MakeText> : null}
+        {completionClientSubmissionId ? <MakeText tone="muted">Run id: {completionClientSubmissionId.slice(0, 8)}</MakeText> : null}
+      </MakeCard>
 
       <View style={{ flexDirection: 'row', gap: theme.spacing.sm, marginBottom: theme.spacing.md, flexWrap: 'wrap' }}>
         <IconButton icon="◉" label="Reveal cell (+120s)" disabled={revealDisabled} onPress={hintRevealCellValue} />
@@ -345,12 +349,12 @@ export default function DailyScreen() {
       </View>
 
       {runStatus === 'paused' ? (
-        <AppCard style={{ marginBottom: theme.spacing.lg }}>
-          <AppText weight="semibold" style={{ marginBottom: theme.spacing.sm }}>
+        <MakeCard style={{ marginBottom: theme.spacing.lg }}>
+          <MakeText weight="semibold" style={{ marginBottom: theme.spacing.sm }}>
             Paused
-          </AppText>
-          <AppText tone="muted">Your timer is stopped. Tap Resume to continue.</AppText>
-        </AppCard>
+          </MakeText>
+          <MakeText tone="muted">Your timer is stopped. Tap Resume to continue.</MakeText>
+        </MakeCard>
       ) : (
         <>
           <View style={{ marginBottom: theme.spacing.lg }}>
@@ -372,7 +376,7 @@ export default function DailyScreen() {
           <NumberPad onDigit={(d) => inputDigit(d)} onClear={clearCell} />
         </>
       )}
-    </Screen>
+    </MakeScreen>
   );
 }
 

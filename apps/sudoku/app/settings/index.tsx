@@ -1,7 +1,7 @@
 import React from 'react';
 import { Switch, View } from 'react-native';
 
-import { AppCard, AppText, Screen, theme } from '@cynnix-studios/ui';
+import { theme } from '@cynnix-studios/ui';
 
 import { usePlayerStore } from '../../src/state/usePlayerStore';
 import { useSettingsStore } from '../../src/state/useSettingsStore';
@@ -9,6 +9,9 @@ import { Slider } from '../../src/components/Slider';
 import { SudokuSizingPreview } from '../../src/components/SudokuSizingPreview';
 import { getSettingsToggles, getUiSizingSettings, setSettingsToggles, setUiSizingSettings, UI_SIZING_LIMITS } from '../../src/services/settingsModel';
 import { updateLocalSettings } from '../../src/services/settings';
+import { MakeCard } from '../../src/components/make/MakeCard';
+import { MakeScreen } from '../../src/components/make/MakeScreen';
+import { MakeText } from '../../src/components/make/MakeText';
 
 export default function SettingsScreen() {
   const deviceId = usePlayerStore((s) => s.deviceId) ?? 'unknown';
@@ -24,14 +27,14 @@ export default function SettingsScreen() {
 
   if (!settings) {
     return (
-      <Screen>
-        <AppText style={{ fontSize: theme.fontSize.xl, marginBottom: theme.spacing.lg }} weight="bold">
+      <MakeScreen>
+        <MakeText style={{ fontSize: theme.fontSize.xl, marginBottom: theme.spacing.lg }} weight="bold">
           Settings
-        </AppText>
-        <AppCard>
-          <AppText tone="muted">Loading…</AppText>
-        </AppCard>
-      </Screen>
+        </MakeText>
+        <MakeCard>
+          <MakeText tone="muted">Loading…</MakeText>
+        </MakeCard>
+      </MakeScreen>
     );
   }
 
@@ -47,15 +50,15 @@ export default function SettingsScreen() {
     signedIn && puzzleSyncStatus === 'ok' && puzzleLastSyncAtMs ? new Date(puzzleLastSyncAtMs).toLocaleString() : '—';
 
   return (
-    <Screen>
-      <AppText style={{ fontSize: theme.fontSize.xl, marginBottom: theme.spacing.lg }} weight="bold">
+    <MakeScreen>
+      <MakeText style={{ fontSize: theme.fontSize.xl, marginBottom: theme.spacing.lg }} weight="bold">
         Settings
-      </AppText>
+      </MakeText>
 
-      <AppCard style={{ marginBottom: theme.spacing.md }}>
-        <AppText weight="semibold" style={{ marginBottom: theme.spacing.sm }}>
+      <MakeCard style={{ marginBottom: theme.spacing.md }}>
+        <MakeText weight="semibold" style={{ marginBottom: theme.spacing.sm }}>
           UI sizing
-        </AppText>
+        </MakeText>
 
         <View style={{ marginBottom: theme.spacing.md }}>
           <SudokuSizingPreview
@@ -66,9 +69,9 @@ export default function SettingsScreen() {
         </View>
 
         <View style={{ marginBottom: theme.spacing.md }}>
-          <AppText style={{ marginBottom: theme.spacing.xs }}>
+          <MakeText style={{ marginBottom: theme.spacing.xs }}>
             Grid size: {Math.round(sizing.gridSize)} px
-          </AppText>
+          </MakeText>
           <View style={{ alignSelf: 'stretch' }}>
             <Slider
               accessibilityLabel="Grid size"
@@ -85,9 +88,9 @@ export default function SettingsScreen() {
         </View>
 
         <View style={{ marginBottom: theme.spacing.md }}>
-          <AppText style={{ marginBottom: theme.spacing.xs }}>
+          <MakeText style={{ marginBottom: theme.spacing.xs }}>
             Primary number size: {sizing.numberFontScale.toFixed(2)}×
-          </AppText>
+          </MakeText>
           <View style={{ alignSelf: 'stretch' }}>
             <Slider
               accessibilityLabel="Primary number font size"
@@ -108,9 +111,9 @@ export default function SettingsScreen() {
         </View>
 
         <View style={{ marginBottom: theme.spacing.sm }}>
-          <AppText style={{ marginBottom: theme.spacing.xs }}>
+          <MakeText style={{ marginBottom: theme.spacing.xs }}>
             Note size: {sizing.noteFontScale.toFixed(2)}×
-          </AppText>
+          </MakeText>
           <View style={{ alignSelf: 'stretch' }}>
             <Slider
               accessibilityLabel="Note font size"
@@ -125,15 +128,15 @@ export default function SettingsScreen() {
             />
           </View>
         </View>
-      </AppCard>
+      </MakeCard>
 
-      <AppCard>
-        <AppText weight="semibold" style={{ marginBottom: theme.spacing.sm }}>
+      <MakeCard>
+        <MakeText weight="semibold" style={{ marginBottom: theme.spacing.sm }}>
           Toggles
-        </AppText>
+        </MakeText>
 
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: theme.spacing.sm }}>
-          <AppText>Sound</AppText>
+          <MakeText>Sound</MakeText>
           <Switch
             accessibilityLabel="Sound toggle"
             value={toggles.soundEnabled}
@@ -145,7 +148,7 @@ export default function SettingsScreen() {
         </View>
 
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <AppText>Haptics</AppText>
+          <MakeText>Haptics</MakeText>
           <Switch
             accessibilityLabel="Haptics toggle"
             value={toggles.hapticsEnabled}
@@ -158,25 +161,25 @@ export default function SettingsScreen() {
 
         <View style={{ height: theme.spacing.lg }} />
 
-        <AppText tone="muted">Profile: {profile ? profile.mode : 'none'}</AppText>
-        <AppText tone="muted">Difficulty: {difficulty}</AppText>
-        <AppText tone="muted" style={{ marginTop: theme.spacing.md }}>
+        <MakeText tone="muted">Profile: {profile ? profile.mode : 'none'}</MakeText>
+        <MakeText tone="muted">Difficulty: {difficulty}</MakeText>
+        <MakeText tone="muted" style={{ marginTop: theme.spacing.md }}>
           Cloud sync: {cloudSyncLabel}
-        </AppText>
-        <AppText tone="muted">
+        </MakeText>
+        <MakeText tone="muted">
           Last sync: {cloudLastSyncLabel}
-        </AppText>
-        {signedIn && lastError ? <AppText tone="muted">Last error: {lastError}</AppText> : null}
+        </MakeText>
+        {signedIn && lastError ? <MakeText tone="muted">Last error: {lastError}</MakeText> : null}
 
-        <AppText tone="muted" style={{ marginTop: theme.spacing.md }}>
+        <MakeText tone="muted" style={{ marginTop: theme.spacing.md }}>
           Puzzle sync: {puzzleSyncLabel}
-        </AppText>
-        <AppText tone="muted">
+        </MakeText>
+        <MakeText tone="muted">
           Puzzle last sync: {puzzleLastSyncLabel}
-        </AppText>
-        {signedIn && puzzleLastSyncError ? <AppText tone="muted">Puzzle last error: {puzzleLastSyncError}</AppText> : null}
-      </AppCard>
-    </Screen>
+        </MakeText>
+        {signedIn && puzzleLastSyncError ? <MakeText tone="muted">Puzzle last error: {puzzleLastSyncError}</MakeText> : null}
+      </MakeCard>
+    </MakeScreen>
   );
 }
 

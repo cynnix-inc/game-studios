@@ -44,7 +44,16 @@ export default function RootLayout() {
         <Tabs.Screen name="leaderboard/index" options={{ title: 'Leaderboard' }} />
         <Tabs.Screen name="settings/index" options={{ title: 'Settings' }} />
         <Tabs.Screen name="auth/index" options={{ title: 'Auth' }} />
-        <Tabs.Screen name="index" options={{ href: null }} />
+        <Tabs.Screen
+          name="index"
+          options={{
+            // Home hub is accessed at `/`, but should not appear in the tab bar.
+            href: null,
+            // Match Figma: standalone hub without app chrome.
+            headerShown: false,
+            tabBarStyle: { display: 'none' },
+          }}
+        />
       </Tabs>
     </>
   );

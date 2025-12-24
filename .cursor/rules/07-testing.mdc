@@ -59,3 +59,11 @@ If you take an exception, leave a brief comment in the PR description explaining
 
 E2E guidance is intentionally non-prescriptive in this repo for now. If/when we adopt a specific web/mobile E2E framework, codify it here and pin versions.
 
+## UI migration regression bar (Sudoku overhaul)
+
+When a change is primarily UI/UX (layout, styling, interaction patterns), add a lightweight regression layer:
+
+- **At least one Playwright test per primary flow affected** (e.g., Home → Game, Home → Daily).
+- **Responsive coverage**: run the key UI flows at **2–3 representative viewports** (phone/tablet/desktop) when breakpoints/layout behavior changes.
+- **Accessibility/keyboard**: keep/extend keyboard navigation coverage for the grid and core controls.
+

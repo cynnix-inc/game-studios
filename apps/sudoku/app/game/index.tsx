@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { AppState, Platform, View } from 'react-native';
 
-import { AppButton, AppCard, AppText, Screen, theme } from '@cynnix-studios/ui';
+import { theme } from '@cynnix-studios/ui';
 import { getRunTimerElapsedMs } from '@cynnix-studios/sudoku-core';
 
 import { usePlayerStore } from '../../src/state/usePlayerStore';
@@ -13,6 +13,10 @@ import { trackEvent } from '../../src/services/telemetry';
 import { IconButton } from '../../src/components/IconButton';
 import { NumberPad } from '../../src/components/NumberPad';
 import { SudokuGrid } from '../../src/components/SudokuGrid';
+import { MakeButton } from '../../src/components/make/MakeButton';
+import { MakeCard } from '../../src/components/make/MakeCard';
+import { MakeScreen } from '../../src/components/make/MakeScreen';
+import { MakeText } from '../../src/components/make/MakeText';
 
 function debounce<TArgs extends unknown[]>(fn: (...args: TArgs) => void, ms: number) {
   let t: ReturnType<typeof setTimeout> | null = null;
@@ -141,16 +145,16 @@ export default function GameScreen() {
   const elapsedMs = getRunTimerElapsedMs(runTimer, Date.now());
 
   return (
-    <Screen scroll>
+    <MakeScreen scroll>
       <View style={{ height: theme.spacing.md }} />
 
       <View style={{ flexDirection: 'row', gap: theme.spacing.md, marginBottom: theme.spacing.md }}>
-        <AppCard style={{ flex: 1 }}>
-          <AppText tone="muted">Time: {Math.round(elapsedMs / 1000)}s</AppText>
-          <AppText tone="muted">Mistakes: {mistakes}</AppText>
-          <AppText tone="muted">Difficulty: {difficulty}</AppText>
-          <AppText tone="muted">Mode: {notesMode ? 'Notes' : 'Value'}</AppText>
-        </AppCard>
+        <MakeCard style={{ flex: 1 }}>
+          <MakeText tone="muted">Time: {Math.round(elapsedMs / 1000)}s</MakeText>
+          <MakeText tone="muted">Mistakes: {mistakes}</MakeText>
+          <MakeText tone="muted">Difficulty: {difficulty}</MakeText>
+          <MakeText tone="muted">Mode: {notesMode ? 'Notes' : 'Value'}</MakeText>
+        </MakeCard>
         <View style={{ justifyContent: 'center' }}>
           {runStatus === 'paused' ? (
             <IconButton icon="▶" label="Resume" onPress={() => resumeRun()} />
@@ -168,12 +172,12 @@ export default function GameScreen() {
       </View>
 
       {runStatus === 'paused' ? (
-        <AppCard style={{ marginBottom: theme.spacing.lg }}>
-          <AppText weight="semibold" style={{ marginBottom: theme.spacing.sm }}>
+        <MakeCard style={{ marginBottom: theme.spacing.lg }}>
+          <MakeText weight="semibold" style={{ marginBottom: theme.spacing.sm }}>
             Paused
-          </AppText>
-          <AppText tone="muted">Your timer is stopped. Tap Resume to continue.</AppText>
-        </AppCard>
+          </MakeText>
+          <MakeText tone="muted">Your timer is stopped. Tap Resume to continue.</MakeText>
+        </MakeCard>
       ) : (
         <>
           <View style={{ flexDirection: 'row', gap: theme.spacing.sm, marginBottom: theme.spacing.md }}>
@@ -203,11 +207,11 @@ export default function GameScreen() {
       )}
 
       <View style={{ height: theme.spacing.md }} />
-      <AppCard style={{ marginBottom: theme.spacing.md, gap: theme.spacing.sm }}>
-        <AppText weight="semibold">New Puzzle</AppText>
+      <MakeCard style={{ marginBottom: theme.spacing.md, gap: theme.spacing.sm }}>
+        <MakeText weight="semibold">New Puzzle</MakeText>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: theme.spacing.sm }}>
           {(['easy', 'medium', 'hard', 'expert', 'extreme'] as const).map((d) => (
-            <AppButton
+            <MakeButton
               key={d}
               title={d}
               variant={d === difficulty ? undefined : 'secondary'}
@@ -221,10 +225,10 @@ export default function GameScreen() {
             />
           ))}
         </View>
-      </AppCard>
+      </MakeCard>
 
       <View style={{ height: theme.spacing.lg }} />
-    </Screen>
+    </MakeScreen>
   );
 }
 

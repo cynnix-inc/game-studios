@@ -2,10 +2,13 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Pressable, View } from 'react-native';
 
 import { getLastNUtcDateKeys, nowUtcDateKey } from '@cynnix-studios/sudoku-core';
-import { AppCard, AppText, Screen, theme } from '@cynnix-studios/ui';
+import { theme } from '@cynnix-studios/ui';
 
 import { getDailyAroundYou, getDailyTop100, type DailyLeaderboardRow } from '../../src/services/leaderboard';
 import { trackEvent } from '../../src/services/telemetry';
+import { MakeCard } from '../../src/components/make/MakeCard';
+import { MakeScreen } from '../../src/components/make/MakeScreen';
+import { MakeText } from '../../src/components/make/MakeText';
 
 type LeaderboardTab = 'score' | 'raw_time';
 
@@ -28,14 +31,14 @@ function Row({
         justifyContent: 'space-between',
         paddingVertical: 6,
         borderTopWidth: r.rank === 1 ? 0 : 1,
-        borderTopColor: theme.colors.border,
+        borderTopColor: 'rgba(255,255,255,0.20)',
       }}
     >
       <View style={{ flex: 1, paddingRight: theme.spacing.sm }}>
-        <AppText weight={isMe ? 'semibold' : 'regular'}>{r.rank}. {isMe ? 'You' : r.display_name}</AppText>
-        <AppText tone="muted">
+        <MakeText weight={isMe ? 'semibold' : 'regular'}>{r.rank}. {isMe ? 'You' : r.display_name}</MakeText>
+        <MakeText tone="muted">
           Score {formatMs(r.score_ms)} · Time {formatMs(r.raw_time_ms)} · Mistakes {r.mistakes_count} · Hints {r.hints_used_count}
-        </AppText>
+        </MakeText>
       </View>
     </View>
   );
@@ -100,17 +103,17 @@ export default function LeaderboardScreen() {
   }, [tab, utcDate]);
 
   return (
-    <Screen scroll>
-      <AppText style={{ fontSize: theme.fontSize.xl, marginBottom: theme.spacing.lg }} weight="bold">
+    <MakeScreen scroll>
+      <MakeText style={{ fontSize: theme.fontSize.xl, marginBottom: theme.spacing.lg }} weight="bold">
         Daily Leaderboard
-      </AppText>
+      </MakeText>
 
-      <AppCard style={{ marginBottom: theme.spacing.md }}>
-        <AppText tone="muted">UTC date: {utcDate}</AppText>
-      </AppCard>
+      <MakeCard style={{ marginBottom: theme.spacing.md }}>
+        <MakeText tone="muted">UTC date: {utcDate}</MakeText>
+      </MakeCard>
 
-      <AppCard style={{ marginBottom: theme.spacing.md, gap: theme.spacing.sm }}>
-        <AppText weight="semibold">Day</AppText>
+      <MakeCard style={{ marginBottom: theme.spacing.md, gap: theme.spacing.sm }}>
+        <MakeText weight="semibold">Day</MakeText>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: theme.spacing.sm }}>
           {archive.map((k) => {
             const active = k === utcDate;
@@ -124,24 +127,24 @@ export default function LeaderboardScreen() {
                   paddingVertical: theme.spacing.xs,
                   paddingHorizontal: theme.spacing.sm,
                   borderRadius: theme.radius.md,
-                  backgroundColor: active ? theme.colors.accent : theme.colors.surface2,
+                  backgroundColor: active ? 'rgba(255,255,255,0.20)' : 'rgba(255,255,255,0.10)',
                   borderWidth: 1,
-                  borderColor: theme.colors.border,
+                  borderColor: 'rgba(255,255,255,0.20)',
                 }}
               >
-                <AppText weight="semibold" tone={active ? 'default' : 'muted'}>
+                <MakeText weight="semibold" tone={active ? 'primary' : 'muted'}>
                   {k === todayKey ? 'Today' : k.slice(5)}
-                </AppText>
+                </MakeText>
               </Pressable>
             );
           })}
         </View>
-      </AppCard>
+      </MakeCard>
 
-      <AppCard style={{ marginBottom: theme.spacing.md }}>
-        <AppText weight="semibold" style={{ marginBottom: theme.spacing.sm }}>
+      <MakeCard style={{ marginBottom: theme.spacing.md }}>
+        <MakeText weight="semibold" style={{ marginBottom: theme.spacing.sm }}>
           Tabs
-        </AppText>
+        </MakeText>
         <View style={{ flexDirection: 'row', gap: theme.spacing.sm }}>
           {(['score', 'raw_time'] as const).map((t) => {
             const active = t === tab;
@@ -155,44 +158,44 @@ export default function LeaderboardScreen() {
                   flex: 1,
                   paddingVertical: theme.spacing.sm,
                   borderRadius: theme.radius.md,
-                  backgroundColor: active ? theme.colors.accent : theme.colors.surface2,
+                  backgroundColor: active ? 'rgba(255,255,255,0.20)' : 'rgba(255,255,255,0.10)',
                   borderWidth: 1,
-                  borderColor: theme.colors.border,
+                  borderColor: 'rgba(255,255,255,0.20)',
                   alignItems: 'center',
                 }}
               >
-                <AppText weight="semibold">{t === 'score' ? 'Score' : 'Raw Time'}</AppText>
+                <MakeText weight="semibold">{t === 'score' ? 'Score' : 'Raw Time'}</MakeText>
               </Pressable>
             );
           })}
         </View>
-      </AppCard>
+      </MakeCard>
 
-      <AppCard style={{ marginBottom: theme.spacing.md }}>
-        <AppText weight="semibold" style={{ marginBottom: theme.spacing.sm }}>
+      <MakeCard style={{ marginBottom: theme.spacing.md }}>
+        <MakeText weight="semibold" style={{ marginBottom: theme.spacing.sm }}>
           Top 100
-        </AppText>
-        {topStatus === 'loading' ? <AppText tone="muted">Loading…</AppText> : null}
-        {topStatus === 'error' ? <AppText tone="muted">Unable to load leaderboard.</AppText> : null}
-        {topStatus === 'idle' && top.length === 0 ? <AppText tone="muted">No ranked runs yet for this day.</AppText> : null}
+        </MakeText>
+        {topStatus === 'loading' ? <MakeText tone="muted">Loading…</MakeText> : null}
+        {topStatus === 'error' ? <MakeText tone="muted">Unable to load leaderboard.</MakeText> : null}
+        {topStatus === 'idle' && top.length === 0 ? <MakeText tone="muted">No ranked runs yet for this day.</MakeText> : null}
         {top.map((r) => (
           <Row key={`${r.utc_date}-${r.rank}-${r.player_id}`} r={r} mePlayerId={mePlayerId} />
         ))}
-      </AppCard>
+      </MakeCard>
 
-      <AppCard style={{ marginBottom: theme.spacing.md }}>
-        <AppText weight="semibold" style={{ marginBottom: theme.spacing.sm }}>
+      <MakeCard style={{ marginBottom: theme.spacing.md }}>
+        <MakeText weight="semibold" style={{ marginBottom: theme.spacing.sm }}>
           Around You
-        </AppText>
-        {aroundStatus === 'loading' ? <AppText tone="muted">Loading…</AppText> : null}
-        {aroundStatus === 'not_signed_in' ? <AppText tone="muted">Sign in to see your position.</AppText> : null}
-        {aroundStatus === 'error' ? <AppText tone="muted">Unable to load your slice.</AppText> : null}
-        {aroundStatus === 'idle' && around.length === 0 ? <AppText tone="muted">No ranked run for this day.</AppText> : null}
+        </MakeText>
+        {aroundStatus === 'loading' ? <MakeText tone="muted">Loading…</MakeText> : null}
+        {aroundStatus === 'not_signed_in' ? <MakeText tone="muted">Sign in to see your position.</MakeText> : null}
+        {aroundStatus === 'error' ? <MakeText tone="muted">Unable to load your slice.</MakeText> : null}
+        {aroundStatus === 'idle' && around.length === 0 ? <MakeText tone="muted">No ranked run for this day.</MakeText> : null}
         {around.map((r) => (
           <Row key={`around-${r.utc_date}-${r.rank}-${r.player_id}`} r={r} mePlayerId={mePlayerId} />
         ))}
-      </AppCard>
-    </Screen>
+      </MakeCard>
+    </MakeScreen>
   );
 }
 
