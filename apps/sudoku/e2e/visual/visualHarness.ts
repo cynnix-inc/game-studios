@@ -14,6 +14,10 @@ async function freezeTime(page: Page, nowMs: number) {
   // Must run before app code executes (before page.goto).
   await page.addInitScript(
     ({ now }) => {
+      // Mark visual snapshot runs so the app can disable network and stabilize dynamic UI.
+      // @ts-expect-error - test-only flag
+      globalThis.__VISUAL_TEST__ = true;
+
       const OriginalDate = Date;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       class MockDate extends (OriginalDate as any) {

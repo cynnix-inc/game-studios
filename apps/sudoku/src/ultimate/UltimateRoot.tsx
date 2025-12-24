@@ -90,6 +90,7 @@ export function UltimateRoot() {
   if (state.screen === 'dailyChallenges') {
     return (
       <UltimateDailyChallengesScreen
+        username={state.username}
         onBack={() => dispatch({ type: 'NAVIGATE', screen: 'menu' })}
         onStartDaily={(dateKey) => {
           void loadDaily(dateKey);
