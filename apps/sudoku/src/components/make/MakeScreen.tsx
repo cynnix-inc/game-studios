@@ -2,18 +2,23 @@ import React from 'react';
 import { Animated, Easing, Platform, SafeAreaView, ScrollView, View, type ViewProps } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
-import { makeThemeCurrent } from '../../theme/makeTheme';
+import { useMakeTheme } from './MakeThemeProvider';
+import { shouldAnimateParticles } from '../../ultimate/motion/reducedMotion';
 
 export type MakeScreenProps = ViewProps & {
   scroll?: boolean;
 };
 
 export function MakeScreen({ scroll = true, style, children, ...rest }: MakeScreenProps) {
+  const { theme, reducedMotion } = useMakeTheme();
   const pulseA = React.useRef(new Animated.Value(0)).current;
   const pulseB = React.useRef(new Animated.Value(0)).current;
   const pulseC = React.useRef(new Animated.Value(0)).current;
 
   React.useEffect(() => {
+    const animate = shouldAnimateParticles({ reducedMotion });
+    if (!animate) return;
+
     const makeLoop = (v: Animated.Value, delayMs: number) =>
       Animated.loop(
         Animated.sequence([
@@ -34,7 +39,7 @@ export function MakeScreen({ scroll = true, style, children, ...rest }: MakeScre
       b.stop();
       c.stop();
     };
-  }, [pulseA, pulseB, pulseC]);
+  }, [pulseA, pulseB, pulseC, reducedMotion]);
 
   const content = (
     <SafeAreaView
@@ -54,7 +59,7 @@ export function MakeScreen({ scroll = true, style, children, ...rest }: MakeScre
   return (
     <LinearGradient
       testID="make-screen"
-      colors={makeThemeCurrent.backgroundGradient}
+      colors={theme.backgroundGradient}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
       style={{ flex: 1 }}
@@ -69,7 +74,7 @@ export function MakeScreen({ scroll = true, style, children, ...rest }: MakeScre
             width: 384,
             height: 384,
             borderRadius: 384,
-            backgroundColor: makeThemeCurrent.particles.primary,
+            backgroundColor: theme.particles.primary,
             // Web-only blur to match Tailwind blur-3xl. Native degrades to soft opacity.
             ...(Platform.OS === 'web' ? ({ filter: 'blur(64px)' } as unknown as object) : null),
             opacity: 0.9,
@@ -88,7 +93,7 @@ export function MakeScreen({ scroll = true, style, children, ...rest }: MakeScre
             width: 384,
             height: 384,
             borderRadius: 384,
-            backgroundColor: makeThemeCurrent.particles.secondary,
+            backgroundColor: theme.particles.secondary,
             ...(Platform.OS === 'web' ? ({ filter: 'blur(64px)' } as unknown as object) : null),
             opacity: 0.85,
             transform: [
@@ -106,7 +111,7 @@ export function MakeScreen({ scroll = true, style, children, ...rest }: MakeScre
             width: 384,
             height: 384,
             borderRadius: 384,
-            backgroundColor: makeThemeCurrent.particles.tertiary,
+            backgroundColor: theme.particles.tertiary,
             ...(Platform.OS === 'web' ? ({ filter: 'blur(64px)' } as unknown as object) : null),
             opacity: 0.8,
             transform: [

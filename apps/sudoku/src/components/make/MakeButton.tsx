@@ -2,8 +2,8 @@ import React from 'react';
 import { Pressable, View, type PressableProps } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
-import { makeThemeCurrent } from '../../theme/makeTheme';
 import { MakeText } from './MakeText';
+import { useMakeTheme } from './MakeThemeProvider';
 
 export type MakeButtonVariant = 'primary' | 'secondary';
 
@@ -15,18 +15,19 @@ export type MakeButtonProps = Omit<PressableProps, 'children'> & {
 };
 
 export function MakeButton({ title, variant = 'primary', disabled, leftIcon, contentStyle, style, ...rest }: MakeButtonProps) {
+  const { theme } = useMakeTheme();
   return (
     <Pressable
       accessibilityRole="button"
       disabled={disabled}
       {...rest}
-      style={({ pressed }) => {
-        const extra = typeof style === 'function' ? style({ pressed }) : style;
+      style={(state) => {
+        const extra = typeof style === 'function' ? style(state) : style;
         return [
           {
             borderRadius: 16,
             overflow: 'hidden',
-            opacity: disabled ? 0.6 : pressed ? 0.92 : 1,
+            opacity: disabled ? 0.6 : state.pressed ? 0.92 : 1,
           },
           extra,
         ];
@@ -35,7 +36,7 @@ export function MakeButton({ title, variant = 'primary', disabled, leftIcon, con
       {variant === 'primary' ? (
         <LinearGradient
           testID="make-button-primary-bg"
-          colors={makeThemeCurrent.button.primaryGradient}
+          colors={theme.button.primaryGradient}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
           style={{
@@ -55,9 +56,9 @@ export function MakeButton({ title, variant = 'primary', disabled, leftIcon, con
         <View
           testID="make-button-secondary-bg"
           style={{
-            backgroundColor: makeThemeCurrent.button.secondaryBackground,
+            backgroundColor: theme.button.secondaryBackground,
             borderWidth: 1,
-            borderColor: makeThemeCurrent.button.border,
+            borderColor: theme.button.border,
             paddingVertical: 14,
             paddingHorizontal: 18,
             alignItems: 'center',

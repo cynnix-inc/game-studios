@@ -1,7 +1,7 @@
 import React from 'react';
 import { Text, type TextProps } from 'react-native';
 
-import { makeThemeCurrent } from '../../theme/makeTheme';
+import { useMakeTheme } from './MakeThemeProvider';
 
 export type MakeTextTone = 'primary' | 'secondary' | 'muted';
 export type MakeTextWeight = 'regular' | 'medium' | 'semibold' | 'bold';
@@ -12,8 +12,9 @@ export function MakeText({
   style,
   ...rest
 }: TextProps & { tone?: MakeTextTone; weight?: MakeTextWeight }) {
+  const { theme } = useMakeTheme();
   const color =
-    tone === 'primary' ? makeThemeCurrent.text.primary : tone === 'secondary' ? makeThemeCurrent.text.secondary : makeThemeCurrent.text.muted;
+    tone === 'primary' ? theme.text.primary : tone === 'secondary' ? theme.text.secondary : theme.text.muted;
 
   const fontWeight =
     weight === 'regular' ? '400' : weight === 'medium' ? '500' : weight === 'semibold' ? '600' : '700';

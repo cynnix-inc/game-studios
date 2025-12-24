@@ -1,9 +1,8 @@
 import React, { useEffect } from 'react';
-import { Tabs } from 'expo-router';
-
-import { theme } from '@cynnix-studios/ui';
+import { Stack } from 'expo-router';
 
 import { AuthBootstrap } from '../src/bootstrap/AuthBootstrap';
+import { MakeThemeProvider } from '../src/components/make/MakeThemeProvider';
 import { getOrCreateDeviceId } from '../src/services/deviceId';
 import { initFreePlayPacks } from '../src/services/freeplayPacks';
 import { warmDailyCacheInBackground } from '../src/services/daily';
@@ -30,31 +29,16 @@ export default function RootLayout() {
   return (
     <>
       <AuthBootstrap />
-      <Tabs
-        screenOptions={{
-          headerStyle: { backgroundColor: theme.colors.surface },
-          headerTintColor: theme.colors.text,
-          tabBarStyle: { backgroundColor: theme.colors.surface },
-          tabBarActiveTintColor: theme.colors.accent,
-          tabBarInactiveTintColor: theme.colors.muted,
-        }}
-      >
-        <Tabs.Screen name="game/index" options={{ title: 'Ultimate Sudoku' }} />
-        <Tabs.Screen name="daily/index" options={{ title: 'Daily' }} />
-        <Tabs.Screen name="leaderboard/index" options={{ title: 'Leaderboard' }} />
-        <Tabs.Screen name="settings/index" options={{ title: 'Settings' }} />
-        <Tabs.Screen name="auth/index" options={{ title: 'Auth' }} />
-        <Tabs.Screen
-          name="index"
-          options={{
-            // Home hub is accessed at `/`, but should not appear in the tab bar.
-            href: null,
-            // Match Figma: standalone hub without app chrome.
+      <MakeThemeProvider>
+        <Stack
+          screenOptions={{
+            // Design-faithful container: no app chrome unless the design shows it.
             headerShown: false,
-            tabBarStyle: { display: 'none' },
           }}
-        />
-      </Tabs>
+        >
+          <Stack.Screen name="index" />
+        </Stack>
+      </MakeThemeProvider>
     </>
   );
 }
