@@ -1,11 +1,15 @@
 import React from 'react';
 import { Platform, View } from 'react-native';
 
-import { AppButton, AppCard, AppText, Screen, theme } from '@cynnix-studios/ui';
+import { theme } from '@cynnix-studios/ui';
 
 import { signInApple, signInGoogle, signInGoogleWeb } from '../../src/services/auth';
 import { trackEvent } from '../../src/services/telemetry';
 import { usePlayerStore } from '../../src/state/usePlayerStore';
+import { MakeButton } from '../../src/components/make/MakeButton';
+import { MakeCard } from '../../src/components/make/MakeCard';
+import { MakeScreen } from '../../src/components/make/MakeScreen';
+import { MakeText } from '../../src/components/make/MakeText';
 
 export default function AuthScreen() {
   const profile = usePlayerStore((s) => s.profile);
@@ -14,23 +18,23 @@ export default function AuthScreen() {
   const [error, setError] = React.useState<string | null>(null);
 
   return (
-    <Screen>
-      <AppText style={{ fontSize: theme.fontSize.xl, marginBottom: theme.spacing.lg }} weight="bold">
+    <MakeScreen>
+      <MakeText style={{ fontSize: theme.fontSize.xl, marginBottom: theme.spacing.lg }} weight="bold">
         Sign in
-      </AppText>
+      </MakeText>
 
-      <AppCard style={{ gap: theme.spacing.sm }}>
-        <AppText tone="muted">
+      <MakeCard style={{ gap: theme.spacing.sm }}>
+        <MakeText tone="muted">
           Signed in as: {profile ? (profile.mode === 'guest' ? profile.displayName : profile.email ?? profile.userId) : '—'}
-        </AppText>
+        </MakeText>
 
         {error ? (
-          <AppText tone="muted" style={{ color: theme.colors.danger }}>
+          <MakeText tone="muted" style={{ color: '#ff5a6b' }}>
             {error}
-          </AppText>
+          </MakeText>
         ) : null}
 
-        <AppButton
+        <MakeButton
           title={Platform.OS === 'web' ? 'Apple sign-in (iOS only)' : loading === 'apple' ? 'Signing in…' : 'Sign in with Apple'}
           disabled={Platform.OS === 'web' || loading !== 'none'}
           style={
@@ -55,7 +59,7 @@ export default function AuthScreen() {
           }}
         />
 
-        <AppButton
+        <MakeButton
           title={loading === 'google' ? 'Signing in…' : 'Sign in with Google'}
           disabled={loading !== 'none'}
           style={
@@ -93,9 +97,9 @@ export default function AuthScreen() {
           variant="secondary"
         />
 
-        <View style={{ height: 1, backgroundColor: theme.colors.border, marginVertical: theme.spacing.sm }} />
+        <View style={{ height: 1, backgroundColor: 'rgba(255,255,255,0.20)', marginVertical: theme.spacing.sm }} />
 
-        <AppButton
+        <MakeButton
           title={loading === 'guest' ? 'Continuing…' : 'Continue as Guest'}
           onPress={() => {
             setError(null);
@@ -118,8 +122,8 @@ export default function AuthScreen() {
           }
           variant="secondary"
         />
-      </AppCard>
-    </Screen>
+      </MakeCard>
+    </MakeScreen>
   );
 }
 
