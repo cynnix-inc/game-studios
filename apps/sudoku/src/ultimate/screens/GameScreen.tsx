@@ -1,7 +1,7 @@
 import React from 'react';
-import { AppState, Platform, Pressable, View } from 'react-native';
+import { Animated, AppState, Easing, Platform, Pressable, ScrollView, useWindowDimensions, View } from 'react-native';
 import { BlurView } from 'expo-blur';
-import { AlertTriangle, Clock, Lightbulb, LogOut, Menu, Play, RotateCcw, User } from 'lucide-react-native';
+import { AlertTriangle, ChevronDown, ChevronUp, Clock, Gamepad2, Lightbulb, LogOut, Maximize2, Menu, Play, RotateCcw, User, Volume2 } from 'lucide-react-native';
 
 import { getRunTimerElapsedMs } from '@cynnix-studios/sudoku-core';
 import { theme } from '@cynnix-studios/ui';
@@ -14,6 +14,7 @@ import { NumberPad } from '../../components/NumberPad';
 import { SudokuGrid } from '../../components/SudokuGrid';
 import { usePlayerStore } from '../../state/usePlayerStore';
 import { formatElapsedSecondsMMSS } from './game/formatTime';
+import { MakeCard } from '../../components/make/MakeCard';
 
 function difficultyBadge(difficulty: string): { bg: string; border: string; text: string } {
   if (difficulty === 'easy') return { bg: 'rgba(34,197,94,0.20)', border: 'rgba(34,197,94,0.30)', text: '#4ade80' };
@@ -33,6 +34,11 @@ export function UltimateGameScreen({
   gameType: 'classic' | 'daily';
   onExitToMenu: () => void;
 }) {
+  const { width } = useWindowDimensions();
+  const isSm = width >= 640;
+  const isMd = width >= 768;
+  const headerHeight = isMd ? 80 : 64;
+
   const difficulty = usePlayerStore((s) => s.difficulty);
   const puzzle = usePlayerStore((s) => s.puzzle);
   const solution = usePlayerStore((s) => s.solution);
@@ -84,7 +90,7 @@ export function UltimateGameScreen({
   const badge = difficultyBadge(difficulty);
 
   const [menuOpen, setMenuOpen] = React.useState(false);
-  const { theme: makeTheme } = useMakeTheme();
+  const { theme: makeTheme, reducedMotion } = useMakeTheme();
 
   const openMenu = () => {
     setMenuOpen(true);
@@ -97,86 +103,169 @@ export function UltimateGameScreen({
 
   const isPaused = runStatus === 'paused';
 
+  // Menu slide animation (Make: slide-down panel). Tests force reduced motion.
+  const menuAnim = React.useRef(new Animated.Value(0)).current;
+  React.useEffect(() => {
+    const duration = reducedMotion ? 0 : 300;
+    Animated.timing(menuAnim, {
+      toValue: menuOpen ? 1 : 0,
+      duration,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+  }, [menuAnim, menuOpen, reducedMotion]);
+
+  const menuTranslateY = menuAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [-420, headerHeight],
+  });
+
+  const [audioExpanded, setAudioExpanded] = React.useState(false);
+  const [gameplayExpanded, setGameplayExpanded] = React.useState(false);
+  const [gridExpanded, setGridExpanded] = React.useState(false);
+
   return (
     <MakeScreen scroll={false} style={{ padding: 0 }}>
       {/* Header (fixed) */}
       <View style={{ position: 'absolute', left: 0, right: 0, top: 0, zIndex: 40 }}>
         <View style={{ backgroundColor: makeTheme.card.background, borderBottomWidth: 1, borderBottomColor: makeTheme.card.border }}>
           <BlurView intensity={18} tint="dark" style={{ position: 'absolute', inset: 0 }} />
-          <View style={{ paddingHorizontal: theme.spacing.md, paddingVertical: theme.spacing.md }}>
+          <View style={{ paddingHorizontal: isMd ? 24 : 12, paddingVertical: isMd ? 16 : 12 }}>
             <View style={{ maxWidth: 960, alignSelf: 'center', width: '100%' }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: isMd ? 16 : 10 }}>
                 {/* Left: menu + difficulty */}
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                   <Pressable
                     accessibilityRole="button"
                     accessibilityLabel={menuOpen || isPaused ? 'Resume' : 'Menu'}
                     onPress={() => (menuOpen ? closeMenu() : openMenu())}
-                    style={({ pressed }) => ({
+                    style={(state) => ({
                       width: 44,
                       height: 44,
                       borderRadius: 12,
                       alignItems: 'center',
                       justifyContent: 'center',
-                      opacity: pressed ? 0.85 : 1,
+                      backgroundColor: Platform.OS === 'web' && state.hovered ? makeTheme.card.background : 'transparent',
+                      opacity: state.pressed ? 0.85 : 1,
+                      ...(Platform.OS === 'web'
+                        ? ({
+                            transition: 'background-color 200ms ease, opacity 150ms ease',
+                          } as unknown as object)
+                        : null),
                     })}
                   >
                     {menuOpen || isPaused ? (
-                      <Play width={22} height={22} color={makeTheme.text.primary} />
+                      <Play width={isMd ? 24 : 20} height={isMd ? 24 : 20} color={makeTheme.text.primary} />
                     ) : (
-                      <Menu width={22} height={22} color={makeTheme.text.primary} />
+                      <Menu width={isMd ? 24 : 20} height={isMd ? 24 : 20} color={makeTheme.text.primary} />
                     )}
                   </Pressable>
 
-                  <View style={{ gap: 3 }}>
-                    <MakeText tone="muted" style={{ fontSize: 12 }}>
-                      {gameType === 'daily' ? 'Daily Challenge' : 'Classic'}
-                    </MakeText>
-                    <View style={{ alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999, backgroundColor: badge.bg, borderWidth: 1, borderColor: badge.border }}>
-                      <MakeText style={{ fontSize: 12, color: badge.text }} weight="semibold">
+                  {isSm ? (
+                    <View style={{ gap: 3 }}>
+                      <MakeText tone="muted" style={{ fontSize: 12 }}>
+                        {gameType === 'daily' ? 'Daily Challenge' : 'Classic'}
+                      </MakeText>
+                      <View
+                        style={{
+                          alignSelf: 'flex-start',
+                          paddingHorizontal: 8,
+                          paddingVertical: 2,
+                          borderRadius: 999,
+                          backgroundColor: badge.bg,
+                          borderWidth: 1,
+                          borderColor: badge.border,
+                        }}
+                      >
+                        <MakeText style={{ fontSize: 12, color: badge.text, textTransform: 'capitalize' }} weight="semibold">
+                          {difficulty}
+                        </MakeText>
+                      </View>
+                    </View>
+                  ) : (
+                    <View
+                      style={{
+                        alignSelf: 'flex-start',
+                        paddingHorizontal: 8,
+                        paddingVertical: 6,
+                        borderRadius: 12,
+                        backgroundColor: badge.bg,
+                        borderWidth: 1,
+                        borderColor: badge.border,
+                      }}
+                    >
+                      <MakeText style={{ fontSize: 12, color: badge.text, textTransform: 'capitalize' }} weight="semibold">
                         {difficulty}
+                      </MakeText>
+                    </View>
+                  )}
+                </View>
+
+                {/* Center: mistakes/hints/time */}
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: isMd ? 24 : 12 }}>
+                  {/* Mistakes */}
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <AlertTriangle width={isMd ? 20 : 16} height={isMd ? 20 : 16} color={mistakes > 3 ? '#f87171' : makeTheme.text.muted} />
+                    <View>
+                      {isMd ? (
+                        <MakeText tone="muted" style={{ fontSize: 12 }}>
+                          Mistakes
+                        </MakeText>
+                      ) : null}
+                      <MakeText style={{ fontSize: isMd ? 16 : 14, color: mistakes > 3 ? '#f87171' : makeTheme.text.primary }} weight="semibold">
+                        {mistakes}
+                      </MakeText>
+                    </View>
+                  </View>
+
+                  {/* Hints */}
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Lightbulb width={isMd ? 20 : 16} height={isMd ? 20 : 16} color={makeTheme.text.muted} />
+                    <View>
+                      {isMd ? (
+                        <MakeText tone="muted" style={{ fontSize: 12 }}>
+                          Hints
+                        </MakeText>
+                      ) : null}
+                      <MakeText style={{ fontSize: isMd ? 16 : 14 }} weight="semibold">
+                        {hintsUsedCount}
+                      </MakeText>
+                    </View>
+                  </View>
+
+                  {/* Timer */}
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Clock width={isMd ? 20 : 16} height={isMd ? 20 : 16} color={makeTheme.text.muted} />
+                    <View>
+                      {isMd ? (
+                        <MakeText tone="muted" style={{ fontSize: 12 }}>
+                          Time
+                        </MakeText>
+                      ) : null}
+                      <MakeText style={{ fontSize: isMd ? 16 : 14, fontVariant: ['tabular-nums'] }} weight="semibold">
+                        {timeLabel}
                       </MakeText>
                     </View>
                   </View>
                 </View>
 
-                {/* Center: mistakes/hints/time */}
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    <AlertTriangle width={18} height={18} color={mistakes > 3 ? '#f87171' : makeTheme.text.muted} />
-                    <MakeText style={{ fontSize: 14, color: mistakes > 3 ? '#f87171' : makeTheme.text.primary }} weight="semibold">
-                      {mistakes}
-                    </MakeText>
-                  </View>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    <Lightbulb width={18} height={18} color={makeTheme.text.muted} />
-                    <MakeText style={{ fontSize: 14 }} weight="semibold">
-                      {hintsUsedCount}
-                    </MakeText>
-                  </View>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    <Clock width={18} height={18} color={makeTheme.text.muted} />
-                    <MakeText style={{ fontSize: 14, fontVariant: ['tabular-nums'] }} weight="semibold">
-                      {timeLabel}
-                    </MakeText>
-                  </View>
-                </View>
-
                 {/* Right: profile */}
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                  <View style={{ alignItems: 'flex-end' }}>
-                    <MakeText tone="muted" style={{ fontSize: 12 }}>
-                      Player
-                    </MakeText>
-                    <MakeText style={{ fontSize: 14 }} numberOfLines={1}>
-                      {username || 'Guest'}
-                    </MakeText>
-                  </View>
+                  {isMd ? (
+                    <View style={{ alignItems: 'flex-end' }}>
+                      <MakeText tone="muted" style={{ fontSize: 12 }}>
+                        Player
+                      </MakeText>
+                      <MakeText style={{ fontSize: 14 }} numberOfLines={1}>
+                        {username || 'Guest'}
+                      </MakeText>
+                    </View>
+                  ) : null}
                   <View
                     style={{
-                      width: 40,
-                      height: 40,
-                      borderRadius: 20,
+                      width: isMd ? 40 : 36,
+                      height: isMd ? 40 : 36,
+                      borderRadius: isMd ? 20 : 18,
                       borderWidth: 1,
                       borderColor: makeTheme.card.border,
                       backgroundColor: makeTheme.card.background,
@@ -184,7 +273,7 @@ export function UltimateGameScreen({
                       justifyContent: 'center',
                     }}
                   >
-                    <User width={22} height={22} color={makeTheme.text.primary} />
+                    <User width={isMd ? 24 : 20} height={isMd ? 24 : 20} color={makeTheme.text.primary} />
                   </View>
                 </View>
               </View>
@@ -199,58 +288,139 @@ export function UltimateGameScreen({
           accessibilityRole="button"
           accessibilityLabel="Close menu"
           onPress={closeMenu}
-          style={{ position: 'absolute', left: 0, right: 0, top: 80, bottom: 0, backgroundColor: 'rgba(0,0,0,0.50)', zIndex: 20 }}
+          style={{
+            position: 'absolute',
+            left: 0,
+            right: 0,
+            top: headerHeight,
+            bottom: 0,
+            backgroundColor: 'rgba(0,0,0,0.50)',
+            ...(Platform.OS === 'web' ? ({ backdropFilter: 'blur(12px)' } as unknown as object) : null),
+            zIndex: 20,
+          }}
         />
       ) : null}
 
       {/* Slide-down menu (simplified first pass) */}
-      {menuOpen ? (
-        <View style={{ position: 'absolute', left: 0, right: 0, top: 80, zIndex: 30 }}>
-          <View style={{ backgroundColor: makeTheme.card.background, borderBottomWidth: 1, borderBottomColor: makeTheme.card.border }}>
-            <BlurView intensity={18} tint="dark" style={{ position: 'absolute', inset: 0 }} />
-            <View style={{ padding: theme.spacing.md }}>
-              <View style={{ maxWidth: 720, alignSelf: 'center', width: '100%', gap: theme.spacing.sm }}>
-                <View style={{ flexDirection: 'row', gap: theme.spacing.sm }}>
-                  <MakeButton title="Resume" onPress={closeMenu} leftIcon={<Play width={18} height={18} color={makeTheme.button.textOnPrimary} />} />
-                  <MakeButton
-                    title="Restart"
-                    variant="secondary"
-                    onPress={() => {
-                      // Restart: reset via selecting new puzzle of same difficulty.
-                      // (Full “restart current seed” parity is a future enhancement.)
-                    if (gameType === 'daily') {
-                      const key = usePlayerStore.getState().dailyDateKey;
-                      if (key) {
-                        void usePlayerStore.getState().loadDaily(key);
-                      } else {
-                        void usePlayerStore.getState().loadTodayDaily();
-                      }
-                    } else {
-                      usePlayerStore.getState().newPuzzle(difficulty);
-                    }
-                      closeMenu();
-                    }}
-                    leftIcon={<RotateCcw width={18} height={18} color={makeTheme.text.primary} />}
-                  />
-                  <MakeButton
-                    title="Exit"
-                    variant="secondary"
-                    onPress={() => {
-                      closeMenu();
-                      onExitToMenu();
-                    }}
-                    leftIcon={<LogOut width={18} height={18} color={makeTheme.text.primary} />}
-                    style={{ flex: 1 }}
-                  />
-                </View>
-              </View>
+      <Animated.View style={{ position: 'absolute', left: 0, right: 0, top: 0, zIndex: 30, transform: [{ translateY: menuTranslateY }] }}>
+        <View style={{ backgroundColor: makeTheme.card.background, borderBottomWidth: 1, borderBottomColor: makeTheme.card.border }}>
+          <BlurView intensity={18} tint="dark" style={{ position: 'absolute', inset: 0 }} />
+
+          <ScrollView style={{ maxHeight: 520 }} contentContainerStyle={{ padding: isMd ? 24 : 16, gap: 12 }}>
+            {/* Action buttons */}
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <MakeButton
+                accessibilityLabel="Resume"
+                title={isMd ? 'Resume' : ''}
+                onPress={closeMenu}
+                style={{ flex: 1 }}
+                leftIcon={<Play width={18} height={18} color={makeTheme.button.textOnPrimary} />}
+                contentStyle={{ height: 44 }}
+              />
+              <MakeButton
+                accessibilityLabel="Restart"
+                title={isMd ? 'Restart' : ''}
+                variant="secondary"
+                onPress={() => {
+                  if (gameType === 'daily') {
+                    const key = usePlayerStore.getState().dailyDateKey;
+                    if (key) void usePlayerStore.getState().loadDaily(key);
+                    else void usePlayerStore.getState().loadTodayDaily();
+                  } else {
+                    usePlayerStore.getState().newPuzzle(difficulty);
+                  }
+                  closeMenu();
+                }}
+                style={{ flex: 1 }}
+                leftIcon={<RotateCcw width={18} height={18} color={makeTheme.text.primary} />}
+                contentStyle={{ height: 44 }}
+              />
+              <MakeButton
+                accessibilityLabel="Exit"
+                title={isMd ? 'Exit' : ''}
+                variant="secondary"
+                onPress={() => {
+                  closeMenu();
+                  onExitToMenu();
+                }}
+                style={{ flex: 1 }}
+                leftIcon={<LogOut width={18} height={18} color={makeTheme.text.primary} />}
+                  contentStyle={{ height: 44, backgroundColor: 'rgba(239,68,68,0.40)', borderColor: 'rgba(239,68,68,0.80)' }}
+              />
             </View>
-          </View>
+
+            {/* Collapsible sections (structure parity; deeper wiring handled in later screen passes) */}
+            <MakeCard style={{ borderRadius: 12 }}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Audio Settings"
+                onPress={() => setAudioExpanded((v) => !v)}
+                style={(state) => ({
+                  paddingHorizontal: 16,
+                  paddingVertical: 12,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  backgroundColor: Platform.OS === 'web' && state.hovered ? 'rgba(255,255,255,0.08)' : 'transparent',
+                })}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                  <Volume2 width={20} height={20} color={makeTheme.accent} />
+                  <MakeText>Audio Settings</MakeText>
+                </View>
+                {audioExpanded ? <ChevronUp width={20} height={20} color={makeTheme.text.muted} /> : <ChevronDown width={20} height={20} color={makeTheme.text.muted} />}
+              </Pressable>
+            </MakeCard>
+
+            <MakeCard style={{ borderRadius: 12 }}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Gameplay Assists"
+                onPress={() => setGameplayExpanded((v) => !v)}
+                style={(state) => ({
+                  paddingHorizontal: 16,
+                  paddingVertical: 12,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  backgroundColor: Platform.OS === 'web' && state.hovered ? 'rgba(255,255,255,0.08)' : 'transparent',
+                })}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                  <Gamepad2 width={20} height={20} color={makeTheme.accent} />
+                  <MakeText>Gameplay Assists</MakeText>
+                </View>
+                {gameplayExpanded ? <ChevronUp width={20} height={20} color={makeTheme.text.muted} /> : <ChevronDown width={20} height={20} color={makeTheme.text.muted} />}
+              </Pressable>
+            </MakeCard>
+
+            <MakeCard style={{ borderRadius: 12 }}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Grid Sizing"
+                onPress={() => setGridExpanded((v) => !v)}
+                style={(state) => ({
+                  paddingHorizontal: 16,
+                  paddingVertical: 12,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  backgroundColor: Platform.OS === 'web' && state.hovered ? 'rgba(255,255,255,0.08)' : 'transparent',
+                })}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                  <Maximize2 width={20} height={20} color={makeTheme.accent} />
+                  <MakeText>Grid Sizing</MakeText>
+                </View>
+                {gridExpanded ? <ChevronUp width={20} height={20} color={makeTheme.text.muted} /> : <ChevronDown width={20} height={20} color={makeTheme.text.muted} />}
+              </Pressable>
+            </MakeCard>
+          </ScrollView>
         </View>
-      ) : null}
+      </Animated.View>
 
       {/* Content */}
-      <View style={{ flex: 1, paddingTop: 96, paddingHorizontal: theme.spacing.md, paddingBottom: theme.spacing.md }}>
+      <View style={{ flex: 1, paddingTop: headerHeight, paddingHorizontal: theme.spacing.md, paddingBottom: theme.spacing.md }}>
         <View style={{ alignSelf: 'center', width: '100%', maxWidth: 720, gap: theme.spacing.md }}>
           <View style={{ alignItems: 'center' }}>
             <SudokuGrid
