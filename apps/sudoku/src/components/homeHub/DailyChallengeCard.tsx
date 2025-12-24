@@ -3,7 +3,6 @@ import { Pressable, useWindowDimensions, View } from 'react-native';
 import { Calendar, CheckCircle, Clock, Flame } from 'lucide-react-native';
 
 import { msUntilNextUtcMidnight } from '@cynnix-studios/sudoku-core';
-import { theme } from '@cynnix-studios/ui';
 import { LinearGradient } from 'expo-linear-gradient';
 
 import { MakeCard } from '../make/MakeCard';
