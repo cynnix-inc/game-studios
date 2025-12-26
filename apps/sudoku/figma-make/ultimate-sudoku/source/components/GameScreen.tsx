@@ -16,10 +16,27 @@ export function GameScreen({ onExit, username, difficulty = 'medium', gameType =
   const { theme } = useTheme();
   const [showMenu, setShowMenu] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
+  const [autoResumeNeeded, setAutoResumeNeeded] = useState(false); // For auto-pause from visibility change
   const [score, setScore] = useState(0);
   const [timeElapsed, setTimeElapsed] = useState(0);
   const [mistakes, setMistakes] = useState(0);
   const [hintsUsed, setHintsUsed] = useState(0);
+
+  // Auto-pause on visibility change (tab switch, backgrounding)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        // Tab/app went to background - auto-pause
+        setIsPaused(true);
+        setAutoResumeNeeded(true);
+        setShowMenu(false); // Don't show menu, just pause
+      }
+      // When coming back to visible, autoResumeNeeded will trigger the resume overlay
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, []);
 
   // Timer
   useEffect(() => {
@@ -45,6 +62,11 @@ export function GameScreen({ onExit, username, difficulty = 'medium', gameType =
 
   const handleResume = () => {
     setShowMenu(false);
+    setIsPaused(false);
+  };
+
+  const handleAutoResume = () => {
+    setAutoResumeNeeded(false);
     setIsPaused(false);
   };
 
@@ -97,6 +119,7 @@ export function GameScreen({ onExit, username, difficulty = 'medium', gameType =
                   {isPaused ? <Play className="w-5 h-5 md:w-6 md:h-6" /> : <Menu className="w-5 h-5 md:w-6 md:h-6" />}
                 </Button>
                 
+                {/* Desktop: Full layout */}
                 <div className="hidden sm:flex items-center gap-2 md:gap-3">
                   <div>
                     <p className={`text-xs ${theme.text.muted}`}>
@@ -108,9 +131,12 @@ export function GameScreen({ onExit, username, difficulty = 'medium', gameType =
                   </div>
                 </div>
 
-                {/* Mobile: Compact difficulty badge */}
+                {/* Mobile: Compact layout with game type */}
                 <div className="sm:hidden">
-                  <div className={`text-xs px-2 py-1 rounded border ${getDifficultyColor()} capitalize`}>
+                  <p className={`text-xs ${theme.text.muted} mb-0.5`}>
+                    {gameType === 'daily' ? 'Daily' : 'Classic'}
+                  </p>
+                  <div className={`text-xs px-2 py-0.5 rounded border ${getDifficultyColor()} capitalize`}>
                     {difficulty}
                   </div>
                 </div>
@@ -188,6 +214,73 @@ export function GameScreen({ onExit, username, difficulty = 'medium', gameType =
           onExit={onExit}
         />
       </div>
+
+      {/* Auto-Resume Overlay - Full screen blur that masks puzzle */}
+      {autoResumeNeeded && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-xl">
+          <div className={`${theme.card.background} ${theme.card.border} border rounded-2xl p-8 md:p-10 max-w-md mx-4 shadow-2xl backdrop-blur-xl space-y-6`}>
+            {/* Icon */}
+            <div className="flex justify-center">
+              <div className={`w-16 h-16 md:w-20 md:h-20 rounded-full ${theme.button.primary.background} flex items-center justify-center`}>
+                <Play className={`w-8 h-8 md:w-10 md:h-10 ${theme.button.primary.text}`} />
+              </div>
+            </div>
+
+            {/* Title */}
+            <div className="text-center space-y-2">
+              <h2 className={`text-2xl md:text-3xl ${theme.text.primary}`}>Welcome Back!</h2>
+              <p className={`text-sm ${theme.text.secondary}`}>Your game was paused while you were away</p>
+            </div>
+
+            {/* Stats Summary */}
+            <div className={`${theme.card.background} ${theme.card.border} border rounded-xl p-4 space-y-3`}>
+              <div className="flex items-center justify-between">
+                <span className={`text-sm ${theme.text.secondary}`}>Game Type</span>
+                <span className={`text-sm ${theme.text.primary}`}>
+                  {gameType === 'daily' ? 'Daily Challenge' : 'Classic'}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className={`text-sm ${theme.text.secondary}`}>Difficulty</span>
+                <span className={`text-xs px-2 py-0.5 rounded border ${getDifficultyColor()} capitalize`}>
+                  {difficulty}
+                </span>
+              </div>
+              <div className={`border-t ${theme.card.border} my-2`} />
+              <div className="flex items-center justify-between">
+                <span className={`text-sm ${theme.text.secondary}`}>Time Elapsed</span>
+                <span className={`text-sm ${theme.text.primary} font-mono`}>{formatTime(timeElapsed)}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className={`text-sm ${theme.text.secondary}`}>Mistakes</span>
+                <span className={`text-sm ${mistakes > 3 ? 'text-red-400' : theme.text.primary}`}>{mistakes}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className={`text-sm ${theme.text.secondary}`}>Hints Used</span>
+                <span className={`text-sm ${theme.text.primary}`}>{hintsUsed}</span>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="space-y-3">
+              <Button
+                onClick={handleAutoResume}
+                className={`w-full ${theme.button.primary.background} ${theme.button.primary.hover} ${theme.button.primary.text} transition-all duration-300`}
+              >
+                <Play className="w-5 h-5 mr-2" />
+                Resume Game
+              </Button>
+              <Button
+                onClick={onExit}
+                variant="ghost"
+                className={`w-full ${theme.text.secondary} ${theme.card.hover} transition-all duration-300`}
+              >
+                Exit to Menu
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Main Game Content */}
       <div className="pt-16 md:pt-20 pb-4 px-0 flex items-center justify-center min-h-screen">
