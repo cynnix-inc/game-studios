@@ -13,7 +13,7 @@ test.describe('visual: auth modal (Ultimate Sudoku)', () => {
     await page.goto('/');
     await expect(page.getByRole('heading', { name: 'Ultimate Sudoku' })).toBeVisible();
     await page.getByRole('button', { name: 'Sign In' }).click();
-    await expect(page.getByText('Welcome', { exact: true })).toBeVisible();
+    await expect(page.getByText('Welcome to Ultimate Sudoku', { exact: true })).toBeVisible();
     await snap(page, 'auth.mobile.png');
   });
 
@@ -22,7 +22,7 @@ test.describe('visual: auth modal (Ultimate Sudoku)', () => {
     await page.goto('/');
     await expect(page.getByRole('heading', { name: 'Ultimate Sudoku' })).toBeVisible();
     await page.getByRole('button', { name: 'Sign In' }).click();
-    await expect(page.getByText('Welcome', { exact: true })).toBeVisible();
+    await expect(page.getByText('Welcome to Ultimate Sudoku', { exact: true })).toBeVisible();
     await snap(page, 'auth.tablet.png');
   });
 
@@ -31,7 +31,7 @@ test.describe('visual: auth modal (Ultimate Sudoku)', () => {
     await page.goto('/');
     await expect(page.getByRole('heading', { name: 'Ultimate Sudoku' })).toBeVisible();
     await page.getByRole('button', { name: 'Sign In' }).click();
-    await expect(page.getByText('Welcome', { exact: true })).toBeVisible();
+    await expect(page.getByText('Welcome to Ultimate Sudoku', { exact: true })).toBeVisible();
     await snap(page, 'auth.desktop.png');
   });
 });
