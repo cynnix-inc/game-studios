@@ -158,7 +158,7 @@ function MakeSelect<T extends string>({
 }: {
   label: string;
   value: T;
-  options: readonly SelectOption<T>[];
+  options: readonly [SelectOption<T>, ...SelectOption<T>[]];
   onChange: (next: T) => void;
   disabled?: boolean;
   accessibilityLabel: string;
@@ -406,13 +406,13 @@ export function UltimateSettingsScreen({ onBack }: { onBack: () => void }) {
   const audio = getAudioSettings(settings);
   const gameplay = getGameplaySettings(settings);
   const zenDisabled = toggles.zenMode;
-  const hintOptions: readonly SelectOption<HintMode>[] = [
+  const hintOptions: readonly [SelectOption<HintMode>, ...SelectOption<HintMode>[]] = [
     { value: 'direct', label: 'Direct' },
     { value: 'logic', label: 'Logic' },
     { value: 'assist', label: 'Assist' },
     { value: 'escalate', label: 'Escalate' },
   ];
-  const themeOptions: readonly SelectOption<typeof themeType>[] = [
+  const themeOptions: readonly [SelectOption<typeof themeType>, ...SelectOption<typeof themeType>[]] = [
     { value: 'default', label: 'Default' },
     { value: 'light', label: 'Light' },
     { value: 'dark', label: 'Dark' },
@@ -420,7 +420,7 @@ export function UltimateSettingsScreen({ onBack }: { onBack: () => void }) {
     { value: 'vibrant', label: 'Vibrant' },
     { value: 'device', label: 'Match Device' },
   ];
-  const languageOptions: readonly SelectOption<typeof language>[] = [
+  const languageOptions: readonly [SelectOption<typeof language>, ...SelectOption<typeof language>[]] = [
     { value: 'en', label: 'English' },
     { value: 'es', label: 'Español' },
     { value: 'fr', label: 'Français' },

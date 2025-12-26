@@ -88,7 +88,7 @@ function Cell({
   numberFontSize: number;
   noteFontSize: number;
   makeTheme: { card: { background: string; border: string }; text: { primary: string; secondary: string; muted: string }; accent: string };
-  resolvedThemeType: 'default' | 'light' | 'dark' | 'grayscale';
+  resolvedThemeType: 'default' | 'light' | 'dark' | 'grayscale' | 'vibrant';
   onPress: () => void;
 }) {
   const r = Math.floor(i / 9);
