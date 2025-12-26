@@ -1,5 +1,6 @@
 import React from 'react';
 import { Modal, Platform, Pressable, TextInput, View } from 'react-native';
+import { BlurView } from 'expo-blur';
 import { Apple, Chrome, X } from 'lucide-react-native';
 
 import { theme } from '@cynnix-studios/ui';
@@ -74,6 +75,9 @@ export function UltimateAuthModal({
           padding: 16,
         }}
       >
+        {/* Native: approximate Make's backdrop blur (web uses CSS backdrop-filter above). */}
+        {Platform.OS !== 'web' ? <BlurView intensity={18} tint="dark" style={{ position: 'absolute', inset: 0 }} /> : null}
+
         <Pressable
           accessibilityRole="none"
           onPress={(e) => {
@@ -83,7 +87,24 @@ export function UltimateAuthModal({
           }}
           style={{ width: '100%', maxWidth: cardMaxWidth }}
         >
-          <MakeCard style={{ borderRadius: 24 }}>
+          <MakeCard
+            style={[
+              { borderRadius: 24 },
+              // Make parity: shadow-2xl for modal cards.
+              Platform.select({
+                ios: {
+                  shadowColor: '#000',
+                  shadowOpacity: 0.28,
+                  shadowRadius: 24,
+                  shadowOffset: { width: 0, height: 14 },
+                },
+                android: { elevation: 14 },
+                web: {
+                  boxShadow: '0 28px 80px rgba(0,0,0,0.45)',
+                } as unknown as object,
+              }),
+            ]}
+          >
             {/* Header */}
             <View
               style={{
