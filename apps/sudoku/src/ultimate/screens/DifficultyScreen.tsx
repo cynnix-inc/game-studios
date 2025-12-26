@@ -101,18 +101,29 @@ export function UltimateDifficultyScreen({
                   accessibilityRole="button"
                   accessibilityLabel={d.title}
                   onPress={() => onSelectDifficulty(d.level)}
-                  style={(state) => ({
-                    width: cardWidth as unknown as number,
-                    opacity: state.pressed ? 0.96 : 1,
-                    ...(Platform.OS === 'web'
-                      ? ({
-                          transform: state.hovered ? 'scale(1.03)' : 'scale(1)',
-                          transition: 'transform 250ms ease, opacity 150ms ease',
-                        } as unknown as object)
-                      : null),
-                  })}
+                  style={(state) => {
+                    const hovered =
+                      Platform.OS === 'web' && 'hovered' in state
+                        ? Boolean((state as unknown as { hovered?: boolean }).hovered)
+                        : false;
+                    return {
+                      width: cardWidth as unknown as number,
+                      opacity: state.pressed ? 0.96 : 1,
+                      ...(Platform.OS === 'web'
+                        ? ({
+                            transform: hovered ? 'scale(1.03)' : 'scale(1)',
+                            transition: 'transform 250ms ease, opacity 150ms ease',
+                          } as unknown as object)
+                        : null),
+                    };
+                  }}
                 >
-                  {({ hovered }) => (
+                  {(state) => {
+                    const hovered =
+                      Platform.OS === 'web' && 'hovered' in state
+                        ? Boolean((state as unknown as { hovered?: boolean }).hovered)
+                        : false;
+                    return (
                     <MakeCard style={{ borderRadius: 24 }}>
                       <View style={{ padding: 32, gap: 16 }}>
                         <LinearGradient
@@ -172,7 +183,8 @@ export function UltimateDifficultyScreen({
                         </View>
                       </View>
                     </MakeCard>
-                  )}
+                    );
+                  }}
                 </Pressable>
               );
             })}

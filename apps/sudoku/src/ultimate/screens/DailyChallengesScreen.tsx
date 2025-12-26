@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable, ScrollView, useWindowDimensions, View } from 'react-native';
+import { Platform, Pressable, ScrollView, useWindowDimensions, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ArrowLeft, Calendar, CheckCircle, Flame, Lock, Target, TrendingUp, Trophy, X } from 'lucide-react-native';
 import { nowUtcDateKey } from '@cynnix-studios/sudoku-core';
@@ -145,13 +145,17 @@ export function UltimateDailyChallengesScreen({
         accessibilityRole="button"
         accessibilityLabel={`${label} tab`}
         onPress={() => setActiveTab(tab)}
-        style={({ pressed, hovered }) => ({
-          flex: 1,
-          borderRadius: 12,
-          overflow: 'hidden',
-          opacity: pressed ? 0.94 : 1,
-          backgroundColor: !active && hovered ? 'rgba(255,255,255,0.08)' : 'transparent',
-        })}
+        style={(state) => {
+          const hovered =
+            Platform.OS === 'web' && 'hovered' in state ? Boolean((state as unknown as { hovered?: boolean }).hovered) : false;
+          return {
+            flex: 1,
+            borderRadius: 12,
+            overflow: 'hidden',
+            opacity: state.pressed ? 0.94 : 1,
+            backgroundColor: !active && hovered ? 'rgba(255,255,255,0.08)' : 'transparent',
+          };
+        }}
       >
         {active ? (
           <LinearGradient

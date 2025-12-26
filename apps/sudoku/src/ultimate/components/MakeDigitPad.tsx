@@ -55,7 +55,10 @@ export function MakeDigitPad({
             accessibilityLabel={`Digit ${d}`}
             disabled={disabled}
             onPress={() => onDigit(d)}
-            style={(state) => ({
+            style={(state) => {
+              const hovered =
+                Platform.OS === 'web' && 'hovered' in state ? Boolean((state as unknown as { hovered?: boolean }).hovered) : false;
+              return {
               flex: 1,
               aspectRatio: 1,
               minHeight: 48,
@@ -68,12 +71,13 @@ export function MakeDigitPad({
               opacity: disabled ? 0.5 : state.pressed ? 0.9 : 1,
               ...(Platform.OS === 'web'
                 ? ({
-                    boxShadow: state.hovered ? '0 18px 44px rgba(0,0,0,0.25)' : '0 12px 32px rgba(0,0,0,0.20)',
-                    transform: state.hovered ? 'scale(1.02)' : 'scale(1)',
+                    boxShadow: hovered ? '0 18px 44px rgba(0,0,0,0.25)' : '0 12px 32px rgba(0,0,0,0.20)',
+                    transform: hovered ? 'scale(1.02)' : 'scale(1)',
                     transition: 'transform 200ms ease, box-shadow 200ms ease, opacity 150ms ease',
                   } as unknown as object)
                 : null),
-            })}
+              };
+            }}
           >
             {lockMode && lockedDigit === d ? (
               <LinearGradient

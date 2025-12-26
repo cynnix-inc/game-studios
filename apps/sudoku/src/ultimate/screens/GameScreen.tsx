@@ -261,15 +261,25 @@ export function UltimateGameScreen({
         accessibilityState={{ checked: value, disabled }}
         onPress={onToggle}
         disabled={disabled}
-        style={({ pressed, hovered }) => ({
-          paddingVertical: 10,
-          paddingHorizontal: 6,
-          marginHorizontal: -6,
-          borderRadius: 10,
-          backgroundColor: pressed ? 'rgba(255,255,255,0.08)' : Platform.OS === 'web' && hovered ? 'rgba(255,255,255,0.05)' : 'transparent',
-          ...(Platform.OS === 'web' ? ({ transition: 'background-color 150ms ease, opacity 150ms ease' } as unknown as object) : null),
-          opacity: disabled ? 0.55 : pressed ? 0.92 : 1,
-        })}
+            style={(state) => {
+              const hovered =
+                Platform.OS === 'web' && 'hovered' in state
+                  ? Boolean((state as unknown as { hovered?: boolean }).hovered)
+                  : false;
+              return {
+                paddingVertical: 10,
+                paddingHorizontal: 6,
+                marginHorizontal: -6,
+                borderRadius: 10,
+                backgroundColor: state.pressed
+                  ? 'rgba(255,255,255,0.08)'
+                  : Platform.OS === 'web' && hovered
+                    ? 'rgba(255,255,255,0.05)'
+                    : 'transparent',
+                ...(Platform.OS === 'web' ? ({ transition: 'background-color 150ms ease, opacity 150ms ease' } as unknown as object) : null),
+                opacity: disabled ? 0.55 : state.pressed ? 0.92 : 1,
+              };
+            }}
       >
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
@@ -324,7 +334,10 @@ export function UltimateGameScreen({
                       borderRadius: 12,
                       alignItems: 'center',
                       justifyContent: 'center',
-                      backgroundColor: Platform.OS === 'web' && state.hovered ? makeTheme.card.background : 'transparent',
+                          backgroundColor:
+                            Platform.OS === 'web' && 'hovered' in state && (state as unknown as { hovered?: boolean }).hovered
+                              ? makeTheme.card.background
+                              : 'transparent',
                       opacity: state.pressed ? 0.85 : 1,
                       ...(Platform.OS === 'web'
                         ? ({
@@ -619,7 +632,10 @@ export function UltimateGameScreen({
                   flexDirection: 'row',
                   alignItems: 'center',
                   justifyContent: 'space-between',
-                  backgroundColor: Platform.OS === 'web' && state.hovered ? 'rgba(255,255,255,0.08)' : 'transparent',
+                          backgroundColor:
+                            Platform.OS === 'web' && 'hovered' in state && (state as unknown as { hovered?: boolean }).hovered
+                              ? 'rgba(255,255,255,0.08)'
+                              : 'transparent',
                 })}
               >
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
@@ -729,7 +745,10 @@ export function UltimateGameScreen({
                   flexDirection: 'row',
                   alignItems: 'center',
                   justifyContent: 'space-between',
-                  backgroundColor: Platform.OS === 'web' && state.hovered ? 'rgba(255,255,255,0.08)' : 'transparent',
+                          backgroundColor:
+                            Platform.OS === 'web' && 'hovered' in state && (state as unknown as { hovered?: boolean }).hovered
+                              ? 'rgba(255,255,255,0.08)'
+                              : 'transparent',
                 })}
               >
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
@@ -796,7 +815,10 @@ export function UltimateGameScreen({
                   flexDirection: 'row',
                   alignItems: 'center',
                   justifyContent: 'space-between',
-                  backgroundColor: Platform.OS === 'web' && state.hovered ? 'rgba(255,255,255,0.08)' : 'transparent',
+                          backgroundColor:
+                            Platform.OS === 'web' && 'hovered' in state && (state as unknown as { hovered?: boolean }).hovered
+                              ? 'rgba(255,255,255,0.08)'
+                              : 'transparent',
                 })}
               >
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>

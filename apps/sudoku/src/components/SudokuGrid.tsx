@@ -121,25 +121,29 @@ function Cell({
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={`Cell row ${r + 1} column ${c + 1}${given ? ', given' : ''}${selected ? ', selected' : ''}`}
-      style={({ pressed, hovered }) => ({
-        width: cellSize,
-        height: cellSize,
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: bg,
-        // Make parity: minor cell dividers only (right/bottom), plus a full accent border for selected.
-        borderColor: selected ? makeTheme.accent : makeTheme.card.border,
-        borderWidth: selected ? 2 : 0,
-        borderRightWidth: selected ? 2 : isRightEdge ? 0 : 1,
-        borderBottomWidth: selected ? 2 : isBottomEdge ? 0 : 1,
-        opacity: pressed ? 0.92 : 1,
-        ...(Platform.OS === 'web'
-          ? ({
-              transform: hovered && !pressed ? 'scale(1.01)' : 'scale(1)',
-              transition: 'transform 160ms ease, background-color 160ms ease, opacity 120ms ease',
-            } as unknown as object)
-          : null),
-      })}
+      style={(state) => {
+        const hovered =
+          Platform.OS === 'web' && 'hovered' in state ? Boolean((state as unknown as { hovered?: boolean }).hovered) : false;
+        return {
+          width: cellSize,
+          height: cellSize,
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: bg,
+          // Make parity: minor cell dividers only (right/bottom), plus a full accent border for selected.
+          borderColor: selected ? makeTheme.accent : makeTheme.card.border,
+          borderWidth: selected ? 2 : 0,
+          borderRightWidth: selected ? 2 : isRightEdge ? 0 : 1,
+          borderBottomWidth: selected ? 2 : isBottomEdge ? 0 : 1,
+          opacity: state.pressed ? 0.92 : 1,
+          ...(Platform.OS === 'web'
+            ? ({
+                transform: hovered && !state.pressed ? 'scale(1.01)' : 'scale(1)',
+                transition: 'transform 160ms ease, background-color 160ms ease, opacity 120ms ease',
+              } as unknown as object)
+            : null),
+        };
+      }}
     >
       {value === 0 ? (
         notes && notes.size > 0 ? (

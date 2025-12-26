@@ -38,7 +38,8 @@ export function MakeButton({
       {...rest}
       style={(state) => {
         const extra = typeof style === 'function' ? style(state) : style;
-        const hovered = Platform.OS === 'web' ? state.hovered : false;
+        const hovered =
+          Platform.OS === 'web' && 'hovered' in state ? Boolean((state as unknown as { hovered?: boolean }).hovered) : false;
         const showShadow = variant !== 'ghost' && elevation === 'elevated';
         return [
           {
