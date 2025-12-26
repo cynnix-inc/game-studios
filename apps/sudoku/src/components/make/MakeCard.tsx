@@ -23,7 +23,7 @@ export function MakeCard({ style, children, ...rest }: ViewProps) {
       ]}
     >
       {/* Blur overlay for glass effect; backgroundColor above ensures web has an rgba() background. */}
-      <BlurView intensity={18} tint={tint} style={{ position: 'absolute', inset: 0 }} />
+      <BlurView intensity={18} tint={tint} style={{ position: 'absolute', inset: 0 }} pointerEvents="none" />
       {children}
     </View>
   );

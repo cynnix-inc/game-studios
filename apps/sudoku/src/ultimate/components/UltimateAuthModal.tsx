@@ -269,6 +269,8 @@ export function UltimateAuthModal({
                     position: 'absolute',
                     top: padY,
                     right: padX,
+                    // RN-web: ensure the close button sits above the centered header content.
+                    zIndex: 10,
                     width: 32,
                     height: 32,
                     borderRadius: 999,
