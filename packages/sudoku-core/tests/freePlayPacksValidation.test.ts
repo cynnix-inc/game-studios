@@ -8,11 +8,11 @@ describe('free play packs validation', () => {
     const m = assertFreePlayManifest({
       schema_version: 1,
       packs: {
-        easy: { version: 'v1', url: '/freeplay/easy/v1.json', sha256: 'abc' },
+        novice: { version: 'v1', url: '/freeplay/novice/v1.json', sha256: 'abc' },
       },
     });
     expect(m.schema_version).toBe(1);
-    expect(m.packs.easy?.version).toBe('v1');
+    expect(m.packs.novice?.version).toBe('v1');
   });
 
   test('assertFreePlayManifest rejects unknown difficulty keys', () => {
@@ -27,11 +27,11 @@ describe('free play packs validation', () => {
   test('assertFreePlayPack accepts a valid pack', () => {
     const p = assertFreePlayPack({
       schema_version: 1,
-      difficulty: 'easy',
+      difficulty: 'novice',
       version: 'v1',
       puzzles: [{ puzzle_id: 'p1', puzzle: PUZZLE_81, solution: SOLUTION_81 }],
     });
-    expect(p.difficulty).toBe('easy');
+    expect(p.difficulty).toBe('novice');
     expect(p.puzzles).toHaveLength(1);
   });
 
@@ -41,7 +41,7 @@ describe('free play packs validation', () => {
     expect(() =>
       assertFreePlayPack({
         schema_version: 1,
-        difficulty: 'easy',
+        difficulty: 'novice',
         version: 'v1',
         puzzles: [{ puzzle_id: 'p1', puzzle: PUZZLE_81, solution: badSolution }],
       }),

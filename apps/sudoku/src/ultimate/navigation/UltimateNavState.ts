@@ -8,7 +8,9 @@ export type UltimateScreen =
   | 'dailyChallenges'
   | 'difficulty';
 
-export type UltimateDifficulty = 'easy' | 'medium' | 'hard' | 'expert';
+import type { Difficulty } from '@cynnix-studios/sudoku-core';
+
+export type UltimateDifficulty = Difficulty;
 
 export type UltimateNavState = {
   screen: UltimateScreen;
@@ -33,7 +35,7 @@ export const initialUltimateNavState: UltimateNavState = {
   authModalOpen: false,
   isAuthenticated: false,
   username: '',
-  selectedDifficulty: 'medium',
+  selectedDifficulty: 'skilled',
   gameType: 'classic',
 };
 

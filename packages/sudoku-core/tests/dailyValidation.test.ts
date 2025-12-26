@@ -25,7 +25,7 @@ describe('daily payload validation', () => {
     const payload = {
       schema_version: 1,
       date_key: '2025-01-02',
-      difficulty: 'easy',
+      difficulty: 'novice',
       puzzle: Array.from({ length: 81 }, () => 0),
       solution: Array.from({ length: 81 }, () => 1),
     };
@@ -36,7 +36,7 @@ describe('daily payload validation', () => {
     const payload = {
       schema_version: 1,
       date_key: '2025-01-02',
-      difficulty: 'easy',
+      difficulty: 'novice',
       puzzle: [0, 0],
       solution: Array.from({ length: 81 }, () => 1),
     };

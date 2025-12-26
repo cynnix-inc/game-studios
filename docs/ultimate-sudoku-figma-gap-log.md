@@ -65,7 +65,7 @@ This doc tracks **bi-directional gaps** during the UI replacement work:
 - **decision**: render the email form UI but disable submission unless email auth exists; wire Google/Apple to existing flows; log missing error/loading states if not in design.
 - **notes**: Any auth error messaging not specified by design must be treated as a design gap.
 
-### [GAP-004] Difficulty “Extreme” exists in engine but is not in the Figma Make UI
+### [GAP-004] Difficulty “Ultimate” exists in engine but is not in the Figma Make UI
 - **type**: code_to_figma
 - **screen**: difficulty
 - **status**: logged
@@ -73,9 +73,9 @@ This doc tracks **bi-directional gaps** during the UI replacement work:
   - **figma**: Difficulty selection shows `easy | medium | hard | expert`
   - **code**: `packages/sudoku-core/src/engine/difficulty.ts` includes `extreme`
 - **summary**: The app supports an additional difficulty not present in the redesign.
-- **expected_in_design**: Either include “Extreme” in the UI, or explicitly omit it.
-- **expected_in_code**: Extreme difficulty is available and test-covered.
-- **decision**: Omit “Extreme” from the new UI until design includes it; keep engine support intact.
+- **expected_in_design**: Either include “Ultimate” in the UI, or explicitly omit it.
+- **expected_in_code**: Ultimate difficulty is available and test-covered.
+- **decision**: Omit “Ultimate” from the new UI until design includes it; keep engine support intact.
 - **notes**: This is an explicit “functionality without design” item.
 
 ### [GAP-011] Legacy route-based UI removed in favor of Make state-machine navigation

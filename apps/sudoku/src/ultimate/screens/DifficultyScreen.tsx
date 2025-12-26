@@ -23,25 +23,25 @@ type DifficultyCard = {
 
 const DIFFICULTIES: DifficultyCard[] = [
   {
-    level: 'easy',
-    title: 'Easy',
-    description: '35 numbers filled',
+    level: 'novice',
+    title: 'Novice',
+    description: '36–40 clues',
     icon: Zap,
     iconColor: '#4ade80',
     gradient: ['rgba(34,197,94,0.20)', 'rgba(16,185,129,0.20)'],
   },
   {
-    level: 'medium',
-    title: 'Medium',
-    description: '45 numbers filled',
+    level: 'skilled',
+    title: 'Skilled',
+    description: '30–34 clues',
     icon: Target,
     iconColor: '#60a5fa',
     gradient: ['rgba(59,130,246,0.20)', 'rgba(34,211,238,0.20)'],
   },
   {
-    level: 'hard',
-    title: 'Hard',
-    description: '52 numbers filled',
+    level: 'advanced',
+    title: 'Advanced',
+    description: '26–30 clues',
     icon: Flame,
     iconColor: '#fb923c',
     gradient: ['rgba(249,115,22,0.20)', 'rgba(239,68,68,0.20)'],
@@ -49,10 +49,26 @@ const DIFFICULTIES: DifficultyCard[] = [
   {
     level: 'expert',
     title: 'Expert',
-    description: '58 numbers filled',
+    description: '22–26 clues',
     icon: Skull,
     iconColor: '#f87171',
     gradient: ['rgba(239,68,68,0.20)', 'rgba(244,63,94,0.20)'],
+  },
+  {
+    level: 'fiendish',
+    title: 'Fiendish',
+    description: '20–24 clues',
+    icon: Skull,
+    iconColor: '#fb7185',
+    gradient: ['rgba(244,63,94,0.20)', 'rgba(239,68,68,0.20)'],
+  },
+  {
+    level: 'ultimate',
+    title: 'Ultimate',
+    description: '17–22 clues',
+    icon: Skull,
+    iconColor: '#fca5a5',
+    gradient: ['rgba(239,68,68,0.22)', 'rgba(190,18,60,0.22)'],
   },
 ];
 
@@ -150,7 +166,17 @@ export function UltimateDifficultyScreen({
                               Completion Rate
                             </MakeText>
                             <MakeText style={{ fontSize: 14 }}>
-                              {d.level === 'easy' ? '95%' : d.level === 'medium' ? '75%' : d.level === 'hard' ? '45%' : '20%'}
+                              {d.level === 'novice'
+                                ? '95%'
+                                : d.level === 'skilled'
+                                  ? '80%'
+                                  : d.level === 'advanced'
+                                    ? '55%'
+                                    : d.level === 'expert'
+                                      ? '35%'
+                                      : d.level === 'fiendish'
+                                        ? '20%'
+                                        : '10%'}
                             </MakeText>
                           </View>
                           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -158,13 +184,17 @@ export function UltimateDifficultyScreen({
                               Avg. Time
                             </MakeText>
                             <MakeText style={{ fontSize: 14 }}>
-                              {d.level === 'easy'
+                              {d.level === 'novice'
                                 ? '8-12 min'
-                                : d.level === 'medium'
+                                : d.level === 'skilled'
                                   ? '15-25 min'
-                                  : d.level === 'hard'
-                                    ? '30-45 min'
-                                    : '45+ min'}
+                                  : d.level === 'advanced'
+                                    ? '25-40 min'
+                                    : d.level === 'expert'
+                                      ? '40-60 min'
+                                      : d.level === 'fiendish'
+                                        ? '60-90 min'
+                                        : '90+ min'}
                             </MakeText>
                           </View>
                         </View>
@@ -198,16 +228,22 @@ export function UltimateDifficultyScreen({
               </MakeText>
               <View style={{ gap: 8 }}>
                 <MakeText tone="secondary" style={{ fontSize: 14 }}>
-                  • <MakeText>Easy:</MakeText> Perfect for beginners and quick games
+                  • <MakeText>Novice:</MakeText> Great for warm-up and learning patterns
                 </MakeText>
                 <MakeText tone="secondary" style={{ fontSize: 14 }}>
-                  • <MakeText>Medium:</MakeText> Balanced challenge for regular play
+                  • <MakeText>Skilled:</MakeText> Standard play with basic patterns
                 </MakeText>
                 <MakeText tone="secondary" style={{ fontSize: 14 }}>
-                  • <MakeText>Hard:</MakeText> Requires advanced strategies
+                  • <MakeText>Advanced:</MakeText> Requires deeper scanning and control
                 </MakeText>
                 <MakeText tone="secondary" style={{ fontSize: 14 }}>
-                  • <MakeText>Expert:</MakeText> Only for true Sudoku masters
+                  • <MakeText>Expert:</MakeText> Harder patterns and more complex deductions
+                </MakeText>
+                <MakeText tone="secondary" style={{ fontSize: 14 }}>
+                  • <MakeText>Fiendish:</MakeText> Logic warrior tier
+                </MakeText>
+                <MakeText tone="secondary" style={{ fontSize: 14 }}>
+                  • <MakeText>Ultimate:</MakeText> Legend mode
                 </MakeText>
               </View>
             </View>

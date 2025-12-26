@@ -55,7 +55,7 @@ Primary references:
 **Delivers:** A fast, clean classic Sudoku experience for Free Play.
 
 **Scope (high-level):**
-- Start a Free Play puzzle by difficulty (Easy, Medium, Hard, Expert, Extreme).
+- Start a Free Play puzzle by difficulty (Novice, Skilled, Advanced, Expert, Fiendish, Ultimate).
 - Core interactions: select cell, enter 1–9, clear/erase.
 - Notes mode: add/remove notes; notes displayed per cell.
 - Undo/redo with history persisting across pause/resume for in-progress puzzles.

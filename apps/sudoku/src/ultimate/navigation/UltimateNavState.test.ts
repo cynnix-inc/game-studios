@@ -7,7 +7,7 @@ describe('ultimateNavReducer (Figma Make screen state machine)', () => {
       authModalOpen: false,
       isAuthenticated: false,
       username: '',
-      selectedDifficulty: 'medium',
+      selectedDifficulty: 'skilled',
       gameType: 'classic',
     });
   });
@@ -52,7 +52,7 @@ describe('ultimateNavReducer (Figma Make screen state machine)', () => {
       authModalOpen: false,
       isAuthenticated: true,
       username: 'Neil',
-      selectedDifficulty: 'hard',
+      selectedDifficulty: 'advanced',
       gameType: 'classic',
     };
 

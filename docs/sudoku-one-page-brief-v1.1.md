@@ -8,7 +8,7 @@ A fast, clean Sudoku experience built once (Expo) and released in this order:
 3. iOS (TestFlight until ready for public launch)
 
 MVP modes:
-- Free Play (difficulty: Easy, Medium, Hard, Expert, Extreme)
+- Free Play (difficulty: Novice, Skilled, Advanced, Expert, Fiendish, Ultimate)
 - Daily (global UTC, same puzzle worldwide, 30-day archive)
 
 ## Non-negotiables

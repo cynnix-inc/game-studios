@@ -55,10 +55,12 @@ import { MakeDigitPad } from '../components/MakeDigitPad';
 type Digit = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
 
 function difficultyBadge(difficulty: string): { bg: string; border: string; text: string } {
-  if (difficulty === 'easy') return { bg: 'rgba(34,197,94,0.20)', border: 'rgba(34,197,94,0.30)', text: '#4ade80' };
-  if (difficulty === 'medium') return { bg: 'rgba(234,179,8,0.20)', border: 'rgba(234,179,8,0.30)', text: '#facc15' };
-  if (difficulty === 'hard') return { bg: 'rgba(249,115,22,0.20)', border: 'rgba(249,115,22,0.30)', text: '#fb923c' };
+  if (difficulty === 'novice') return { bg: 'rgba(34,197,94,0.20)', border: 'rgba(34,197,94,0.30)', text: '#4ade80' };
+  if (difficulty === 'skilled') return { bg: 'rgba(59,130,246,0.20)', border: 'rgba(59,130,246,0.30)', text: '#60a5fa' };
+  if (difficulty === 'advanced') return { bg: 'rgba(249,115,22,0.20)', border: 'rgba(249,115,22,0.30)', text: '#fb923c' };
   if (difficulty === 'expert') return { bg: 'rgba(239,68,68,0.20)', border: 'rgba(239,68,68,0.30)', text: '#f87171' };
+  if (difficulty === 'fiendish') return { bg: 'rgba(244,63,94,0.20)', border: 'rgba(244,63,94,0.30)', text: '#fb7185' };
+  if (difficulty === 'ultimate') return { bg: 'rgba(190,18,60,0.20)', border: 'rgba(190,18,60,0.30)', text: '#fca5a5' };
   // Fallback styling (should be unreachable unless a new difficulty is introduced).
   return { bg: 'rgba(255,255,255,0.10)', border: 'rgba(255,255,255,0.20)', text: 'rgba(255,255,255,0.80)' };
 }

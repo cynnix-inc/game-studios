@@ -6,7 +6,7 @@ This backlog is ordered for Web first, then Android, then iOS.
 ## Epic 1: Core Sudoku play loop
 ### US-1 Start a Free Play puzzle
 Acceptance:
-- User can select difficulty (Easy..Extreme) and start a new puzzle within 3 seconds
+- User can select difficulty (Novice..Ultimate) and start a new puzzle within 3 seconds
 - Puzzle has a single unique solution and is valid Sudoku
 
 ### US-2 Input values and notes
