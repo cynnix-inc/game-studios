@@ -8,7 +8,7 @@ test.describe('visual: game (Ultimate Sudoku)', () => {
     await page.getByRole('button', { name: 'Free Play play' }).click();
     await expect(page.getByText('Select Difficulty')).toBeVisible();
     await page.getByRole('button', { name: 'Easy' }).click();
-    await expect(page.getByRole('button', { name: 'Menu' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Menu', exact: true })).toBeVisible();
   }
 
   async function snapshotGame(page: Page, name: string) {
@@ -30,9 +30,20 @@ test.describe('visual: game (Ultimate Sudoku)', () => {
   test('mobile.menuOpen', async ({ page }) => {
     await prepareForVisualSnapshot(page, 'mobile');
     await startGame(page);
-    await page.getByRole('button', { name: 'Menu' }).click();
+    await page.getByRole('button', { name: 'Menu', exact: true }).click();
     await expect(page.getByLabel('Close menu')).toBeVisible();
     await snapshotGame(page, 'game.menu.mobile.png');
+  });
+
+  test('mobile.autoPaused', async ({ page }) => {
+    await prepareForVisualSnapshot(page, 'mobile');
+    await page.addInitScript(() => {
+      // @ts-expect-error - test-only visual flag
+      globalThis.__VISUAL_GAME_AUTO_RESUME_OVERLAY__ = true;
+    });
+    await startGame(page);
+    await expect(page.getByText('Welcome Back!', { exact: true })).toBeVisible();
+    await snapshotGame(page, 'game.autopause.mobile.png');
   });
 
   test('tablet.playing', async ({ page }) => {
@@ -44,9 +55,20 @@ test.describe('visual: game (Ultimate Sudoku)', () => {
   test('tablet.menuOpen', async ({ page }) => {
     await prepareForVisualSnapshot(page, 'tablet');
     await startGame(page);
-    await page.getByRole('button', { name: 'Menu' }).click();
+    await page.getByRole('button', { name: 'Menu', exact: true }).click();
     await expect(page.getByLabel('Close menu')).toBeVisible();
     await snapshotGame(page, 'game.menu.tablet.png');
+  });
+
+  test('tablet.autoPaused', async ({ page }) => {
+    await prepareForVisualSnapshot(page, 'tablet');
+    await page.addInitScript(() => {
+      // @ts-expect-error - test-only visual flag
+      globalThis.__VISUAL_GAME_AUTO_RESUME_OVERLAY__ = true;
+    });
+    await startGame(page);
+    await expect(page.getByText('Welcome Back!', { exact: true })).toBeVisible();
+    await snapshotGame(page, 'game.autopause.tablet.png');
   });
 
   test('desktop.playing', async ({ page }) => {
@@ -58,9 +80,20 @@ test.describe('visual: game (Ultimate Sudoku)', () => {
   test('desktop.menuOpen', async ({ page }) => {
     await prepareForVisualSnapshot(page, 'desktop');
     await startGame(page);
-    await page.getByRole('button', { name: 'Menu' }).click();
+    await page.getByRole('button', { name: 'Menu', exact: true }).click();
     await expect(page.getByLabel('Close menu')).toBeVisible();
     await snapshotGame(page, 'game.menu.desktop.png');
+  });
+
+  test('desktop.autoPaused', async ({ page }) => {
+    await prepareForVisualSnapshot(page, 'desktop');
+    await page.addInitScript(() => {
+      // @ts-expect-error - test-only visual flag
+      globalThis.__VISUAL_GAME_AUTO_RESUME_OVERLAY__ = true;
+    });
+    await startGame(page);
+    await expect(page.getByText('Welcome Back!', { exact: true })).toBeVisible();
+    await snapshotGame(page, 'game.autopause.desktop.png');
   });
 
   test('desktop.playing.darkTheme.selectedHighlights', async ({ page }) => {
