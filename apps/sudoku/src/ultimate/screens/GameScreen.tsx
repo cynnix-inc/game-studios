@@ -198,7 +198,6 @@ export function UltimateGameScreen({
     resumeRun();
   }, [resumeRun]);
 
-  const isPaused = runStatus === 'paused';
   const [hintPickerOpen, setHintPickerOpen] = React.useState(false);
 
   // Web: allow Esc to close the in-game menu (even when the grid isn't focused).
