@@ -121,6 +121,21 @@ export function UltimateGameScreen({
   const pauseRun = usePlayerStore((s) => s.pauseRun);
   const resumeRun = usePlayerStore((s) => s.resumeRun);
 
+  const [menuOpen, setMenuOpen] = React.useState(false);
+  // Mirror latest Make: when the app auto-pauses due to background/visibility change,
+  // show a dedicated "Welcome Back" overlay that hides the puzzle until the user explicitly resumes.
+  const [autoResumeNeeded, setAutoResumeNeeded] = React.useState(false);
+  const { theme: makeTheme, reducedMotion } = useMakeTheme();
+  const isComplete = runStatus === 'completed';
+  const [lockMode, setLockMode] = React.useState(false);
+  const [lockedDigit, setLockedDigit] = React.useState<Digit | null>(null);
+
+  // Track latest runStatus to avoid stale closures in background listeners.
+  const runStatusRef = React.useRef(runStatus);
+  React.useEffect(() => {
+    runStatusRef.current = runStatus;
+  }, [runStatus]);
+
   const [nowMs, setNowMs] = React.useState(() => Date.now());
   React.useEffect(() => {
     const t = setInterval(() => setNowMs(Date.now()), 1000);
@@ -130,7 +145,13 @@ export function UltimateGameScreen({
   // Auto-pause on background / tab hidden (parity with legacy screen).
   React.useEffect(() => {
     const sub = AppState.addEventListener('change', (state) => {
-      if (state !== 'active') pauseRun();
+      if (state === 'active') return;
+      const status = runStatusRef.current;
+      if (status === 'paused' || status === 'completed') return;
+      // Auto-pause: do not show in-game menu; show dedicated overlay instead.
+      setMenuOpen(false);
+      setAutoResumeNeeded(true);
+      pauseRun();
     });
     return () => sub.remove();
   }, [pauseRun]);
@@ -139,24 +160,36 @@ export function UltimateGameScreen({
     if (Platform.OS !== 'web') return;
     if (typeof document === 'undefined') return;
     const handler = () => {
-      if (document.hidden) pauseRun();
+      if (!document.hidden) return;
+      const status = runStatusRef.current;
+      if (status === 'paused' || status === 'completed') return;
+      setMenuOpen(false);
+      setAutoResumeNeeded(true);
+      pauseRun();
     };
     document.addEventListener('visibilitychange', handler);
     return () => document.removeEventListener('visibilitychange', handler);
+  }, [pauseRun]);
+
+  // Visual tests: allow deterministic snapshots of the auto-resume overlay without relying on
+  // browser visibility APIs (which are not controllable in Playwright reliably).
+  React.useEffect(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const g = typeof globalThis !== 'undefined' ? (globalThis as any) : null;
+    if (!g || g.__VISUAL_TEST__ !== true) return;
+    if (g.__VISUAL_GAME_AUTO_RESUME_OVERLAY__ !== true) return;
+    setMenuOpen(false);
+    setAutoResumeNeeded(true);
+    pauseRun();
   }, [pauseRun]);
 
   const elapsedSeconds = Math.floor(getRunTimerElapsedMs(runTimer, nowMs) / 1000);
   const timeLabel = formatElapsedSecondsMMSS(elapsedSeconds);
   const badge = difficultyBadge(difficulty);
 
-  const [menuOpen, setMenuOpen] = React.useState(false);
-  const { theme: makeTheme, reducedMotion } = useMakeTheme();
-  const isComplete = runStatus === 'completed';
-  const [lockMode, setLockMode] = React.useState(false);
-  const [lockedDigit, setLockedDigit] = React.useState<Digit | null>(null);
-
   const openMenu = React.useCallback(() => {
     setMenuOpen(true);
+    setAutoResumeNeeded(false);
     pauseRun();
   }, [pauseRun]);
 
@@ -165,7 +198,6 @@ export function UltimateGameScreen({
     resumeRun();
   }, [resumeRun]);
 
-  const isPaused = runStatus === 'paused';
   const [hintPickerOpen, setHintPickerOpen] = React.useState(false);
 
   // Web: allow Esc to close the in-game menu (even when the grid isn't focused).
@@ -328,7 +360,10 @@ export function UltimateGameScreen({
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: isMd ? 16 : 8 }}>
                   <Pressable
                     accessibilityRole="button"
-                    accessibilityLabel={menuOpen || isPaused ? 'Resume' : 'Menu'}
+                    // Show "Resume" only when the in-game menu panel is open.
+                    // When the app auto-pauses due to backgrounding/visibility, we still show "Menu" to avoid the
+                    // header icon appearing to "flip" unexpectedly while the player is actively playing.
+                    accessibilityLabel={menuOpen ? 'Resume' : 'Menu'}
                     onPress={() => (menuOpen ? closeMenu() : openMenu())}
                     style={(state) => ({
                       width: 44,
@@ -348,7 +383,7 @@ export function UltimateGameScreen({
                         : null),
                     })}
                   >
-                    {menuOpen || isPaused ? (
+                    {menuOpen ? (
                       <Play width={isMd ? 24 : 20} height={isMd ? 24 : 20} color={makeTheme.text.primary} />
                     ) : (
                       <Menu width={isMd ? 24 : 20} height={isMd ? 24 : 20} color={makeTheme.text.primary} />
@@ -911,6 +946,155 @@ export function UltimateGameScreen({
 
       {/* Content (scrolls; header stays fixed) */}
       <View style={{ flex: 1, paddingTop: headerHeight }}>
+        {/* Auto-Resume Overlay (latest Make): masks the puzzle after background/visibility auto-pause */}
+        {autoResumeNeeded ? (
+          <Pressable
+            accessibilityRole="none"
+            style={{
+              position: 'absolute',
+              left: 0,
+              right: 0,
+              top: 0,
+              bottom: 0,
+              zIndex: 80,
+              backgroundColor: 'rgba(0,0,0,0.80)',
+              justifyContent: 'center',
+              alignItems: 'center',
+              padding: 16,
+            }}
+          >
+            {Platform.OS !== 'web' ? <BlurView intensity={24} tint="dark" style={{ position: 'absolute', inset: 0 }} /> : null}
+
+            <View style={{ width: '100%', maxWidth: 420 }}>
+              <MakeCard style={{ borderRadius: 18 }}>
+                <View style={{ padding: isMd ? 24 : 20, gap: 16 }}>
+                  {/* Icon */}
+                  <View style={{ alignItems: 'center' }}>
+                    <View
+                      style={{
+                        width: isMd ? 80 : 64,
+                        height: isMd ? 80 : 64,
+                        borderRadius: 999,
+                        overflow: 'hidden',
+                      }}
+                    >
+                      <MakeButton
+                        title=""
+                        accessibilityLabel="Resume Game"
+                        onPress={() => {
+                          setAutoResumeNeeded(false);
+                          resumeRun();
+                        }}
+                        radius={999}
+                        elevation="flat"
+                        leftIcon={<Play width={isMd ? 40 : 32} height={isMd ? 40 : 32} color={makeTheme.button.textOnPrimary} />}
+                        contentStyle={{
+                          width: isMd ? 80 : 64,
+                          height: isMd ? 80 : 64,
+                          paddingHorizontal: 0,
+                          paddingVertical: 0,
+                        }}
+                      />
+                    </View>
+                  </View>
+
+                  {/* Title */}
+                  <View style={{ alignItems: 'center', gap: 6 }}>
+                    <MakeText weight="bold" style={{ fontSize: isMd ? 28 : 22, textAlign: 'center' }}>
+                      Welcome Back!
+                    </MakeText>
+                    <MakeText tone="secondary" style={{ fontSize: 14, textAlign: 'center' }}>
+                      Your game was paused while you were away
+                    </MakeText>
+                  </View>
+
+                  {/* Stats Summary */}
+                  <MakeCard style={{ borderRadius: 12 }}>
+                    <View style={{ padding: 12, gap: 10 }}>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <MakeText tone="secondary" style={{ fontSize: 13 }}>
+                          Game Type
+                        </MakeText>
+                        <MakeText style={{ fontSize: 13 }}>
+                          {gameType === 'daily' ? 'Daily Challenge' : 'Classic'}
+                        </MakeText>
+                      </View>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <MakeText tone="secondary" style={{ fontSize: 13 }}>
+                          Difficulty
+                        </MakeText>
+                        <View
+                          style={{
+                            paddingHorizontal: 8,
+                            paddingVertical: 2,
+                            borderRadius: 999,
+                            backgroundColor: badge.bg,
+                            borderWidth: 1,
+                            borderColor: badge.border,
+                          }}
+                        >
+                          <MakeText style={{ fontSize: 12, color: badge.text, textTransform: 'capitalize' }} weight="semibold">
+                            {difficulty}
+                          </MakeText>
+                        </View>
+                      </View>
+                      <View style={{ height: 1, backgroundColor: makeTheme.card.border, opacity: 0.8 }} />
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <MakeText tone="secondary" style={{ fontSize: 13 }}>
+                          Time Elapsed
+                        </MakeText>
+                        <MakeText style={{ fontSize: 13, fontVariant: ['tabular-nums'] }}>{timeLabel}</MakeText>
+                      </View>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <MakeText tone="secondary" style={{ fontSize: 13 }}>
+                          Mistakes
+                        </MakeText>
+                        <MakeText style={{ fontSize: 13, color: mistakes > 3 ? '#f87171' : makeTheme.text.primary }}>{mistakes}</MakeText>
+                      </View>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <MakeText tone="secondary" style={{ fontSize: 13 }}>
+                          Hints Used
+                        </MakeText>
+                        <MakeText style={{ fontSize: 13 }}>{hintsUsedCount}</MakeText>
+                      </View>
+                    </View>
+                  </MakeCard>
+
+                  {/* Actions */}
+                  <View style={{ gap: 10 }}>
+                    <MakeButton
+                      title="Resume Game"
+                      accessibilityLabel="Resume Game"
+                      onPress={() => {
+                        setAutoResumeNeeded(false);
+                        resumeRun();
+                      }}
+                      elevation="flat"
+                      radius={12}
+                      leftIcon={<Play width={18} height={18} color={makeTheme.button.textOnPrimary} />}
+                      contentStyle={{ height: 44, paddingVertical: 0, paddingHorizontal: 18 }}
+                      titleStyle={{ lineHeight: 18 }}
+                    />
+                    <MakeButton
+                      title="Exit to Menu"
+                      accessibilityLabel="Exit to Menu"
+                      variant="ghost"
+                      elevation="flat"
+                      radius={12}
+                      onPress={() => {
+                        setAutoResumeNeeded(false);
+                        onExitToMenu();
+                      }}
+                      contentStyle={{ height: 44, paddingVertical: 0, paddingHorizontal: 18 }}
+                      titleStyle={{ lineHeight: 18 }}
+                    />
+                  </View>
+                </View>
+              </MakeCard>
+            </View>
+          </Pressable>
+        ) : null}
+
         <ScrollView
           style={{ flex: 1 }}
           contentContainerStyle={{

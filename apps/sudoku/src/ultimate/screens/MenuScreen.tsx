@@ -105,6 +105,7 @@ export function UltimateMenuScreen({
 }) {
   const { width } = useWindowDimensions();
   const isMd = width >= 768;
+  const isLg = width >= 1024;
   const { theme: makeTheme, reducedMotion } = useMakeTheme();
 
   const signedIn = profile?.mode === 'supabase';
@@ -173,6 +174,13 @@ export function UltimateMenuScreen({
   }, [reducedMotion, shimmer]);
   const shimmerX = shimmer.interpolate({ inputRange: [0, 1], outputRange: [-320, 320] });
 
+  // Match Make vertical rhythm:
+  // - root: space-y-6 (24) / md:space-y-8 (32), py-8 (32)
+  // - logo block: space-y-3 (12)
+  const sectionGap = isMd ? 32 : 24;
+  const logoGap = 12;
+  const titleSize = isLg ? 60 : isMd ? 48 : 30; // Make: text-3xl / md:text-5xl / lg:text-6xl
+
   return (
     <MakeScreen scroll={false} style={{ paddingHorizontal: 16, paddingVertical: 32, justifyContent: 'center' }}>
       {/* Profile button - Top Right (only when authenticated) */}
@@ -211,24 +219,24 @@ export function UltimateMenuScreen({
         </View>
       ) : null}
 
-      <View style={{ alignSelf: 'center', width: '100%', maxWidth: 896, alignItems: 'center' }}>
+      <View style={{ alignSelf: 'center', width: '100%', maxWidth: 896, alignItems: 'center', gap: sectionGap }}>
         {/* Logo/Title */}
-        <View style={{ alignItems: 'center', marginBottom: isMd ? 24 : 16 }}>
+        <View style={{ alignItems: 'center', gap: logoGap }}>
           <View style={{ alignItems: 'center' }}>
             <SudokuLogoMark size="md" animated darkMode={false} isMd={isMd} />
           </View>
 
-          <MakeText accessibilityRole="header" style={{ fontSize: isMd ? 56 : 32, marginTop: 12 }} weight="bold">
+          <MakeText accessibilityRole="header" style={{ fontSize: titleSize }} weight="bold">
             Ultimate Sudoku
           </MakeText>
 
-          <MakeText tone="secondary" style={{ marginTop: 6, fontSize: isMd ? 16 : 14, color: makeTheme.text.secondary }}>
+          <MakeText tone="secondary" style={{ fontSize: isMd ? 16 : 14, color: makeTheme.text.secondary }}>
             Daily puzzles. Endless possibilities.
           </MakeText>
         </View>
 
         {/* Game Mode Cards - Stacked */}
-        <View style={{ width: '100%', maxWidth: 448, paddingHorizontal: 16, gap: 12 }}>
+        <View style={{ width: '100%', maxWidth: 448, gap: 12 }}>
           <DailyChallengeCard
             nowMs={nowMs}
             status={dailyStatus}
@@ -266,8 +274,9 @@ export function UltimateMenuScreen({
 
           <JourneyCard isMd={isMd} />
 
+          {/* Sign In Button - Make has mt-2 (8px) after Journey */}
           {!signedIn ? (
-            <View style={{ overflow: 'hidden', borderRadius: 12 }}>
+            <View style={{ overflow: 'hidden', borderRadius: 12, marginTop: 8 }}>
               <MakeButton
                 accessibilityLabel="Sign In"
                 title="Sign In to Track Progress"
@@ -302,6 +311,7 @@ export function UltimateMenuScreen({
             </View>
           ) : null}
 
+          {/* Icon-only tiles (Make: pt-2, gap-3) */}
           <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 12, paddingTop: 8 }}>
             <TileButton
               label="Stats"
@@ -316,8 +326,9 @@ export function UltimateMenuScreen({
           </View>
         </View>
 
-        <View style={{ alignItems: 'center', marginTop: 18 }}>
-          <MakeText tone="muted" style={{ fontSize: 12 }}>
+        {/* Footer (Make: text-sm) */}
+        <View style={{ alignItems: 'center' }}>
+          <MakeText tone="muted" style={{ fontSize: 14 }}>
             Cynnix Studios © 2025
           </MakeText>
         </View>
