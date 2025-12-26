@@ -1,3 +1,5 @@
+import { fetchWithTimeout } from '@cynnix-studios/game-foundation';
+
 import { trackEvent } from '../telemetry';
 
 jest.mock('@cynnix-studios/supabase', () => ({
@@ -21,18 +23,29 @@ jest.mock('../auth', () => ({
 
 describe('telemetry.trackEvent', () => {
   beforeEach(() => {
-    process.env.EXPO_PUBLIC_SUPABASE_FUNCTIONS_URL = 'http://127.0.0.1:54321/functions/v1';
+    jest.clearAllMocks();
+    process.env.EXPO_PUBLIC_SUPABASE_FUNCTIONS_URL = undefined;
   });
 
-  test('posts to /track-event with anon headers for guests', async () => {
-    const { fetchWithTimeout } = await import('@cynnix-studios/game-foundation');
+  test('no-ops on web when functions URL points at local Supabase (avoids noisy connection errors)', async () => {
+    const spy = fetchWithTimeout as unknown as jest.Mock;
+
+    process.env.EXPO_PUBLIC_SUPABASE_FUNCTIONS_URL = 'http://127.0.0.1:54321/functions/v1';
+    await trackEvent({ name: 'app_open' });
+
+    expect(spy).toHaveBeenCalledTimes(0);
+  });
+
+  test('posts to /track-event with anon headers for guests when using a non-local functions base', async () => {
+    process.env.EXPO_PUBLIC_SUPABASE_FUNCTIONS_URL = 'https://example.supabase.co/functions/v1';
+
     const spy = fetchWithTimeout as unknown as jest.Mock;
 
     await trackEvent({ name: 'app_open' });
 
     expect(spy).toHaveBeenCalledTimes(1);
     const [url, init] = spy.mock.calls[0] as [string, RequestInit];
-    expect(url).toBe('http://127.0.0.1:54321/functions/v1/track-event');
+    expect(url).toBe('https://example.supabase.co/functions/v1/track-event');
     expect(init.method).toBe('POST');
     expect(init.headers).toEqual(
       expect.objectContaining({
