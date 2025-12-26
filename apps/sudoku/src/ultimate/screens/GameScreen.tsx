@@ -325,7 +325,7 @@ export function UltimateGameScreen({
             <View style={{ maxWidth: headerContentMaxWidth, alignSelf: 'center', width: '100%' }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: isMd ? 16 : 10 }}>
                 {/* Left: menu + difficulty */}
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: isMd ? 16 : 8 }}>
                   <Pressable
                     accessibilityRole="button"
                     accessibilityLabel={menuOpen || isPaused ? 'Resume' : 'Menu'}
@@ -377,20 +377,25 @@ export function UltimateGameScreen({
                       </View>
                     </View>
                   ) : (
-                    <View
-                      style={{
-                        alignSelf: 'flex-start',
-                        paddingHorizontal: 8,
-                        paddingVertical: 6,
-                        borderRadius: 12,
-                        backgroundColor: badge.bg,
-                        borderWidth: 1,
-                        borderColor: badge.border,
-                      }}
-                    >
-                      <MakeText style={{ fontSize: 12, color: badge.text, textTransform: 'capitalize' }} weight="semibold">
-                        {difficulty}
+                    <View style={{ justifyContent: 'center', alignItems: 'flex-start' }}>
+                      <MakeText tone="muted" style={{ fontSize: 12, marginBottom: 2 }}>
+                        {gameType === 'daily' ? 'Daily' : 'Classic'}
                       </MakeText>
+                      <View
+                        style={{
+                          alignSelf: 'flex-start',
+                          paddingHorizontal: 8,
+                          paddingVertical: 2,
+                          borderRadius: 10,
+                          backgroundColor: badge.bg,
+                          borderWidth: 1,
+                          borderColor: badge.border,
+                        }}
+                      >
+                        <MakeText style={{ fontSize: 12, color: badge.text, textTransform: 'capitalize' }} weight="semibold">
+                          {difficulty}
+                        </MakeText>
+                      </View>
                     </View>
                   )}
                 </View>

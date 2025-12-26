@@ -128,6 +128,14 @@ export function SudokuLogoMark({
     Animated.spring(pop, { toValue: 1, useNativeDriver: Platform.OS !== 'web', speed: 14, bounciness: 10 }).start();
   }, [phase, pop, reducedMotion]);
 
+  // RN-native reliability: avoid percent widths + gap + flexWrap (can render inconsistently on mobile).
+  const outerPad = 4;
+  const cellGap = 2;
+  const inner = dim - outerPad * 2;
+  const cellDim = Math.floor((inner - cellGap * 2) / 3);
+  const gridDim = cellDim * 3 + cellGap * 2;
+  const gridOffset = Math.max(0, Math.floor((inner - gridDim) / 2));
+
   return (
     <Animated.View style={{ transform: [{ scale: pop }] }}>
       <View
@@ -138,66 +146,75 @@ export function SudokuLogoMark({
           borderWidth: 2,
           borderColor: outerBorder,
           backgroundColor: outerBg,
-          padding: 4,
-          flexDirection: 'row',
-          flexWrap: 'wrap',
-          gap: 2,
+          padding: outerPad,
           ...(Platform.OS === 'web' ? ({ backdropFilter: 'blur(10px)' } as unknown as object) : null),
         }}
       >
-        {gridData.map((cell, idx) => {
-          const isSolving = cell == null;
-          const showSolution = isSolving && (phase === 'solving' || phase === 'complete') && visibleSolutions.has(idx);
-          const isComplete = phase === 'complete';
+        <View style={{ width: gridDim, height: gridDim, marginLeft: gridOffset, marginTop: gridOffset }}>
+          {[0, 1, 2].map((r) => (
+            <View key={r} style={{ flexDirection: 'row', marginBottom: r === 2 ? 0 : cellGap }}>
+              {[0, 1, 2].map((c) => {
+                const idx = r * 3 + c;
+                const cell = gridData[idx];
+                const isSolving = cell == null;
+                const showSolution = isSolving && (phase === 'solving' || phase === 'complete') && visibleSolutions.has(idx);
+                const isComplete = phase === 'complete';
 
-          return (
-            <View
-              key={idx}
-              style={{
-                width: '32%',
-                aspectRatio: 1,
-                borderRadius: 8,
-                borderWidth: 1,
-                borderColor: cellBorder,
-                backgroundColor: cellBg,
-                alignItems: 'center',
-                justifyContent: 'center',
-                overflow: 'hidden',
-                ...(Platform.OS === 'web' && isComplete && isSolving
-                  ? ({ boxShadow: '0 0 12px rgba(168, 85, 247, 0.4)' } as unknown as object)
-                  : null),
-              }}
-            >
-              {typeof cell === 'number' ? (
-                <MakeText weight="semibold" style={{ color: text, fontSize: fonts.cell }}>
-                  {String(cell)}
-                </MakeText>
-              ) : null}
+                return (
+                  <View
+                    key={c}
+                    style={{
+                      width: cellDim,
+                      height: cellDim,
+                      marginRight: c === 2 ? 0 : cellGap,
+                      borderRadius: 8,
+                      borderWidth: 1,
+                      borderColor: cellBorder,
+                      backgroundColor: cellBg,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      overflow: 'hidden',
+                      ...(Platform.OS === 'web' && isComplete && isSolving
+                        ? ({ boxShadow: '0 0 12px rgba(168, 85, 247, 0.4)' } as unknown as object)
+                        : null),
+                    }}
+                  >
+                    {typeof cell === 'number' ? (
+                      <MakeText weight="semibold" style={{ color: text, fontSize: fonts.cell }}>
+                        {String(cell)}
+                      </MakeText>
+                    ) : null}
 
-              {isSolving && !showSolution ? (
-                <View style={{ position: 'absolute', inset: 0, padding: 4, flexDirection: 'row', flexWrap: 'wrap' }}>
-                  {([1, 2, 3, 4, 5, 6, 7, 8, 9] as const).map((n) => {
-                    const isMark = (pencilMarks[idx] ?? []).includes(n);
-                    const isVisible = isMark && visibleNotes.has(`${idx}-${n}`);
-                    return (
-                      <View key={n} style={{ width: '33.33%', height: '33.33%', alignItems: 'center', justifyContent: 'center' }}>
-                        <MakeText style={{ fontSize: fonts.notes, color: notes, lineHeight: fonts.notes + 1 }}>
-                          {isVisible ? String(n) : ''}
-                        </MakeText>
+                    {isSolving && !showSolution ? (
+                      <View style={{ position: 'absolute', inset: 0, padding: 4, flexDirection: 'row', flexWrap: 'wrap' }}>
+                        {([1, 2, 3, 4, 5, 6, 7, 8, 9] as const).map((n) => {
+                          const isMark = (pencilMarks[idx] ?? []).includes(n);
+                          const isVisible = isMark && visibleNotes.has(`${idx}-${n}`);
+                          return (
+                            <View
+                              key={n}
+                              style={{ width: '33.33%', height: '33.33%', alignItems: 'center', justifyContent: 'center' }}
+                            >
+                              <MakeText style={{ fontSize: fonts.notes, color: notes, lineHeight: fonts.notes + 1 }}>
+                                {isVisible ? String(n) : ''}
+                              </MakeText>
+                            </View>
+                          );
+                        })}
                       </View>
-                    );
-                  })}
-                </View>
-              ) : null}
+                    ) : null}
 
-              {showSolution ? (
-                <MakeText weight="semibold" style={{ color: isComplete ? accent : text, fontSize: fonts.cell }}>
-                  {String(solutions[idx] ?? '')}
-                </MakeText>
-              ) : null}
+                    {showSolution ? (
+                      <MakeText weight="semibold" style={{ color: isComplete ? accent : text, fontSize: fonts.cell }}>
+                        {String(solutions[idx] ?? '')}
+                      </MakeText>
+                    ) : null}
+                  </View>
+                );
+              })}
             </View>
-          );
-        })}
+          ))}
+        </View>
 
         {/* Completion glow */}
         {phase === 'complete' ? (
