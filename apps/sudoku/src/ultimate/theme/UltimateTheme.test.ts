@@ -11,7 +11,7 @@ describe('UltimateTheme (Make theme selection rules)', () => {
   });
 
   it('passes through non-device themes unchanged', () => {
-    const cases: UltimateThemeType[] = ['default', 'light', 'dark', 'grayscale'];
+    const cases: UltimateThemeType[] = ['default', 'light', 'dark', 'grayscale', 'vibrant'];
     for (const t of cases) {
       expect(resolveThemeType({ selected: t, system: 'dark' })).toBe(t);
       expect(resolveThemeType({ selected: t, system: 'light' })).toBe(t);

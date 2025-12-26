@@ -1,7 +1,7 @@
 export type SystemColorScheme = 'light' | 'dark';
 
 // Mirrors the Make file’s ThemeContext.tsx (note: Make uses 'default', not 'current').
-export type UltimateThemeType = 'default' | 'light' | 'dark' | 'grayscale' | 'device';
+export type UltimateThemeType = 'default' | 'light' | 'dark' | 'grayscale' | 'vibrant' | 'device';
 
 export const THEME_STORAGE_KEY = 'ultimateSudoku.theme';
 

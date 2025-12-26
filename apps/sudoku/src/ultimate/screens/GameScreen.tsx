@@ -1133,9 +1133,14 @@ export function UltimateGameScreen({
                     if (!lockMode) return;
 
                     const cellValue = puzzle[i] ?? 0;
-                    const digitToUse = (cellValue !== 0 ? cellValue : lockedDigit) as Digit | null;
+                    // Critical: tapping a filled cell should NEVER mutate the grid; it only updates the lock selection.
+                    // Previously, tapping a user-filled cell would call inputDigit with the same value and toggle/erase it.
+                    if (cellValue !== 0) {
+                      setLockedDigit(cellValue as Digit);
+                      return;
+                    }
 
-                    if (cellValue !== 0) setLockedDigit(cellValue as Digit);
+                    const digitToUse = lockedDigit as Digit | null;
                     if (digitToUse == null) return;
                     if (givensMask[i]) return;
                     if (runStatus === 'completed') return;

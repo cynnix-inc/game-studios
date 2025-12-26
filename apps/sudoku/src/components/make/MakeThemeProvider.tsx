@@ -23,7 +23,7 @@ const MakeThemeContext = React.createContext<MakeThemeContextValue>({
 function readStoredThemeTypeWeb(): MakeThemeType | null {
   try {
     const v = window.localStorage.getItem(THEME_STORAGE_KEY);
-    if (v === 'default' || v === 'light' || v === 'dark' || v === 'grayscale' || v === 'device') return v;
+    if (v === 'default' || v === 'light' || v === 'dark' || v === 'grayscale' || v === 'vibrant' || v === 'device') return v;
     return null;
   } catch {
     return null;

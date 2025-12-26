@@ -13,17 +13,17 @@ test.describe('ultimate: behavior gates (Figma Make parity)', () => {
     await gotoMenu(page);
 
     await page.getByRole('button', { name: 'Sign In' }).click();
-    await expect(page.getByText('Welcome', { exact: true })).toBeVisible();
+    await expect(page.getByText('Welcome to Ultimate Sudoku', { exact: true })).toBeVisible();
 
     await page.getByRole('button', { name: 'Close', exact: true }).click();
-    await expect(page.getByText('Welcome', { exact: true })).toHaveCount(0);
+    await expect(page.getByText('Welcome to Ultimate Sudoku', { exact: true })).toHaveCount(0);
 
     await page.getByRole('button', { name: 'Sign In' }).click();
-    await expect(page.getByText('Welcome', { exact: true })).toBeVisible();
+    await expect(page.getByText('Welcome to Ultimate Sudoku', { exact: true })).toBeVisible();
 
     // Close via overlay click (outside the card).
     await page.mouse.click(5, 5);
-    await expect(page.getByText('Welcome', { exact: true })).toHaveCount(0);
+    await expect(page.getByText('Welcome to Ultimate Sudoku', { exact: true })).toHaveCount(0);
   });
 
   test('game menu opens and closes (Menu button + overlay)', async ({ page }) => {
@@ -219,16 +219,72 @@ test.describe('ultimate: behavior gates (Figma Make parity)', () => {
     await expect(target).toContainText('5');
   });
 
-  test('settings has core sections shown in Make (Gameplay, Grid Sizing, Audio, Notifications)', async ({ page }) => {
+  test('lock mode: tapping a filled cell selects that digit as the locked digit (does not erase)', async ({ page }) => {
+    await gotoMenu(page);
+
+    await page.getByRole('button', { name: 'Free Play play' }).click();
+    await expect(page.getByText('Select Difficulty', { exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Easy' }).click();
+    await expect(page.getByLabel('Sudoku grid')).toBeVisible();
+
+    // Pick an editable empty cell (A) in the top-left region and fill it with 7 in normal mode.
+    let filledLabel: string | null = null;
+    for (let r = 1; r <= 3 && !filledLabel; r++) {
+      for (let c = 1; c <= 3 && !filledLabel; c++) {
+        const label = `Cell row ${r} column ${c}`;
+        const cell = page.getByRole('button', { name: new RegExp(`^${label}(, given)?(, selected)?$`) });
+        const aria = (await cell.first().getAttribute('aria-label')) ?? '';
+        if (aria.includes('given')) continue;
+        const text = ((await cell.first().textContent()) ?? '').trim();
+        if (text.length === 0) filledLabel = label;
+      }
+    }
+    expect(filledLabel, 'Expected at least one editable empty cell in the 3x3 top-left region').not.toBeNull();
+    if (!filledLabel) return;
+
+    const filledCell = page.getByRole('button', { name: new RegExp(`^${filledLabel}(, selected)?$`) });
+    await filledCell.click();
+    await page.getByRole('button', { name: 'Digit 7' }).click();
+    await expect(filledCell).toContainText('7');
+
+    // Enable lock mode.
+    await page.getByRole('button', { name: 'Lock' }).click();
+
+    // Tapping a filled cell should set the locked digit to 7 and must NOT erase the cell.
+    await filledCell.click();
+    await expect(filledCell).toContainText('7');
+
+    // Now tap a different empty editable cell (B) and ensure it places the locked digit (7).
+    let targetLabel: string | null = null;
+    for (let r = 1; r <= 3 && !targetLabel; r++) {
+      for (let c = 1; c <= 3 && !targetLabel; c++) {
+        const label = `Cell row ${r} column ${c}`;
+        if (label === filledLabel) continue;
+        const cell = page.getByRole('button', { name: new RegExp(`^${label}(, given)?(, selected)?$`) });
+        const aria = (await cell.first().getAttribute('aria-label')) ?? '';
+        if (aria.includes('given')) continue;
+        const text = ((await cell.first().textContent()) ?? '').trim();
+        if (text.length === 0) targetLabel = label;
+      }
+    }
+    expect(targetLabel, 'Expected a second editable empty cell in the 3x3 top-left region').not.toBeNull();
+    if (!targetLabel) return;
+
+    const target = page.getByRole('button', { name: new RegExp(`^${targetLabel}(, selected)?$`) });
+    await target.click();
+    await expect(target).toContainText('7');
+  });
+
+  test('settings has core sections shown in Make (Gameplay, Grid Customization, Audio, Preferences)', async ({ page }) => {
     await gotoMenu(page);
     await page.getByRole('button', { name: 'Settings' }).click();
     await expect(page.getByText('Settings', { exact: true })).toBeVisible();
 
     // Sections from Make Settings
     await expect(page.getByText('Gameplay', { exact: true })).toBeVisible();
-    await expect(page.getByText('Grid Sizing', { exact: true })).toBeVisible();
+    await expect(page.getByText('Grid Customization', { exact: true })).toBeVisible();
     await expect(page.getByText('Audio', { exact: true })).toBeVisible();
-    await expect(page.getByText('Notifications', { exact: true })).toBeVisible();
+    await expect(page.getByText('Preferences', { exact: true })).toBeVisible();
   });
 
   test('menu tiles navigate to Stats/Profile/Leaderboard (no disabled placeholders)', async ({ page }) => {
