@@ -14,7 +14,6 @@ import {
   Palette,
   Sparkles,
   Volume2,
-  VolumeX,
   Vibrate,
 } from 'lucide-react-native';
 
@@ -24,7 +23,6 @@ import { MakeScreen } from '../../components/make/MakeScreen';
 import { MakeText } from '../../components/make/MakeText';
 import { useMakeTheme } from '../../components/make/MakeThemeProvider';
 import { Slider } from '../../components/Slider';
-import { SudokuSizingPreview } from '../../components/SudokuSizingPreview';
 import { usePlayerStore } from '../../state/usePlayerStore';
 import { useSettingsStore } from '../../state/useSettingsStore';
 import {
@@ -67,9 +65,9 @@ function MakeSwitch({
         borderRadius: 999,
         padding: 2,
         justifyContent: 'center',
-        backgroundColor: value ? makeTheme.accent : 'rgba(255,255,255,0.10)',
+        backgroundColor: value ? makeTheme.accent : makeTheme.input.background,
         borderWidth: 1,
-        borderColor: value ? makeTheme.accent : 'rgba(255,255,255,0.14)',
+        borderColor: value ? makeTheme.accent : makeTheme.input.border,
         opacity: disabled ? 0.5 : pressed ? 0.92 : 1,
       })}
     >
@@ -178,11 +176,11 @@ function MakeSelect<T extends string>({
         onPress={() => setOpen(true)}
         style={({ pressed }) => ({
           borderWidth: 1,
-          borderColor: makeTheme.card.border,
-          backgroundColor: 'rgba(255,255,255,0.06)',
+          borderColor: makeTheme.input.border,
+          backgroundColor: makeTheme.input.background,
           borderRadius: 12,
           paddingHorizontal: 12,
-          paddingVertical: 12,
+          paddingVertical: 10,
           opacity: disabled ? 0.6 : pressed ? 0.92 : 1,
           flexDirection: 'row',
           alignItems: 'center',
@@ -190,7 +188,7 @@ function MakeSelect<T extends string>({
           gap: 12,
         })}
       >
-        <MakeText tone="secondary">{current.label}</MakeText>
+        <MakeText>{current.label}</MakeText>
         <ChevronDown width={16} height={16} color={makeTheme.text.muted} />
       </Pressable>
 
@@ -256,6 +254,130 @@ function MakeSelect<T extends string>({
   );
 }
 
+function GridPreview({ gridScale, digitScale, noteScale }: { gridScale: number; digitScale: number; noteScale: number }) {
+  const { theme: makeTheme, resolvedThemeType } = useMakeTheme();
+
+  // Sample data for preview - fixed to never overlap (mirrors Make `Settings.tsx`)
+  const previewCells: ReadonlyArray<{ value: number; notes: readonly number[] }> = [
+    { value: 5, notes: [] },
+    { value: 0, notes: [1, 2, 3] },
+    { value: 7, notes: [] },
+    { value: 0, notes: [4, 6] },
+    { value: 9, notes: [] },
+    { value: 0, notes: [2, 8] },
+    { value: 3, notes: [] },
+    { value: 0, notes: [5, 7, 9] },
+    { value: 6, notes: [] },
+  ];
+
+  // Grid size ONLY affects cell dimensions
+  const baseSize = 48;
+  const cellSize = (baseSize * gridScale) / 100;
+
+  // Font sizes scale independently
+  const baseDigitSize = 20;
+  const digitFontSize = (baseDigitSize * digitScale) / 100;
+
+  // Note size as a percentage of sub-cell
+  const subCellSize = cellSize / 3;
+  const notePercentage = 0.5 + (noteScale - 100) / 500; // 100→50%, 150→60%, ..., 300→90%
+  const noteFontSize = subCellSize * notePercentage;
+
+  const cellBackground = resolvedThemeType === 'light' ? 'rgba(15, 23, 42, 0.04)' : 'rgba(255, 255, 255, 0.05)';
+
+  return (
+    <View
+      style={{
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: makeTheme.card.border,
+        padding: 16,
+        backgroundColor: makeTheme.card.background,
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
+      <View
+        style={{
+          width: cellSize * 3,
+          height: cellSize * 3,
+          borderRadius: 8,
+          overflow: 'hidden',
+          borderWidth: 2,
+          borderColor: makeTheme.card.border,
+          flexDirection: 'row',
+          flexWrap: 'wrap',
+        }}
+      >
+        {previewCells.map((cell, idx) => {
+          return (
+            <View
+              key={idx}
+              style={{
+                width: cellSize,
+                height: cellSize,
+                borderWidth: 1,
+                borderColor: makeTheme.card.border,
+                backgroundColor: cellBackground,
+                alignItems: 'center',
+                justifyContent: 'center',
+                position: 'relative',
+                overflow: 'hidden',
+              }}
+            >
+              {cell.value !== 0 ? (
+                <MakeText
+                  style={{
+                    fontSize: Math.min(digitFontSize, cellSize * 0.7),
+                    lineHeight: Math.min(digitFontSize, cellSize * 0.7) * 1.02,
+                  }}
+                >
+                  {String(cell.value)}
+                </MakeText>
+              ) : (
+                <View
+                  style={{
+                    position: 'absolute',
+                    inset: 0,
+                    flexDirection: 'row',
+                    flexWrap: 'wrap',
+                  }}
+                >
+                  {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => {
+                    const show = cell.notes.includes(num);
+                    return (
+                      <View
+                        key={num}
+                        style={{
+                          width: subCellSize,
+                          height: subCellSize,
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          opacity: show ? 1 : 0,
+                        }}
+                      >
+                        <MakeText
+                          tone="muted"
+                          style={{
+                            fontSize: noteFontSize,
+                            lineHeight: noteFontSize * 0.8,
+                          }}
+                        >
+                          {String(num)}
+                        </MakeText>
+                      </View>
+                    );
+                  })}
+                </View>
+              )}
+            </View>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
 export function UltimateSettingsScreen({ onBack }: { onBack: () => void }) {
   const { theme: makeTheme, themeType, setThemeType } = useMakeTheme();
   const { width } = useWindowDimensions();
@@ -307,26 +429,31 @@ export function UltimateSettingsScreen({ onBack }: { onBack: () => void }) {
     { value: 'zh', label: '中文' },
   ];
   return (
-    <MakeScreen style={{ paddingHorizontal: 0, paddingTop: isMd ? 32 : 28, paddingBottom: 96 }}>
-      <View style={{ width: '100%', maxWidth: 896, alignSelf: 'center', paddingHorizontal: 16 }}>
+    <MakeScreen style={{ paddingHorizontal: 0, paddingTop: 32, paddingBottom: 96 }}>
+      <View style={{ width: '100%', maxWidth: 896, alignSelf: 'center' }}>
         {/* Header */}
-        <View style={{ marginBottom: 20 }}>
+        <View style={{ marginBottom: 32, paddingHorizontal: 16 }}>
+          <View style={{ marginBottom: 16, alignSelf: 'flex-start' }}>
         <MakeButton
           accessibilityLabel="Back"
           title="Back"
-            variant="ghost"
-            elevation="flat"
+              variant="ghost"
+              elevation="flat"
           onPress={onBack}
-          leftIcon={<ArrowLeft width={18} height={18} color={makeTheme.text.primary} />}
-            contentStyle={{ paddingVertical: 10, paddingHorizontal: 12 }}
+              leftIcon={<ArrowLeft width={16} height={16} color={makeTheme.text.primary} />}
+              contentStyle={{ paddingVertical: 10, paddingHorizontal: 12 }}
         />
-          <MakeText weight="bold" style={{ fontSize: isMd ? 40 : 32, marginTop: 10 }}>
+          </View>
+          <MakeText weight="bold" style={{ fontSize: isMd ? 36 : 30 }}>
           Settings
               </MakeText>
             </View>
 
+        {/* Sections */}
+        <View style={{ paddingHorizontal: 16, gap: 20 }}>
+
         {/* Gameplay */}
-        <MakeCard style={[{ marginBottom: 16, borderRadius: 16 }, Platform.select({ web: { boxShadow: '0 20px 50px rgba(0,0,0,0.20)' } as unknown as object, ios: { shadowColor: '#000', shadowOpacity: 0.18, shadowRadius: 18, shadowOffset: { width: 0, height: 10 } }, android: { elevation: 10 } })]}>
+        <MakeCard style={[{ borderRadius: 16 }, Platform.select({ web: { boxShadow: '0 20px 50px rgba(0,0,0,0.20)' } as unknown as object, ios: { shadowColor: '#000', shadowOpacity: 0.18, shadowRadius: 18, shadowOffset: { width: 0, height: 10 } }, android: { elevation: 10 } })]}>
           <View style={{ padding: 20, gap: 16 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
               <Gamepad2 width={24} height={24} color={makeTheme.accent} />
@@ -336,13 +463,15 @@ export function UltimateSettingsScreen({ onBack }: { onBack: () => void }) {
             </View>
 
             {/* 2-column layout on desktop */}
-            <View style={{ flexDirection: isLg ? 'row' : 'column', flexWrap: isLg ? 'wrap' : 'nowrap', gap: 12 }}>
+            <View style={{ flexDirection: isLg ? 'row' : 'column', flexWrap: isLg ? 'wrap' : 'nowrap', gap: 16 }}>
               <View style={{ width: isLg ? '48%' : '100%', flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                 <Grid3x3 width={16} height={16} color={toggles.autoCandidates ? makeTheme.accent : makeTheme.text.muted} />
-                <MakeText tone={toggles.autoCandidates ? 'secondary' : 'muted'} style={{ fontSize: 14 }}>
-                  Auto Candidates
-                </MakeText>
-                <InfoHelp label="Auto Candidates help" text="Shows pencil-mark candidates in empty cells. Updates automatically as the board changes." />
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1 }}>
+                  <MakeText tone={toggles.autoCandidates ? 'secondary' : 'muted'} style={{ fontSize: 14 }}>
+                    Auto Candidates
+                  </MakeText>
+                  <InfoHelp label="Auto Candidates help" text="Shows pencil-mark candidates in empty cells. Updates automatically as the board changes." />
+                </View>
                 <MakeSwitch
                   accessibilityLabel="Auto Candidates"
                   value={toggles.autoCandidates}
@@ -355,10 +484,12 @@ export function UltimateSettingsScreen({ onBack }: { onBack: () => void }) {
 
               <View style={{ width: isLg ? '48%' : '100%', flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                 <ArrowRight width={16} height={16} color={toggles.autoAdvance ? makeTheme.accent : makeTheme.text.muted} />
-                <MakeText tone={toggles.autoAdvance ? 'secondary' : 'muted'} style={{ fontSize: 14 }}>
-                  Auto-advance
-                </MakeText>
-                <InfoHelp label="Auto-advance help" text="After you type a number, selection moves to the next cell. Hold Shift to move backward." />
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1 }}>
+                  <MakeText tone={toggles.autoAdvance ? 'secondary' : 'muted'} style={{ fontSize: 14 }}>
+                    Auto-advance
+                  </MakeText>
+                  <InfoHelp label="Auto-advance help" text="After you type a number, selection moves to the next cell. Hold Shift to move backward." />
+                </View>
                 <MakeSwitch
                   accessibilityLabel="Auto-advance"
                   value={toggles.autoAdvance}
@@ -371,13 +502,15 @@ export function UltimateSettingsScreen({ onBack }: { onBack: () => void }) {
 
               <View style={{ width: isLg ? '48%' : '100%', flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                 <Sparkles width={16} height={16} color={toggles.zenMode ? makeTheme.accent : makeTheme.text.muted} />
-                <MakeText tone={toggles.zenMode ? 'secondary' : 'muted'} style={{ fontSize: 14 }}>
-                  Zen Mode
-                </MakeText>
-                <InfoHelp
-                  label="Zen Mode help"
-                  text="A calmer experience: hides timer/Lives/status and disables the Lives slider (Lives become Unlimited)."
-                />
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1 }}>
+                  <MakeText tone={toggles.zenMode ? 'secondary' : 'muted'} style={{ fontSize: 14 }}>
+                    Zen Mode
+                  </MakeText>
+                  <InfoHelp
+                    label="Zen Mode help"
+                    text="A calmer experience: • Hides timer, Lives, difficulty, and status. • Runs don't update stats or best times. • Daily puzzles keep fixed Lives. • Sets Lives to Unlimited and disables the Lives slider."
+                  />
+                </View>
                 <MakeSwitch
                   accessibilityLabel="Zen Mode"
                   value={toggles.zenMode}
@@ -390,14 +523,16 @@ export function UltimateSettingsScreen({ onBack }: { onBack: () => void }) {
 
               <View style={{ width: isLg ? '48%' : '100%', flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                 <Lightbulb width={16} height={16} color={makeTheme.accent} />
-                <MakeText tone="secondary" style={{ fontSize: 14 }}>
-                  Hint Type
-                </MakeText>
-                <InfoHelp
-                  label="Hint Type help"
-                  text="Choose how the Hint button helps: • Direct: place a correct digit. • Logic: highlight a solvable cell and explain. • Assist: show candidates and safe numbers. • Escalate: highlight → candidates → reveal."
-                />
-                <View style={{ width: 140 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <MakeText tone="secondary" style={{ fontSize: 14 }}>
+                    Hint Type
+                  </MakeText>
+                  <InfoHelp
+                    label="Hint Type help"
+                    text="Choose how the Hint button helps: • Direct: place a correct digit. • Logic: highlight a solvable cell and explain. • Assist: show candidates and safe numbers. • Escalate: highlight → candidates → reveal."
+                  />
+                </View>
+                <View style={{ width: 128 }}>
                   <MakeSelect<HintMode>
                     label="Hint Type"
                     accessibilityLabel="Select hint type"
@@ -454,7 +589,7 @@ export function UltimateSettingsScreen({ onBack }: { onBack: () => void }) {
         {/* Grid Customization */}
         <MakeCard
           style={[
-            { marginBottom: 16, borderRadius: 16 },
+            { borderRadius: 16 },
             Platform.select({
               web: { boxShadow: '0 20px 50px rgba(0,0,0,0.20)' } as unknown as object,
               ios: { shadowColor: '#000', shadowOpacity: 0.18, shadowRadius: 18, shadowOffset: { width: 0, height: 10 } },
@@ -470,7 +605,7 @@ export function UltimateSettingsScreen({ onBack }: { onBack: () => void }) {
               </MakeText>
             </View>
 
-            <View style={{ flexDirection: isLg ? 'row' : 'column', gap: 20 }}>
+            <View style={{ flexDirection: isLg ? 'row' : 'column', gap: 32 }}>
               {/* Sliders */}
               <View style={{ flex: 1, gap: 16 }}>
                 {/* Grid Size */}
@@ -579,51 +714,54 @@ export function UltimateSettingsScreen({ onBack }: { onBack: () => void }) {
                 <MakeText tone="secondary" style={{ fontSize: 14, marginBottom: 12 }}>
                   Preview
                 </MakeText>
-                <View style={{ borderRadius: 12, borderWidth: 1, borderColor: makeTheme.card.border, padding: 16, backgroundColor: makeTheme.card.background }}>
-                  <SudokuSizingPreview gridSizePct={sizing.gridSizePct} digitSizePct={sizing.digitSizePct} noteSizePct={sizing.noteSizePct} />
-                </View>
+                <GridPreview gridScale={sizing.gridSizePct} digitScale={sizing.digitSizePct} noteScale={sizing.noteSizePct} />
               </View>
             </View>
           </View>
         </MakeCard>
 
         {/* Audio */}
-        <MakeCard>
+        <MakeCard
+          style={[
+            { borderRadius: 16 },
+            Platform.select({
+              web: { boxShadow: '0 20px 50px rgba(0,0,0,0.20)' } as unknown as object,
+              ios: { shadowColor: '#000', shadowOpacity: 0.18, shadowRadius: 18, shadowOffset: { width: 0, height: 10 } },
+              android: { elevation: 10 },
+            }),
+          ]}
+        >
           <View style={{ padding: 20, gap: 16 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-              <Volume2 width={20} height={20} color={makeTheme.accent} />
-              <MakeText weight="semibold" style={{ fontSize: 18 }}>
+              <Volume2 width={24} height={24} color={makeTheme.accent} />
+              <MakeText weight="semibold" style={{ fontSize: 20 }}>
                 Audio
               </MakeText>
             </View>
 
-            {/* Sound Effects */}
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
-                {toggles.soundEnabled ? (
-                  <Volume2 width={16} height={16} color={makeTheme.accent} />
-                ) : (
-                  <VolumeX width={16} height={16} color={makeTheme.text.muted} />
-                )}
-                <MakeText tone={toggles.soundEnabled ? 'secondary' : 'muted'} style={{ fontSize: 14 }}>
-                  Sound Effects {!toggles.soundEnabled ? '(Off)' : ''}
-                </MakeText>
+            <View style={{ gap: 16 }}>
+              {/* Sound Effects */}
+              <View>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                    <Volume2 width={16} height={16} color={toggles.soundEnabled ? makeTheme.accent : makeTheme.text.muted} />
+                    <MakeText tone={toggles.soundEnabled ? 'secondary' : 'muted'} style={{ fontSize: 14 }}>
+                      Sound Effects
+                    </MakeText>
+                    <MakeSwitch
+                      accessibilityLabel="Sound Effects"
+                      value={toggles.soundEnabled}
+                      onChange={(soundEnabled) => {
+                        const next = setSettingsToggles(settings, { soundEnabled }, { updatedAtMs: Date.now(), updatedByDeviceId: deviceId });
+                updateLocalSettings(next);
+              }}
+                    />
+                  </View>
+                  {toggles.soundEnabled ? <MakeText style={{ fontSize: 14 }}>{Math.round(audio.soundVolume)}%</MakeText> : null}
               </View>
-              <MakeSwitch
-                accessibilityLabel="Sound Effects"
-                value={toggles.soundEnabled}
-                onChange={(soundEnabled) => {
-                  const next = setSettingsToggles(settings, { soundEnabled }, { updatedAtMs: Date.now(), updatedByDeviceId: deviceId });
-                  updateLocalSettings(next);
-                }}
-              />
-            </View>
 
             {toggles.soundEnabled ? (
-              <View style={{ paddingHorizontal: 4 }}>
-                <MakeText tone="muted" style={{ fontSize: 12, marginBottom: 4 }}>
-                  Volume: {Math.round(audio.soundVolume)}%
-                </MakeText>
+                  <View>
                 <Slider
                   accessibilityLabel="Sound volume"
                   value={audio.soundVolume}
@@ -635,36 +773,40 @@ export function UltimateSettingsScreen({ onBack }: { onBack: () => void }) {
                     updateLocalSettings(next);
                   }}
                 />
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 }}>
+                      <MakeText tone="muted" style={{ fontSize: 12 }}>
+                        0%
+                      </MakeText>
+                      <MakeText tone="muted" style={{ fontSize: 12 }}>
+                        100%
+                      </MakeText>
+                    </View>
+                  </View>
+                ) : null}
               </View>
-            ) : null}
 
-            {/* Music */}
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
-                {toggles.musicEnabled ? (
-                  <Music width={16} height={16} color={makeTheme.accent} />
-                ) : (
-                  <VolumeX width={16} height={16} color={makeTheme.text.muted} />
-                )}
-                <MakeText tone={toggles.musicEnabled ? 'secondary' : 'muted'} style={{ fontSize: 14 }}>
-                  Music {!toggles.musicEnabled ? '(Off)' : ''}
-                </MakeText>
+              {/* Music */}
+              <View>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                    <Music width={16} height={16} color={toggles.musicEnabled ? makeTheme.accent : makeTheme.text.muted} />
+                    <MakeText tone={toggles.musicEnabled ? 'secondary' : 'muted'} style={{ fontSize: 14 }}>
+                      Music
+                    </MakeText>
+                    <MakeSwitch
+                      accessibilityLabel="Music"
+                      value={toggles.musicEnabled}
+                      onChange={(musicEnabled) => {
+                        const next = setSettingsToggles(settings, { musicEnabled }, { updatedAtMs: Date.now(), updatedByDeviceId: deviceId });
+                updateLocalSettings(next);
+              }}
+                    />
+                  </View>
+                  {toggles.musicEnabled ? <MakeText style={{ fontSize: 14 }}>{Math.round(audio.musicVolume)}%</MakeText> : null}
               </View>
-              <MakeSwitch
-                accessibilityLabel="Music"
-                value={toggles.musicEnabled}
-                onChange={(musicEnabled) => {
-                  const next = setSettingsToggles(settings, { musicEnabled }, { updatedAtMs: Date.now(), updatedByDeviceId: deviceId });
-                  updateLocalSettings(next);
-                }}
-              />
-            </View>
 
             {toggles.musicEnabled ? (
-              <View style={{ paddingHorizontal: 4 }}>
-                <MakeText tone="muted" style={{ fontSize: 12, marginBottom: 4 }}>
-                  Volume: {Math.round(audio.musicVolume)}%
-                </MakeText>
+                  <View>
                 <Slider
                   accessibilityLabel="Music volume"
                   value={audio.musicVolume}
@@ -676,33 +818,43 @@ export function UltimateSettingsScreen({ onBack }: { onBack: () => void }) {
                     updateLocalSettings(next);
                   }}
                 />
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 }}>
+                      <MakeText tone="muted" style={{ fontSize: 12 }}>
+                        0%
+                      </MakeText>
+                      <MakeText tone="muted" style={{ fontSize: 12 }}>
+                        100%
+                      </MakeText>
+                    </View>
+                  </View>
+                ) : null}
               </View>
-            ) : null}
 
-            {/* Haptics */}
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
-                <Vibrate width={16} height={16} color={toggles.hapticsEnabled ? makeTheme.accent : makeTheme.text.muted} />
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                  <MakeText tone={toggles.hapticsEnabled ? 'secondary' : 'muted'} style={{ fontSize: 14 }}>
-                    Haptics {!toggles.hapticsEnabled ? '(Off)' : ''}
-                  </MakeText>
-                  <InfoHelp label="Haptics help" text="Provides tactile feedback when interacting with the game." />
+              <View style={{ height: 1, backgroundColor: makeTheme.card.border, opacity: 0.8 }} />
+
+              {/* Haptics */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                  <Vibrate width={16} height={16} color={toggles.hapticsEnabled ? makeTheme.accent : makeTheme.text.muted} />
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <MakeText tone={toggles.hapticsEnabled ? 'secondary' : 'muted'} style={{ fontSize: 14 }}>
+                      Haptics
+                    </MakeText>
+                    <InfoHelp label="Haptics help" text="Provides tactile feedback when interacting with the game." />
+                  </View>
+                  <MakeSwitch
+                    accessibilityLabel="Haptics"
+                    value={toggles.hapticsEnabled}
+                    onChange={(hapticsEnabled) => {
+                      const next = setSettingsToggles(settings, { hapticsEnabled }, { updatedAtMs: Date.now(), updatedByDeviceId: deviceId });
+                updateLocalSettings(next);
+              }}
+                  />
                 </View>
               </View>
-              <MakeSwitch
-                accessibilityLabel="Haptics"
-                value={toggles.hapticsEnabled}
-                onChange={(hapticsEnabled) => {
-                  const next = setSettingsToggles(settings, { hapticsEnabled }, { updatedAtMs: Date.now(), updatedByDeviceId: deviceId });
-                  updateLocalSettings(next);
-                }}
-              />
             </View>
           </View>
         </MakeCard>
-
-        <View style={{ height: 16 }} />
 
         {/* Preferences */}
         <MakeCard
@@ -723,7 +875,7 @@ export function UltimateSettingsScreen({ onBack }: { onBack: () => void }) {
               </MakeText>
             </View>
 
-            <View style={{ flexDirection: isLg ? 'row' : 'column', gap: 12 }}>
+            <View style={{ flexDirection: isLg ? 'row' : 'column', gap: 16 }}>
               <View style={{ flex: 1, gap: 8 }}>
                 <MakeText tone="secondary" style={{ fontSize: 14 }}>
                   Theme
@@ -767,6 +919,7 @@ export function UltimateSettingsScreen({ onBack }: { onBack: () => void }) {
             </View>
           </View>
         </MakeCard>
+      </View>
       </View>
     </MakeScreen>
   );

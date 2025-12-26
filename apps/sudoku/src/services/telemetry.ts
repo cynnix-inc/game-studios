@@ -71,6 +71,9 @@ export async function trackEvent(args: TrackArgs): Promise<void> {
   const base = functionsBaseUrl();
   if (!base) return;
   if (disabledForSession) return;
+  // Web dev ergonomics: if env points at local Supabase but it's not running, the browser logs
+  // noisy ERR_CONNECTION_REFUSED even if we catch it. Avoid making the request at all.
+  if (!isReactNativeRuntime() && isLocalDevFunctionsBase(base)) return;
 
   const deviceId = await getOrCreateDeviceId();
   const sid = await getOrCreateSessionId();

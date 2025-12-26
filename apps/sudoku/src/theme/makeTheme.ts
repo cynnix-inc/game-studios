@@ -9,6 +9,12 @@ export type MakeTheme = {
     background: string;
     border: string;
   };
+  input: {
+    background: string;
+    border: string;
+    text: string;
+    placeholder: string;
+  };
   text: {
     primary: string;
     secondary: string;
@@ -51,6 +57,14 @@ const makeThemeDefault: MakeTheme = {
     border: 'rgba(255, 255, 255, 0.20)',
   },
 
+  // Make: theme.input.*
+  input: {
+    background: 'rgba(255, 255, 255, 0.10)',
+    border: 'rgba(255, 255, 255, 0.20)',
+    text: '#ffffff',
+    placeholder: 'rgba(255, 255, 255, 0.60)',
+  },
+
   text: {
     primary: '#ffffff',
     secondary: 'rgba(255, 255, 255, 0.80)',
@@ -82,6 +96,12 @@ const makeThemeLight: MakeTheme = {
     background: 'rgba(255, 255, 255, 0.80)',
     border: '#e2e8f0',
   },
+  input: {
+    background: 'rgba(255, 255, 255, 0.60)',
+    border: '#e2e8f0',
+    text: '#0f172a',
+    placeholder: '#64748b',
+  },
   text: {
     primary: '#0f172a',
     secondary: '#334155',
@@ -109,6 +129,12 @@ const makeThemeDark: MakeTheme = {
     background: 'rgba(255, 255, 255, 0.05)',
     border: 'rgba(255, 255, 255, 0.10)',
   },
+  input: {
+    background: 'rgba(255, 255, 255, 0.05)',
+    border: 'rgba(255, 255, 255, 0.10)',
+    text: '#ffffff',
+    placeholder: '#94a3b8',
+  },
   text: {
     primary: '#ffffff',
     secondary: '#cbd5e1',
@@ -135,6 +161,12 @@ const makeThemeGrayscale: MakeTheme = {
   card: {
     background: 'rgba(255, 255, 255, 0.10)',
     border: 'rgba(255, 255, 255, 0.20)',
+  },
+  input: {
+    background: 'rgba(255, 255, 255, 0.10)',
+    border: 'rgba(255, 255, 255, 0.20)',
+    text: '#ffffff',
+    placeholder: '#9ca3af',
   },
   text: {
     primary: '#ffffff',
@@ -164,6 +196,12 @@ const makeThemeVibrant: MakeTheme = {
   card: {
     background: 'rgba(255, 255, 255, 0.15)',
     border: 'rgba(255, 255, 255, 0.20)',
+  },
+  input: {
+    background: 'rgba(255, 255, 255, 0.15)',
+    border: 'rgba(255, 255, 255, 0.20)',
+    text: '#ffffff',
+    placeholder: 'rgba(255, 255, 255, 0.70)',
   },
   text: {
     primary: '#ffffff',
