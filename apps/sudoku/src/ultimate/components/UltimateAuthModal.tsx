@@ -4,8 +4,6 @@ import { BlurView } from 'expo-blur';
 import { Loader2, Mail, X } from 'lucide-react-native';
 import Svg, { Path } from 'react-native-svg';
 
-import { theme } from '@cynnix-studios/ui';
-
 import { MakeButton } from '../../components/make/MakeButton';
 import { MakeCard } from '../../components/make/MakeCard';
 import { MakeText } from '../../components/make/MakeText';
@@ -57,7 +55,7 @@ export function UltimateAuthModal({
   const [loading, setLoading] = React.useState<'none' | 'apple' | 'google' | 'email'>('none');
   const [error, setError] = React.useState<string>('');
   const [email, setEmail] = React.useState('');
-  const [magicLinkSent, setMagicLinkSent] = React.useState(false);
+  const [magicLinkSent] = React.useState(false);
 
   // Match Make: max-w-md (448px)
   const cardMaxWidth = 448;
