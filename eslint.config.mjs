@@ -42,6 +42,8 @@ export default tseslint.config(
       '**/lib/**',
       '**/.turbo/**',
       '**/.expo/**',
+      // Snapshot of Figma Make source+assets; treated as an external reference, not app source.
+      'apps/sudoku/figma-make/**',
     ],
   },
 );

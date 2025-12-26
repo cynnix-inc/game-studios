@@ -22,6 +22,8 @@ import {
 
 import { loadDailyByDateKey, type DailyLoadUnavailable } from '../services/daily';
 import { freePlayPacksService } from '../services/freeplayPacks';
+import { useSettingsStore } from './useSettingsStore';
+import { getSettingsToggles } from '../services/settingsModel';
 import { trackEvent } from '../services/telemetry';
 
 type SudokuState = {
@@ -168,6 +170,16 @@ function clampCellIndex(i: number): number {
 
 function clampDigit(v: number): number {
   return Math.max(1, Math.min(9, Math.floor(v)));
+}
+
+function findNextEditableEmptyCell(args: { start: number; puzzle: Grid; givensMask: boolean[] }): number | null {
+  for (let step = 1; step <= 81; step++) {
+    const i = (args.start + step) % 81;
+    if (args.givensMask[i]) continue;
+    if (args.puzzle[i] !== 0) continue;
+    return i;
+  }
+  return null;
 }
 
 function newGuestId() {
@@ -345,10 +357,19 @@ export const usePlayerStore = create<SudokuState>((set, get) => ({
 
     // Value mode: set cell value and (if incorrect) increment mistakes.
     const prev = puzzle[cell] ?? 0;
-    if (prev === digit) return;
+    // Make parity: tapping the same digit again clears the cell (no separate Clear button in the design).
+    if (prev === digit) {
+      get().clearCell();
+      return;
+    }
     const nextPuzzle = puzzle.slice() as number[];
     nextPuzzle[cell] = digit;
     const correct = solution[cell] === digit;
+      const settings = useSettingsStore.getState().settings;
+      const toggles = settings ? getSettingsToggles(settings) : null;
+      const autoAdvanceEnabled = !!toggles?.autoAdvance;
+      const nextSelected =
+        autoAdvanceEnabled && !notesMode ? findNextEditableEmptyCell({ start: cell, puzzle: nextPuzzle as unknown as Grid, givensMask }) : null;
 
     const nextMoves: SudokuMove[] = deviceId
       ? [
@@ -365,6 +386,7 @@ export const usePlayerStore = create<SudokuState>((set, get) => ({
       moves: nextMoves,
       undoStack: [...undoStack, { kind: 'cell', cell, prev, next: digit }],
       redoStack: [],
+      ...(nextSelected != null ? { selectedIndex: nextSelected } : {}),
     });
   },
 
@@ -761,5 +783,8 @@ export const usePlayerStore = create<SudokuState>((set, get) => ({
 }));
 
 export { GAME_KEY };
+
+
+
 
 

@@ -1,4 +1,5 @@
 export * from './engine/grid';
+export * from './engine/candidates';
 export * from './engine/solver';
 export * from './engine/generator';
 export * from './engine/serialize';
@@ -11,5 +12,8 @@ export * from './engine/puzzleKeys';
 export * from './engine/dailyValidation';
 export * from './engine/dailyCachePolicy';
 export * from './engine/freePlayPacksValidation';
+
+
+
 
 

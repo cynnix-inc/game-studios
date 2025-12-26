@@ -106,9 +106,9 @@ export function UltimateMenuScreen({
   const username = usernameFromProfile(profile);
 
   // Gap policy: Stats/Profile are present in the Make design, but not fully wired yet.
-  // We will implement them later in this todo and keep them disabled until then.
-  const profileEnabled = false;
-  const statsEnabled = false;
+  // Stats now routes to a UI-only screen; keep deeper data contracts disabled inside that screen.
+  const profileEnabled = signedIn;
+  const statsEnabled = true;
 
   // Daily entry point is supported via DailyChallenges surface.
   const dailyEntryEnabled = true;

@@ -62,7 +62,8 @@ export function MakeScreen({ scroll = true, style, children, ...rest }: MakeScre
       colors={theme.backgroundGradient}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
-      style={{ flex: 1 }}
+      // Prevent horizontal scroll on web due to large blurred background particles.
+      style={{ flex: 1, overflow: 'hidden' }}
     >
       {/* Background particles (Figma Make: 3 blobs, blur-3xl, pulse + delays) */}
       <View pointerEvents="none" style={{ position: 'absolute', inset: 0 }}>

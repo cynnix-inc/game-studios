@@ -16,10 +16,6 @@ import { buildUtcMonthCalendar } from './daily/calendarModel';
 
 type TabType = 'calendar' | 'leaderboard' | 'stats';
 
-function formatMs(ms: number): string {
-  return `${Math.round(ms / 1000)}s`;
-}
-
 function isVisualTest(): boolean {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return typeof globalThis !== 'undefined' && (globalThis as any).__VISUAL_TEST__ === true;
@@ -58,6 +54,9 @@ export function UltimateDailyChallengesScreen({
   const { width } = useWindowDimensions();
   const isMd = width >= 768;
   const { theme: makeTheme } = useMakeTheme();
+  // NOTE: `onStartDaily` is present for the eventual “Play this day” CTA.
+  // The Make design currently doesn’t specify that CTA (tracked in the gap log).
+  void onStartDaily;
   const [activeTab, setActiveTab] = React.useState<TabType>('calendar');
   const [selectedDay, setSelectedDay] = React.useState<{ dateKey: string; dayOfMonth: number; completed: boolean; isToday: boolean } | null>(null);
 
@@ -573,7 +572,7 @@ export function UltimateDailyChallengesScreen({
 
                   <MakeButton title="Close" variant="secondary" onPress={() => setSelectedDay(null)} />
                   <MakeText tone="muted" style={{ fontSize: 12 }}>
-                    Daily start CTA not yet specified in Make design (tracked as a design gap).
+                    Calendar is UTC-keyed. Daily start CTA not yet specified in Make design (tracked as a design gap).
                   </MakeText>
                 </View>
               </MakeCard>

@@ -4,6 +4,7 @@ jest.mock('../../services/telemetry', () => ({
 
 import { usePlayerStore } from '../usePlayerStore';
 import { trackEvent } from '../../services/telemetry';
+import { useSettingsStore } from '../../state/useSettingsStore';
 
 function makeGrid(fill: number): number[] {
   return Array.from({ length: 81 }, () => fill);
@@ -39,6 +40,7 @@ function resetStoreForTest() {
     completionClientSubmissionId: null,
     // Epic1 additions (notes/undo/redo) will be set by implementation.
   } as never);
+  useSettingsStore.setState({ settings: null } as never);
 }
 
 describe('usePlayerStore Epic 1: notes + undo/redo', () => {
@@ -68,6 +70,35 @@ describe('usePlayerStore Epic 1: notes + undo/redo', () => {
 
     s.redo();
     expect(usePlayerStore.getState().puzzle[0]).toBe(5);
+  });
+});
+
+describe('usePlayerStore: auto-advance', () => {
+  beforeEach(() => {
+    resetStoreForTest();
+  });
+
+  it('advances to the next empty editable cell after digit entry when enabled', () => {
+    // Enable auto-advance
+    useSettingsStore.setState({
+      settings: {
+        schemaVersion: 1,
+        kind: 'sudoku_settings',
+        updatedAtMs: 0,
+        updatedByDeviceId: 'device_test',
+        toggles: { autoAdvance: true },
+        extra: {},
+      },
+    } as never);
+
+    // Mark cell 1 as given, so the next empty editable should be cell 2.
+    usePlayerStore.setState({ givensMask: [false, true, false, ...Array.from({ length: 78 }, () => false)] } as never);
+
+    const s = usePlayerStore.getState();
+    s.selectCell(0);
+    s.inputDigit(5);
+
+    expect(usePlayerStore.getState().selectedIndex).toBe(2);
   });
 });
 

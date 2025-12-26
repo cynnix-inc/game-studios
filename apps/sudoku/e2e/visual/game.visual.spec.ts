@@ -62,6 +62,34 @@ test.describe('visual: game (Ultimate Sudoku)', () => {
     await expect(page.getByLabel('Close menu')).toBeVisible();
     await snapshotGame(page, 'game.menu.desktop.png');
   });
+
+  test('desktop.playing.darkTheme.selectedHighlights', async ({ page }) => {
+    await prepareForVisualSnapshot(page, 'desktop');
+    await startGame(page);
+
+    // Select a cell and enter a digit so same-number highlight can render.
+    await page.getByRole('button', { name: /^Cell row 1 column 1/ }).click();
+    await page.getByRole('button', { name: 'Digit 5' }).click();
+
+    await snapshotGame(page, 'game.playing.desktop.dark.selected-highlights.png');
+  });
+
+  test('desktop.playing.lightTheme.selectedHighlights', async ({ page }) => {
+    await prepareForVisualSnapshot(page, 'desktop');
+    await page.addInitScript(() => {
+      try {
+        window.localStorage.setItem('ultimateSudoku.theme', 'light');
+      } catch {
+        // ignore
+      }
+    });
+    await startGame(page);
+
+    await page.getByRole('button', { name: /^Cell row 1 column 1/ }).click();
+    await page.getByRole('button', { name: 'Digit 5' }).click();
+
+    await snapshotGame(page, 'game.playing.desktop.light.selected-highlights.png');
+  });
 });
 
 

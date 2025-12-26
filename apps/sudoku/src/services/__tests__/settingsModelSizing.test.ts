@@ -15,9 +15,9 @@ describe('Epic 9 settings: UI sizing (grid + font scales)', () => {
   test('getUiSizingSettings returns defaults when ui namespace missing', () => {
     const s = baseSettings({ ui: undefined });
     expect(getUiSizingSettings(s)).toEqual({
-      gridSize: UI_SIZING_LIMITS.gridSize.default,
-      numberFontScale: UI_SIZING_LIMITS.numberFontScale.default,
-      noteFontScale: UI_SIZING_LIMITS.noteFontScale.default,
+      gridSizePct: UI_SIZING_LIMITS.gridSizePct.default,
+      digitSizePct: UI_SIZING_LIMITS.digitSizePct.default,
+      noteSizePct: UI_SIZING_LIMITS.noteSizePct.default,
     });
   });
 
@@ -30,20 +30,35 @@ describe('Epic 9 settings: UI sizing (grid + font scales)', () => {
       },
     });
     expect(getUiSizingSettings(s)).toEqual({
-      gridSize: UI_SIZING_LIMITS.gridSize.default,
-      numberFontScale: UI_SIZING_LIMITS.numberFontScale.max,
-      noteFontScale: UI_SIZING_LIMITS.noteFontScale.min,
+      gridSizePct: UI_SIZING_LIMITS.gridSizePct.default,
+      digitSizePct: UI_SIZING_LIMITS.digitSizePct.max,
+      noteSizePct: UI_SIZING_LIMITS.noteSizePct.min,
+    });
+  });
+
+  test('getUiSizingSettings migrates legacy (px/multiplier) values into Make percent units', () => {
+    const s = baseSettings({
+      ui: {
+        gridSize: 36, // legacy px-ish (maps to M)
+        numberFontScale: 1.1, // legacy multiplier (-> 110)
+        noteFontScale: 1.0, // legacy multiplier (-> 200)
+      },
+    });
+    expect(getUiSizingSettings(s)).toEqual({
+      gridSizePct: 100,
+      digitSizePct: 110,
+      noteSizePct: 200,
     });
   });
 
   test('setUiSizingSettings updates sizing + stamps updatedAtMs and updatedByDeviceId', () => {
     const s0 = baseSettings({
-      ui: { gridSize: 36, numberFontScale: 1, noteFontScale: 1 },
+      ui: { gridSize: 100, numberFontScale: 100, noteFontScale: 200 },
     });
 
     const s1 = setUiSizingSettings(
       s0,
-      { gridSize: 40, numberFontScale: 1.2 },
+      { gridSizePct: 115, digitSizePct: 110 },
       { updatedAtMs: 1234, updatedByDeviceId: 'device-b' },
     );
 
@@ -51,9 +66,9 @@ describe('Epic 9 settings: UI sizing (grid + font scales)', () => {
     expect(s1.updatedAtMs).toBe(1234);
     expect(s1.updatedByDeviceId).toBe('device-b');
     expect(getUiSizingSettings(s1)).toEqual({
-      gridSize: 40,
-      numberFontScale: 1.2,
-      noteFontScale: 1,
+      gridSizePct: 115,
+      digitSizePct: 110,
+      noteSizePct: 200,
     });
   });
 });

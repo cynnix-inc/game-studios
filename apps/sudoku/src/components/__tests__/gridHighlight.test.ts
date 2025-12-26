@@ -12,6 +12,7 @@ describe('computeGridHighlights', () => {
     const h = computeGridHighlights({ puzzle: g, selectedIndex: null });
     expect(h.row.size).toBe(0);
     expect(h.col.size).toBe(0);
+    expect(h.box.size).toBe(0);
     expect(h.sameValue.size).toBe(0);
   });
 
@@ -20,6 +21,7 @@ describe('computeGridHighlights', () => {
     const h = computeGridHighlights({ puzzle: g, selectedIndex: 40 }); // row 4 col 4
     expect(h.row.size).toBe(9);
     expect(h.col.size).toBe(9);
+    expect(h.box.size).toBe(9);
     expect(h.row.has(36)).toBe(true);
     expect(h.col.has(4)).toBe(true);
   });

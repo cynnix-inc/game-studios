@@ -6,15 +6,30 @@ import { MakeText } from './MakeText';
 import { useMakeTheme } from './MakeThemeProvider';
 
 export type MakeButtonVariant = 'primary' | 'secondary' | 'ghost';
+export type MakeButtonElevation = 'elevated' | 'flat';
 
 export type MakeButtonProps = Omit<PressableProps, 'children'> & {
   title: string;
   variant?: MakeButtonVariant;
   leftIcon?: React.ReactNode;
   contentStyle?: { [key: string]: unknown };
+  titleStyle?: { [key: string]: unknown };
+  radius?: number;
+  elevation?: MakeButtonElevation;
 };
 
-export function MakeButton({ title, variant = 'primary', disabled, leftIcon, contentStyle, style, ...rest }: MakeButtonProps) {
+export function MakeButton({
+  title,
+  variant = 'primary',
+  disabled,
+  leftIcon,
+  contentStyle,
+  titleStyle,
+  radius = 16,
+  elevation = 'elevated',
+  style,
+  ...rest
+}: MakeButtonProps) {
   const { theme } = useMakeTheme();
   return (
     <Pressable
@@ -24,10 +39,10 @@ export function MakeButton({ title, variant = 'primary', disabled, leftIcon, con
       style={(state) => {
         const extra = typeof style === 'function' ? style(state) : style;
         const hovered = Platform.OS === 'web' ? state.hovered : false;
-        const showShadow = variant !== 'ghost';
+        const showShadow = variant !== 'ghost' && elevation === 'elevated';
         return [
           {
-            borderRadius: 16,
+            borderRadius: radius,
             overflow: 'hidden',
             opacity: disabled ? 0.6 : state.pressed ? 0.92 : 1,
             ...(variant === 'ghost'
@@ -75,7 +90,7 @@ export function MakeButton({ title, variant = 'primary', disabled, leftIcon, con
         >
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
             {leftIcon}
-            {title ? <MakeText weight="semibold">{title}</MakeText> : null}
+            {title ? <MakeText weight="semibold" style={titleStyle}>{title}</MakeText> : null}
           </View>
         </LinearGradient>
       ) : variant === 'secondary' ? (
@@ -94,7 +109,7 @@ export function MakeButton({ title, variant = 'primary', disabled, leftIcon, con
         >
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
             {leftIcon}
-            {title ? <MakeText weight="semibold">{title}</MakeText> : null}
+            {title ? <MakeText weight="semibold" style={titleStyle}>{title}</MakeText> : null}
           </View>
         </View>
       ) : (
@@ -111,7 +126,7 @@ export function MakeButton({ title, variant = 'primary', disabled, leftIcon, con
         >
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
             {leftIcon}
-            {title ? <MakeText weight="semibold">{title}</MakeText> : null}
+            {title ? <MakeText weight="semibold" style={titleStyle}>{title}</MakeText> : null}
           </View>
         </View>
       )}
