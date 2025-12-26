@@ -37,6 +37,9 @@ export default function RootLayout() {
           }}
         >
           <Stack.Screen name="index" />
+          <Stack.Screen name="game/index" />
+          <Stack.Screen name="daily/index" />
+          <Stack.Screen name="leaderboard/index" />
         </Stack>
       </MakeThemeProvider>
     </>
