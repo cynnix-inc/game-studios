@@ -8,7 +8,10 @@ import { MakeButton } from '../../components/make/MakeButton';
 import { MakeCard } from '../../components/make/MakeCard';
 import { MakeText } from '../../components/make/MakeText';
 import { useMakeTheme } from '../../components/make/MakeThemeProvider';
+import { usePlayerStore } from '../../state/usePlayerStore';
 import { signInApple, signInGoogle, signInGoogleWeb } from '../../services/auth';
+import { getSessionUser } from '../../services/auth';
+import { computeNextProfileFromSession } from '../../services/authBootstrapLogic';
 import { trackEvent } from '../../services/telemetry';
 
 function AppleLogo({ size = 20 }: { size?: number }) {
@@ -102,6 +105,31 @@ export function UltimateAuthModal({
     if (isLoading) return;
     onClose();
   };
+
+  async function syncProfileAndClose() {
+    // Supabase session propagation can be async across platforms; do a short bounded retry
+    // so the home UI reliably flips to the authenticated state right after sign-in.
+    for (let attempt = 0; attempt < 6; attempt++) {
+      try {
+        const user = await getSessionUser();
+        if (user) {
+          usePlayerStore.getState().setProfile(
+            computeNextProfileFromSession({
+              user: { id: user.id, email: user.email ?? null },
+            }),
+          );
+          // Sign-in succeeded; close immediately (even while the modal is in a loading state).
+          onClose();
+          return;
+        }
+      } catch {
+        // ignore and retry
+      }
+      await new Promise((r) => setTimeout(r, 200));
+    }
+    // If session isn't available yet, still close the modal; AuthBootstrap will reconcile shortly.
+    onClose();
+  }
 
   // Latest Make has a "magic link sent" success view; keep structure, but we won't reach it until email is enabled.
   if (magicLinkSent) {
@@ -311,6 +339,7 @@ export function UltimateAuthModal({
                       if (Platform.OS === 'web') return;
                       await signInApple();
                       void trackEvent({ name: 'sign_in_success', props: { provider: 'apple' } });
+                      await syncProfileAndClose();
                     } catch (e) {
                       setError(e instanceof Error ? e.message : String(e));
                     } finally {
@@ -360,6 +389,7 @@ export function UltimateAuthModal({
                     try {
                       await signInGoogle();
                       void trackEvent({ name: 'sign_in_success', props: { provider: 'google' } });
+                      await syncProfileAndClose();
                     } catch (e) {
                       setError(e instanceof Error ? e.message : String(e));
                     } finally {
