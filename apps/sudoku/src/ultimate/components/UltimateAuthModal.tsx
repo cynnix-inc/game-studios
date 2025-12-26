@@ -8,7 +8,10 @@ import { MakeButton } from '../../components/make/MakeButton';
 import { MakeCard } from '../../components/make/MakeCard';
 import { MakeText } from '../../components/make/MakeText';
 import { useMakeTheme } from '../../components/make/MakeThemeProvider';
+import { usePlayerStore } from '../../state/usePlayerStore';
 import { signInApple, signInGoogle, signInGoogleWeb } from '../../services/auth';
+import { getSessionUser } from '../../services/auth';
+import { computeNextProfileFromSession } from '../../services/authBootstrapLogic';
 import { trackEvent } from '../../services/telemetry';
 
 export function UltimateAuthModal({
@@ -23,6 +26,30 @@ export function UltimateAuthModal({
   const [error, setError] = React.useState<string | null>(null);
 
   if (!open) return null;
+
+  async function syncProfileAndClose() {
+    // Supabase session propagation can be async across platforms; do a short bounded retry
+    // so the home UI reliably flips to the authenticated state right after sign-in.
+    for (let attempt = 0; attempt < 6; attempt++) {
+      try {
+        const user = await getSessionUser();
+        if (user) {
+          usePlayerStore.getState().setProfile(
+            computeNextProfileFromSession({
+              user: { id: user.id, email: user.email ?? null },
+            }),
+          );
+          onClose();
+          return;
+        }
+      } catch {
+        // ignore and retry
+      }
+      await new Promise((r) => setTimeout(r, 200));
+    }
+    // If session isn't available yet, still close the modal; AuthBootstrap will reconcile shortly.
+    onClose();
+  }
 
   return (
     <Modal transparent visible={open} animationType="fade" onRequestClose={onClose}>
@@ -78,6 +105,7 @@ export function UltimateAuthModal({
                       if (Platform.OS === 'web') return;
                       await signInApple();
                       void trackEvent({ name: 'sign_in_success', props: { provider: 'apple' } });
+                      await syncProfileAndClose();
                     } catch (e) {
                       setError(e instanceof Error ? e.message : String(e));
                     } finally {
@@ -109,6 +137,7 @@ export function UltimateAuthModal({
                     try {
                       await signInGoogle();
                       void trackEvent({ name: 'sign_in_success', props: { provider: 'google' } });
+                      await syncProfileAndClose();
                     } catch (e) {
                       setError(e instanceof Error ? e.message : String(e));
                     } finally {
