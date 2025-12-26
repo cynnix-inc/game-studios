@@ -10,7 +10,9 @@
     "lint": "corepack pnpm exec eslint .",
     "typecheck": "corepack pnpm exec tsc -p tsconfig.json --noEmit",
     "test": "corepack pnpm exec jest",
-    "test:e2e": "corepack pnpm exec playwright test -c e2e/playwright.config.ts"
+    "test:e2e": "corepack pnpm exec playwright test -c e2e/playwright.config.ts",
+    "verify:figma-make-snapshot": "node scripts/verify-figma-make-snapshot.mjs",
+    "update:figma-make-manifest": "node scripts/update-figma-make-manifest.mjs"
   },
   "dependencies": {
     "@cynnix-studios/game-foundation": "workspace:*",

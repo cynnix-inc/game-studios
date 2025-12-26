@@ -13,10 +13,23 @@ describe('settingsModel: toggles', () => {
   }
 
   test('getSettingsToggles defaults to enabled when toggles namespace missing/invalid', () => {
-    expect(getSettingsToggles(baseSettings({ toggles: undefined }))).toEqual({ soundEnabled: true, hapticsEnabled: true });
+    expect(getSettingsToggles(baseSettings({ toggles: undefined }))).toEqual({
+      soundEnabled: true,
+      hapticsEnabled: true,
+      musicEnabled: true,
+      notificationsEnabled: false,
+        autoCandidates: false,
+      autoAdvance: false,
+      zenMode: false,
+    });
     expect(getSettingsToggles(baseSettings({ toggles: { sound: 'nope', haptics: 123 } }))).toEqual({
       soundEnabled: true,
       hapticsEnabled: true,
+      musicEnabled: true,
+      notificationsEnabled: false,
+        autoCandidates: false,
+      autoAdvance: false,
+      zenMode: false,
     });
   });
 
@@ -27,7 +40,15 @@ describe('settingsModel: toggles', () => {
     expect(s1).not.toBe(s0);
     expect(s1.updatedAtMs).toBe(1234);
     expect(s1.updatedByDeviceId).toBe('device-b');
-    expect(getSettingsToggles(s1)).toEqual({ soundEnabled: false, hapticsEnabled: true });
+    expect(getSettingsToggles(s1)).toEqual({
+      soundEnabled: false,
+      hapticsEnabled: true,
+      musicEnabled: true,
+      notificationsEnabled: false,
+        autoCandidates: false,
+      autoAdvance: false,
+      zenMode: false,
+    });
   });
 });
 

@@ -8,7 +8,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { MakeCard } from '../make/MakeCard';
 import { MakeText } from '../make/MakeText';
 import { MakeButton } from '../make/MakeButton';
-import { makeThemeCurrent } from '../../theme/makeTheme';
+import { useMakeTheme } from '../make/MakeThemeProvider';
 
 function formatCountdown(nowMs: number): string {
   const ms = msUntilNextUtcMidnight(nowMs);
@@ -29,6 +29,7 @@ export function DailyChallengeCard({
 }) {
   const { width } = useWindowDimensions();
   const isMd = width >= 768;
+  const { theme: makeTheme } = useMakeTheme();
   const timeRemaining = formatCountdown(nowMs);
 
   // Gap policy: do not invent “completed”, “score”, or “streak” until we can source real values.
@@ -54,10 +55,10 @@ export function DailyChallengeCard({
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: isMd ? 12 : 10 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: isMd ? 12 : 8, flex: 1 }}>
               <View style={{ width: isMd ? 36 : 32, height: isMd ? 36 : 32 }}>
-                <Calendar width={isMd ? 36 : 32} height={isMd ? 36 : 32} color={makeThemeCurrent.accent} />
+                <Calendar width={isMd ? 36 : 32} height={isMd ? 36 : 32} color={makeTheme.accent} />
                 <View style={{ position: 'absolute', top: -6, right: -10 }}>
                   <LinearGradient
-                    colors={makeThemeCurrent.button.primaryGradient}
+                    colors={makeTheme.button.primaryGradient}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 0 }}
                     style={{
@@ -78,7 +79,7 @@ export function DailyChallengeCard({
                   Daily Challenge
                 </MakeText>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <Clock width={isMd ? 16 : 14} height={isMd ? 16 : 14} color={makeThemeCurrent.text.secondary} />
+                  <Clock width={isMd ? 16 : 14} height={isMd ? 16 : 14} color={makeTheme.text.secondary} />
                   <MakeText tone="secondary" style={{ fontSize: isMd ? 14 : 12 }}>
                     Resets in {timeRemaining}
                   </MakeText>
@@ -95,9 +96,9 @@ export function DailyChallengeCard({
                   paddingHorizontal: 8,
                   paddingVertical: 4,
                   borderRadius: 999,
-                  backgroundColor: makeThemeCurrent.card.background,
+                  backgroundColor: makeTheme.card.background,
                   borderWidth: 1,
-                  borderColor: makeThemeCurrent.card.border,
+                  borderColor: makeTheme.card.border,
                 }}
               >
                 <Flame width={isMd ? 16 : 14} height={isMd ? 16 : 14} color="#f97316" />

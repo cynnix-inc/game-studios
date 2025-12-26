@@ -5,7 +5,7 @@ import { theme } from '@cynnix-studios/ui';
 
 import { MakeScreen } from '../components/make/MakeScreen';
 import { MakeText } from '../components/make/MakeText';
-import { initialUltimateNavState, ultimateNavReducer } from './navigation/UltimateNavState';
+import { initialUltimateNavState, ultimateNavReducer, type UltimateNavState } from './navigation/UltimateNavState';
 import { usePlayerStore } from '../state/usePlayerStore';
 import { UltimateAuthModal } from './components/UltimateAuthModal';
 import { UltimateDifficultyScreen } from './screens/DifficultyScreen';
@@ -28,7 +28,16 @@ export function UltimateRoot() {
   const newPuzzle = usePlayerStore((s) => s.newPuzzle);
   const loadDaily = usePlayerStore((s) => s.loadDaily);
 
-  const [state, dispatch] = React.useReducer(ultimateNavReducer, initialUltimateNavState);
+  const [state, dispatch] = React.useReducer(ultimateNavReducer, initialUltimateNavState, (base) => {
+    // Test-only: allow Playwright visual snapshot runs to force a specific screen/state.
+    // This is used exclusively by `apps/sudoku/e2e/visual/**`.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const g = typeof globalThis !== 'undefined' ? (globalThis as any) : null;
+    if (!g || g.__VISUAL_TEST__ !== true) return base;
+    const override = (g.__VISUAL_ULTIMATE_STATE__ ?? null) as Partial<UltimateNavState> | null;
+    if (!override) return base;
+    return { ...base, ...override };
+  });
 
   const [nowMs, setNowMs] = React.useState(() => Date.now());
   React.useEffect(() => {
@@ -90,6 +99,7 @@ export function UltimateRoot() {
   if (state.screen === 'dailyChallenges') {
     return (
       <UltimateDailyChallengesScreen
+        username={state.username}
         onBack={() => dispatch({ type: 'NAVIGATE', screen: 'menu' })}
         onStartDaily={(dateKey) => {
           void loadDaily(dateKey);

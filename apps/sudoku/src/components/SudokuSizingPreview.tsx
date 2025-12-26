@@ -6,17 +6,24 @@ import { AppText, theme } from '@cynnix-studios/ui';
 type PreviewCell = { value: string; bold?: boolean; notes?: string };
 
 export function SudokuSizingPreview({
-  gridSize,
-  numberFontScale,
-  noteFontScale,
+  gridSizePct,
+  digitSizePct,
+  noteSizePct,
 }: {
-  gridSize: number;
-  numberFontScale: number;
-  noteFontScale: number;
+  gridSizePct: number;
+  digitSizePct: number;
+  noteSizePct: number;
 }) {
-  const cell = useMemo(() => Math.max(24, Math.min(64, Math.round(gridSize))), [gridSize]);
-  const numberFontSize = useMemo(() => Math.max(12, Math.round(cell * 0.55 * numberFontScale)), [cell, numberFontScale]);
-  const noteFontSize = useMemo(() => Math.max(8, Math.round(cell * 0.22 * noteFontScale)), [cell, noteFontScale]);
+  // Mirror Make preview intent (not pixel-perfect yet):
+  // - gridSizePct scales the overall cell box
+  // - digitSizePct scales main digit font
+  // - noteSizePct scales note font (mapped so 200 => ~1.0 baseline)
+  const baseCell = 40;
+  const cell = useMemo(() => Math.max(24, Math.min(64, Math.round((baseCell * gridSizePct) / 100))), [gridSizePct]);
+  const digitScale = useMemo(() => digitSizePct / 100, [digitSizePct]);
+  const noteScale = useMemo(() => noteSizePct / 200, [noteSizePct]);
+  const numberFontSize = useMemo(() => Math.max(12, Math.round(cell * 0.55 * digitScale)), [cell, digitScale]);
+  const noteFontSize = useMemo(() => Math.max(8, Math.round(cell * 0.22 * noteScale)), [cell, noteScale]);
 
   // Simple 3×3 snapshot with a mix of values + notes.
   const sample = useMemo<PreviewCell[]>(

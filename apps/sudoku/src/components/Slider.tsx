@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
-import { PanResponder, Pressable, View, type LayoutChangeEvent } from 'react-native';
+import { PanResponder, Platform, Pressable, View, type LayoutChangeEvent } from 'react-native';
 
 import { theme } from '@cynnix-studios/ui';
 
@@ -12,9 +12,56 @@ type SliderProps = {
   step: number;
   onChange: (next: number) => void;
   accessibilityLabel: string;
+  disabled?: boolean;
 };
 
-export function Slider({ value, min, max, step, onChange, accessibilityLabel }: SliderProps) {
+export function Slider({ value, min, max, step, onChange, accessibilityLabel, disabled }: SliderProps) {
+  return Platform.OS === 'web' ? (
+    <SliderWeb value={value} min={min} max={max} step={step} onChange={onChange} accessibilityLabel={accessibilityLabel} disabled={disabled} />
+  ) : (
+    <SliderNative value={value} min={min} max={max} step={step} onChange={onChange} accessibilityLabel={accessibilityLabel} disabled={disabled} />
+  );
+}
+
+function SliderWeb({ value, min, max, step, onChange, accessibilityLabel, disabled }: SliderProps) {
+  // Web: use a native <input type="range"> for reliable pointer/keyboard support.
+  // PanResponder drag behavior can be flaky on web across browsers.
+  const handle = (e: unknown) => {
+    const target = (e as { target?: { value?: string } }).target;
+    const raw = target?.value;
+    const next = raw == null ? NaN : Number(raw);
+    if (!Number.isFinite(next)) return;
+    onChange(next);
+  };
+
+  return (
+    <View style={{ width: '100%', alignSelf: 'stretch', height: 32, justifyContent: 'center', opacity: disabled ? 0.55 : 1 }}>
+      {React.createElement('input', {
+        type: 'range',
+        'aria-label': accessibilityLabel,
+        min,
+        max,
+        step,
+        value: String(value),
+        disabled,
+        // React maps range updates primarily through `onChange`, but some environments/tests
+        // dispatch `input` events directly. Supporting both keeps behavior consistent.
+        onChange: handle,
+        onInput: handle,
+        style: {
+          width: '100%',
+          height: 32,
+          cursor: disabled ? 'not-allowed' : 'pointer',
+          // Modern browsers support this for range inputs.
+          accentColor: theme.colors.accent,
+          background: 'transparent',
+        } as unknown,
+      })}
+    </View>
+  );
+}
+
+function SliderNative({ value, min, max, step, onChange, accessibilityLabel, disabled }: SliderProps) {
   const [trackWidth, setTrackWidth] = useState(0);
   const activeThumbStartValueRef = useRef(value);
 
@@ -43,10 +90,10 @@ export function Slider({ value, min, max, step, onChange, accessibilityLabel }: 
   const responder = useMemo(
     () =>
       PanResponder.create({
-        onStartShouldSetPanResponder: () => true,
-        onMoveShouldSetPanResponder: () => true,
-        onStartShouldSetPanResponderCapture: () => true,
-        onMoveShouldSetPanResponderCapture: () => true,
+        onStartShouldSetPanResponder: () => !disabled,
+        onMoveShouldSetPanResponder: () => !disabled,
+        onStartShouldSetPanResponderCapture: () => !disabled,
+        onMoveShouldSetPanResponderCapture: () => !disabled,
         onPanResponderTerminationRequest: () => false,
         onPanResponderGrant: () => {
           activeThumbStartValueRef.current = value;
@@ -64,19 +111,24 @@ export function Slider({ value, min, max, step, onChange, accessibilityLabel }: 
           onChange(next);
         },
       }),
-    [max, min, onChange, step, trackWidth, value],
+    [disabled, max, min, onChange, step, trackWidth, value],
   );
 
   return (
     <Pressable
       accessibilityRole="adjustable"
       accessibilityLabel={accessibilityLabel}
-      onPress={(e) => setFromX(e.nativeEvent.locationX)}
+      disabled={disabled}
+      onPress={(e) => {
+        if (disabled) return;
+        setFromX(e.nativeEvent.locationX);
+      }}
       style={{
         height: 32,
         justifyContent: 'center',
         width: '100%',
         alignSelf: 'stretch',
+        opacity: disabled ? 0.55 : 1,
       }}
       onLayout={onLayout}
       {...responder.panHandlers}

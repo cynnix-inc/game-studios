@@ -16,6 +16,61 @@ function formatMs(ms: number): string {
   return `${Math.round(ms / 1000)}s`;
 }
 
+function initials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return '??';
+  if (parts.length === 1) return parts[0]!.slice(0, 2).toUpperCase();
+  return `${parts[0]!.slice(0, 1)}${parts[parts.length - 1]!.slice(0, 1)}`.toUpperCase();
+}
+
+function rankStyle(rank: number): { bg: string; border: string } {
+  if (rank === 1) return { bg: 'rgba(234,179,8,0.20)', border: 'rgba(234,179,8,0.30)' };
+  if (rank === 2) return { bg: 'rgba(148,163,184,0.20)', border: 'rgba(148,163,184,0.30)' };
+  if (rank === 3) return { bg: 'rgba(180,83,9,0.20)', border: 'rgba(180,83,9,0.30)' };
+  return { bg: 'transparent', border: 'transparent' };
+}
+
+function isVisualTest(): boolean {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return typeof globalThis !== 'undefined' && (globalThis as any).__VISUAL_TEST__ === true;
+}
+
+const MOCK_ROWS: DailyLeaderboardRow[] = [
+  {
+    utc_date: '2025-01-01',
+    rank: 1,
+    player_id: 'p1',
+    display_name: 'ProGamer2024',
+    score_ms: 98_750,
+    raw_time_ms: 42_000,
+    mistakes_count: 0,
+    hints_used_count: 0,
+    created_at: '2025-01-01T12:00:00.000Z',
+  },
+  {
+    utc_date: '2025-01-01',
+    rank: 2,
+    player_id: 'p2',
+    display_name: 'ElitePlayer',
+    score_ms: 95_230,
+    raw_time_ms: 44_000,
+    mistakes_count: 1,
+    hints_used_count: 0,
+    created_at: '2025-01-01T12:00:01.000Z',
+  },
+  {
+    utc_date: '2025-01-01',
+    rank: 3,
+    player_id: 'p3',
+    display_name: 'MasterChief',
+    score_ms: 92_100,
+    raw_time_ms: 48_000,
+    mistakes_count: 2,
+    hints_used_count: 1,
+    created_at: '2025-01-01T12:00:02.000Z',
+  },
+] as const;
+
 export function UltimateLeaderboardScreen({ onBack }: { onBack: () => void }) {
   const { theme: makeTheme } = useMakeTheme();
   const todayKey = nowUtcDateKey(Date.now());
@@ -24,6 +79,11 @@ export function UltimateLeaderboardScreen({ onBack }: { onBack: () => void }) {
   const [status, setStatus] = React.useState<'idle' | 'loading' | 'error'>('idle');
 
   React.useEffect(() => {
+    if (isVisualTest()) {
+      setStatus('idle');
+      setRows(MOCK_ROWS);
+      return;
+    }
     let cancelled = false;
     void (async () => {
       setStatus('loading');
@@ -80,9 +140,18 @@ export function UltimateLeaderboardScreen({ onBack }: { onBack: () => void }) {
                   ) : r.rank === 3 ? (
                     <Medal width={18} height={18} color="#d97706" />
                   ) : null;
+                const rs = rankStyle(r.rank);
+                const name = r.display_name ?? 'Player';
 
                 return (
-                  <MakeCard key={`${r.utc_date}-${r.rank}`} style={{ borderRadius: 18 }}>
+                  <MakeCard
+                    key={`${r.utc_date}-${r.rank}`}
+                    style={
+                      r.rank <= 3
+                        ? { borderRadius: 18, backgroundColor: rs.bg, borderColor: rs.border }
+                        : { borderRadius: 18 }
+                    }
+                  >
                     <View style={{ gap: 6 }}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
@@ -95,9 +164,23 @@ export function UltimateLeaderboardScreen({ onBack }: { onBack: () => void }) {
                               </MakeText>
                             )}
                           </View>
+                          <View
+                            style={{
+                              width: 44,
+                              height: 44,
+                              borderRadius: 22,
+                              borderWidth: 1,
+                              borderColor: makeTheme.card.border,
+                              backgroundColor: makeTheme.card.background,
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                            }}
+                          >
+                            <MakeText weight="bold">{initials(name)}</MakeText>
+                          </View>
                           <View style={{ flex: 1 }}>
                             <MakeText weight={isTop ? 'bold' : 'semibold'} numberOfLines={1}>
-                              {r.display_name}
+                              {name}
                             </MakeText>
                             <MakeText tone="secondary" numberOfLines={1}>
                               Score {formatMs(r.score_ms)} • Time {formatMs(r.raw_time_ms)}

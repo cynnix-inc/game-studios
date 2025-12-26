@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable, useWindowDimensions, View } from 'react-native';
+import { Platform, Pressable, useWindowDimensions, View } from 'react-native';
 import { BarChart3, Grid3X3, LogIn, Play, Settings, Trophy, User } from 'lucide-react-native';
 
 import { theme } from '@cynnix-studios/ui';
@@ -41,32 +41,46 @@ function TileButton({
   icon: Icon,
   onPress,
   disabled,
+  isMd,
 }: {
   label: string;
   icon: React.ComponentType<{ width?: number; height?: number; color?: string }>;
   onPress?: () => void;
   disabled?: boolean;
+  isMd: boolean;
 }) {
   const { theme: makeTheme } = useMakeTheme();
+  const size = isMd ? 64 : 56;
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={label}
       disabled={disabled}
       onPress={onPress}
-      style={({ pressed }) => ({
-        width: 56,
-        height: 56,
+      style={(state) => {
+        const hovered =
+          Platform.OS === 'web' && 'hovered' in state ? Boolean((state as unknown as { hovered?: boolean }).hovered) : false;
+        return {
+        width: size,
+        height: size,
         borderRadius: theme.radius.md,
         borderWidth: 1,
         borderColor: makeTheme.card.border,
         backgroundColor: makeTheme.card.background,
         alignItems: 'center',
         justifyContent: 'center',
-        opacity: disabled ? 0.5 : pressed ? 0.85 : 1,
-      })}
+        opacity: disabled ? 0.5 : state.pressed ? 0.85 : 1,
+        ...(Platform.OS === 'web'
+          ? ({
+              boxShadow: hovered ? '0 18px 44px rgba(0,0,0,0.25)' : '0 12px 32px rgba(0,0,0,0.20)',
+              transform: hovered ? 'scale(1.02)' : 'scale(1)',
+              transition: 'transform 200ms ease, box-shadow 200ms ease, opacity 150ms ease',
+            } as unknown as object)
+          : null),
+        };
+      }}
     >
-      <Icon width={22} height={22} color={makeTheme.text.primary} />
+      <Icon width={isMd ? 24 : 22} height={isMd ? 24 : 22} color={makeTheme.text.primary} />
     </Pressable>
   );
 }
@@ -96,9 +110,9 @@ export function UltimateMenuScreen({
   const username = usernameFromProfile(profile);
 
   // Gap policy: Stats/Profile are present in the Make design, but not fully wired yet.
-  // We will implement them later in this todo and keep them disabled until then.
-  const profileEnabled = false;
-  const statsEnabled = false;
+  // Stats now routes to a UI-only screen; keep deeper data contracts disabled inside that screen.
+  const profileEnabled = signedIn;
+  const statsEnabled = true;
 
   // Daily entry point is supported via DailyChallenges surface.
   const dailyEntryEnabled = true;
@@ -172,9 +186,15 @@ export function UltimateMenuScreen({
 
         {/* Icon tiles */}
         <View style={{ flexDirection: 'row', justifyContent: 'center', gap: isMd ? 16 : 12, paddingTop: isMd ? 24 : 16 }}>
-          <TileButton label="Stats" icon={BarChart3} disabled={!statsEnabled} onPress={statsEnabled ? () => onNavigate('stats') : undefined} />
-          <TileButton label="Leaderboard" icon={Trophy} onPress={() => onNavigate('leaderboard')} />
-          <TileButton label="Settings" icon={Settings} onPress={() => onNavigate('settings')} />
+          <TileButton
+            label="Stats"
+            icon={BarChart3}
+            isMd={isMd}
+            disabled={!statsEnabled}
+            onPress={statsEnabled ? () => onNavigate('stats') : undefined}
+          />
+          <TileButton label="Leaderboard" icon={Trophy} isMd={isMd} onPress={() => onNavigate('leaderboard')} />
+          <TileButton label="Settings" icon={Settings} isMd={isMd} onPress={() => onNavigate('settings')} />
         </View>
 
         {/* Footer */}
