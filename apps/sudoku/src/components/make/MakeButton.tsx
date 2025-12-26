@@ -90,7 +90,11 @@ export function MakeButton({
         >
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
             {leftIcon}
-            {title ? <MakeText weight="semibold" style={titleStyle}>{title}</MakeText> : null}
+            {title ? (
+              <MakeText weight="semibold" style={titleStyle}>
+                {title}
+              </MakeText>
+            ) : null}
           </View>
         </LinearGradient>
       ) : variant === 'secondary' ? (
@@ -109,7 +113,11 @@ export function MakeButton({
         >
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
             {leftIcon}
-            {title ? <MakeText weight="semibold" style={titleStyle}>{title}</MakeText> : null}
+            {title ? (
+              <MakeText weight="semibold" style={titleStyle}>
+                {title}
+              </MakeText>
+            ) : null}
           </View>
         </View>
       ) : (
@@ -126,7 +134,11 @@ export function MakeButton({
         >
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
             {leftIcon}
-            {title ? <MakeText weight="semibold" style={titleStyle}>{title}</MakeText> : null}
+            {title ? (
+              <MakeText weight="semibold" style={titleStyle}>
+                {title}
+              </MakeText>
+            ) : null}
           </View>
         </View>
       )}
