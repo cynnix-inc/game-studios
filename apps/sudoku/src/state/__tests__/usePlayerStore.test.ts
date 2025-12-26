@@ -5,6 +5,7 @@ jest.mock('../../services/telemetry', () => ({
 import { usePlayerStore } from '../usePlayerStore';
 import { trackEvent } from '../../services/telemetry';
 import { useSettingsStore } from '../../state/useSettingsStore';
+import { getRunTimerElapsedMs, serializeGrid, type RunTimer, type SudokuMove } from '@cynnix-studios/sudoku-core';
 
 function makeGrid(fill: number): number[] {
   return Array.from({ length: 81 }, () => fill);
@@ -140,6 +141,53 @@ describe('usePlayerStore Epic 10: telemetry completion', () => {
         }),
       }),
     );
+  });
+});
+
+describe('usePlayerStore: run timer persistence on hydrate/resume', () => {
+  beforeEach(() => {
+    resetStoreForTest();
+    jest.restoreAllMocks();
+  });
+
+  it('prefers persisted runTimer on hydrateFromSave even when moves exist (so elapsed time does not reset)', () => {
+    // Freeze "now" so hydrateFromSave would previously reset startedAtMs when folding moves.
+    jest.spyOn(Date, 'now').mockReturnValue(100_000);
+
+    const puzzle = makeGrid(0);
+    const solution = makeGrid(1);
+    const serializedPuzzle = serializeGrid(puzzle as never);
+    const serializedSolution = serializeGrid(solution as never);
+
+    const persistedTimer: RunTimer = { startedAtMs: 10_000, totalPausedMs: 2_000, pausedAtMs: 99_000 };
+    const moves: SudokuMove[] = [
+      { schemaVersion: 1, device_id: 'device_test', rev: 1, ts: 20_000, kind: 'set', cell: 0, value: 5 },
+    ];
+
+    usePlayerStore.getState().hydrateFromSave(serializedPuzzle, serializedSolution, Array.from({ length: 81 }, () => false), {
+      deviceId: 'device_test',
+      revision: 1,
+      moves,
+      runTimer: persistedTimer,
+      runStatus: 'paused',
+    });
+
+    const after = usePlayerStore.getState();
+    expect(after.runTimer).toEqual(persistedTimer);
+    expect(after.runStatus).toBe('paused');
+
+    // Sanity: elapsed time should reflect the persisted timer (not be reset to ~0).
+    const elapsedMs0 = getRunTimerElapsedMs(after.runTimer, 100_000);
+    expect(elapsedMs0).toBeGreaterThan(0);
+
+    // Resume should clear pausedAtMs and elapsed should tick forward.
+    usePlayerStore.getState().resumeRun(100_000);
+    const resumed = usePlayerStore.getState();
+    expect(resumed.runStatus).toBe('running');
+    expect(resumed.runTimer.pausedAtMs).toBeNull();
+
+    const elapsedMs1 = getRunTimerElapsedMs(resumed.runTimer, 101_000);
+    expect(elapsedMs1).toBeGreaterThan(elapsedMs0);
   });
 });
 
