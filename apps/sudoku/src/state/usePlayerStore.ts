@@ -658,9 +658,13 @@ export const usePlayerStore = create<SudokuState>((set, get) => ({
   hydrateFromSave: (serializedPuzzle, serializedSolution, givensMask, meta) => {
     const nowMs = Date.now();
     const baseMoves = meta?.moves ?? [];
+    const startedAtMs =
+      meta?.runTimer?.startedAtMs ??
+      meta?.startedAtMs ??
+      nowMs;
     const folded =
       baseMoves.length > 0
-        ? foldMovesToState({ startedAtMs: meta?.startedAtMs ?? nowMs, puzzle: parseGrid(serializedPuzzle) }, baseMoves)
+        ? foldMovesToState({ startedAtMs, puzzle: parseGrid(serializedPuzzle) }, baseMoves)
         : null;
     set({
       mode: 'free',
@@ -680,8 +684,10 @@ export const usePlayerStore = create<SudokuState>((set, get) => ({
       mistakes: folded?.mistakesCount ?? meta?.mistakes ?? 0,
       hintsUsedCount: folded?.hintsUsedCount ?? meta?.hintsUsedCount ?? 0,
       hintBreakdown: folded?.hintBreakdown ?? meta?.hintBreakdown ?? {},
-      runTimer: folded?.runTimer ?? meta?.runTimer ?? createRunTimer(meta?.startedAtMs ?? nowMs),
-      runStatus: folded?.runStatus ?? meta?.runStatus ?? 'running',
+      // Timer + status: prefer persisted values when provided, because local saves may "force pause"
+      // without a corresponding move log entry.
+      runTimer: meta?.runTimer ?? folded?.runTimer ?? createRunTimer(startedAtMs),
+      runStatus: meta?.runStatus ?? folded?.runStatus ?? 'running',
       completedAtMs: null,
       completionClientSubmissionId: null,
       selectedIndex: null,
