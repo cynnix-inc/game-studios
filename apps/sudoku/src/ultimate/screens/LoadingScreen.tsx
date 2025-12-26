@@ -40,7 +40,7 @@ export function UltimateLoadingScreen({
    */
   progress01?: number | null;
 }) {
-  const { theme: makeTheme, reducedMotion } = useMakeTheme();
+  const { reducedMotion } = useMakeTheme();
   const { width } = useWindowDimensions();
   const isMd = width >= 768;
 

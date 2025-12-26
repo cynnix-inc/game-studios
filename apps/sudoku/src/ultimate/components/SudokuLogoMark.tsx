@@ -1,5 +1,5 @@
 import React from 'react';
-import { Animated, Easing, Platform, View } from 'react-native';
+import { Animated, Platform, View } from 'react-native';
 
 import { MakeText } from '../../components/make/MakeText';
 import { useMakeTheme } from '../../components/make/MakeThemeProvider';
