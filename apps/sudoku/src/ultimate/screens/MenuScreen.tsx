@@ -22,10 +22,12 @@ import { SudokuLogoMark } from '../components/SudokuLogoMark';
 
 function capitalizeDifficulty(d: string): string {
   const lower = d.toLowerCase();
-  if (lower === 'easy') return 'Easy';
-  if (lower === 'medium') return 'Medium';
-  if (lower === 'hard') return 'Hard';
+  if (lower === 'novice') return 'Novice';
+  if (lower === 'skilled') return 'Skilled';
+  if (lower === 'advanced') return 'Advanced';
   if (lower === 'expert') return 'Expert';
+  if (lower === 'fiendish') return 'Fiendish';
+  if (lower === 'ultimate') return 'Ultimate';
   return d;
 }
 

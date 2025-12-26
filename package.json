@@ -18,6 +18,7 @@
     "lint": "node scripts/turbo.mjs lint",
     "typecheck": "node scripts/turbo.mjs typecheck",
     "test": "node scripts/turbo.mjs test",
+    "gen:freeplay-packs": "corepack pnpm exec tsx scripts/generate-freeplay-packs.ts",
     "format": "prettier -w ."
   },
   "devDependencies": {
@@ -31,7 +32,8 @@
     "prettier": "^3.4.2",
     "turbo": "^2.3.3",
     "typescript-eslint": "^8.26.0",
-    "typescript": "^5.7.3"
+    "typescript": "^5.7.3",
+    "tsx": "^4.19.2"
   },
   "pnpm": {
     "overrides": {

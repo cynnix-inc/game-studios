@@ -43,7 +43,7 @@ function parseArgs(argv) {
   return out;
 }
 
-const DIFFICULTIES = ['easy', 'medium', 'hard', 'expert', 'extreme'];
+const DIFFICULTIES = ['novice', 'skilled', 'advanced', 'expert', 'fiendish', 'ultimate'];
 
 // Deterministic example puzzle/solution (classic Sudoku).
 // This is a stopgap “daily content” source that keeps everything self-contained in the Netlify site.
@@ -74,7 +74,7 @@ const SOLUTION = [
 function difficultyForDateKey(dateKey) {
   // Simple stable rotation based on day-of-month to keep variety.
   const day = Number(dateKey.slice(8, 10));
-  return DIFFICULTIES[(day - 1) % DIFFICULTIES.length] ?? 'easy';
+  return DIFFICULTIES[(day - 1) % DIFFICULTIES.length] ?? 'novice';
 }
 
 async function main() {

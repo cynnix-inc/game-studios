@@ -15,11 +15,12 @@ function monthLabel(m: CalendarMonth): string {
 
 function difficultyLabel(d: Difficulty | null): string {
   if (!d) return '';
-  if (d === 'easy') return 'E';
-  if (d === 'medium') return 'M';
-  if (d === 'hard') return 'H';
-  if (d === 'expert') return 'Ex';
-  return 'X';
+  if (d === 'novice') return 'N';
+  if (d === 'skilled') return 'S';
+  if (d === 'advanced') return 'A';
+  if (d === 'expert') return 'E';
+  if (d === 'fiendish') return 'F';
+  return 'U';
 }
 
 function CellView({

@@ -138,11 +138,12 @@ function parseInProgressSaveV1(raw: unknown): InProgressSaveV1 | null {
     if (!isRunTimer(raw.runTimer)) return null;
     if (raw.runStatus !== 'running' && raw.runStatus !== 'paused' && raw.runStatus !== 'completed') return null;
     if (
-      raw.difficulty !== 'easy' &&
-      raw.difficulty !== 'medium' &&
-      raw.difficulty !== 'hard' &&
+      raw.difficulty !== 'novice' &&
+      raw.difficulty !== 'skilled' &&
+      raw.difficulty !== 'advanced' &&
       raw.difficulty !== 'expert' &&
-      raw.difficulty !== 'extreme'
+      raw.difficulty !== 'fiendish' &&
+      raw.difficulty !== 'ultimate'
     )
       return null;
     return { ...(raw as InProgressSaveV1Free), moves, undoStack, redoStack };
@@ -203,13 +204,14 @@ export async function readLocalInProgressSave(): Promise<InProgressSaveV1 | null
     runTimer: forcePaused(runTimer ?? { startedAtMs: startedAtMs ?? nowMs, totalPausedMs: 0, pausedAtMs: null }, nowMs),
     runStatus: 'paused',
     difficulty:
-      legacy.difficulty === 'easy' ||
-      legacy.difficulty === 'medium' ||
-      legacy.difficulty === 'hard' ||
+      legacy.difficulty === 'novice' ||
+      legacy.difficulty === 'skilled' ||
+      legacy.difficulty === 'advanced' ||
       legacy.difficulty === 'expert' ||
-      legacy.difficulty === 'extreme'
+      legacy.difficulty === 'fiendish' ||
+      legacy.difficulty === 'ultimate'
         ? legacy.difficulty
-        : 'easy',
+        : 'skilled',
   };
 }
 

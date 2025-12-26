@@ -50,14 +50,14 @@ describe('dailyCalendarModel', () => {
       todayKey,
       availableDateKeys,
       completedDateKeys: new Set<string>(),
-      difficultyByDateKey: { '2025-12-22': 'hard' },
+      difficultyByDateKey: { '2025-12-22': 'advanced' },
     });
 
     const cell = grid.cells.find((c) => c.kind === 'day' && c.dateKey === '2025-12-22');
     expect(cell).toBeDefined();
     if (cell?.kind === 'day') {
       expect(cell.status).toBe('available');
-      expect(cell.difficulty).toBe('hard');
+      expect(cell.difficulty).toBe('advanced');
     }
   });
 

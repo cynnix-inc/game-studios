@@ -186,7 +186,7 @@ function newGuestId() {
   return `guest_${Math.random().toString(16).slice(2)}_${Date.now()}`;
 }
 
-const initial = generate('easy', { seed: 1337 });
+const initial = generate('skilled', { seed: 1337 });
 
 export const usePlayerStore = create<SudokuState>((set, get) => ({
   profile: null,
@@ -210,7 +210,7 @@ export const usePlayerStore = create<SudokuState>((set, get) => ({
   dailyLoad: { status: 'idle' },
   dailySource: null,
 
-  difficulty: 'easy',
+  difficulty: 'skilled',
   puzzle: initial.puzzle,
   solution: initial.solution,
   givensMask: [...initial.givensMask],

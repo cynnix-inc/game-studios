@@ -26,7 +26,7 @@ function payloadFor(dateKey: string): DailyPayloadV1 {
   return {
     schema_version: 1,
     date_key: dateKey,
-    difficulty: 'easy',
+    difficulty: 'novice',
     puzzle: Array.from({ length: 81 }, () => 0),
     solution: Array.from({ length: 81 }, () => 1),
   };

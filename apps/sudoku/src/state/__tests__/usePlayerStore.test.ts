@@ -27,7 +27,7 @@ function resetStoreForTest() {
     dailyDateKey: null,
     dailyLoad: { status: 'idle' },
     dailySource: null,
-    difficulty: 'easy',
+    difficulty: 'skilled',
     puzzle: makeGrid(0) as unknown as never,
     solution: makeGrid(1) as unknown as never,
     givensMask: Array.from({ length: 81 }, () => false),
@@ -110,7 +110,7 @@ describe('usePlayerStore Epic 10: telemetry completion', () => {
   });
 
   it('emits complete_puzzle with ranked=false for free play', () => {
-    usePlayerStore.setState({ mode: 'free', difficulty: 'hard' } as never);
+    usePlayerStore.setState({ mode: 'free', difficulty: 'advanced' } as never);
     usePlayerStore.getState().markCompleted({ clientSubmissionId: 'cid_free', completedAtMs: 1000, nowMs: 1000 });
 
     expect(trackEvent).toHaveBeenCalledWith(
@@ -118,7 +118,7 @@ describe('usePlayerStore Epic 10: telemetry completion', () => {
         name: 'complete_puzzle',
         props: expect.objectContaining({
           mode: 'free',
-          difficulty: 'hard',
+          difficulty: 'advanced',
           ranked: false,
           correlation_id: 'cid_free',
         }),
@@ -127,7 +127,7 @@ describe('usePlayerStore Epic 10: telemetry completion', () => {
   });
 
   it('emits complete_puzzle with ranked=null for daily', () => {
-    usePlayerStore.setState({ mode: 'daily', dailyDateKey: '2025-12-22', difficulty: 'easy' } as never);
+    usePlayerStore.setState({ mode: 'daily', dailyDateKey: '2025-12-22', difficulty: 'novice' } as never);
     usePlayerStore.getState().markCompleted({ clientSubmissionId: 'cid_daily', completedAtMs: 1000, nowMs: 1000 });
 
     expect(trackEvent).toHaveBeenCalledWith(

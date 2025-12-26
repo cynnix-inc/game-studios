@@ -83,7 +83,7 @@ This is a **code-level audit** (structure, states, interactions, responsiveness 
   - **Severity**: Deferrable
   - **Suggested fix**: ensure `MakeCard` provides comparable default shadows; add web-only hover shadow bump if needed (Make uses `hover:shadow-2xl` + `hover:scale-105`).
 
-- **“Extreme” difficulty exists in engine but is intentionally omitted (design lacks it)**
+- **“Ultimate” difficulty exists in engine but is intentionally omitted (design lacks it)**
   - **Type**: Functional (design gap)
   - **Severity**: Deferrable (intentional)
   - **Suggested fix**: keep omitted until design includes it (gap log [GAP-004]).

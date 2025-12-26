@@ -45,7 +45,7 @@ Monetization is out of scope for MVP, but the data model and UX must not block f
 ## 4. Product scope
 ### 4.1 Modes included (MVP)
 #### A) Free Play
-- User chooses difficulty (Easy, Medium, Hard, Expert, Extreme)
+- User chooses difficulty (Novice, Skilled, Advanced, Expert, Fiendish, Ultimate)
 - Starts a new puzzle
 - Can pause, resume, and autosave
 - Stats tracked locally (guest) or in cloud (signed-in)
@@ -58,7 +58,7 @@ Monetization is out of scope for MVP, but the data model and UX must not block f
 - Replays are allowed after the first completion, but they are personal-only and never affect the leaderboard
 
 ### 4.2 Difficulty system (MVP)
-- Free Play difficulties: Easy, Medium, Hard, Expert, Extreme
+- Free Play difficulties: Novice, Skilled, Advanced, Expert, Fiendish, Ultimate
 - Daily difficulty: can vary by day (defined in Daily payload metadata), but rule set stays consistent
 
 ## 5. Core game rules (classic Sudoku)

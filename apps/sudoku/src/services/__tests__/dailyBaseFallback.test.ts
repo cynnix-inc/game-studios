@@ -48,7 +48,7 @@ describe('daily: web base fallback', () => {
       json: async () => ({
         schema_version: 1,
         date_key: '2025-12-23',
-        difficulty: 'easy',
+        difficulty: 'novice',
         puzzle: Array.from({ length: 81 }, () => 0),
         solution: Array.from({ length: 81 }, () => 1),
       }),
