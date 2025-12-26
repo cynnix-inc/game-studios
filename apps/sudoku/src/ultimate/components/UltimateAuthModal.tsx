@@ -66,7 +66,7 @@ export function UltimateAuthModal({
   const sectionGap = 24;
   const providerGap = 12;
   const buttonHeight = 48; // Make: h-12
-  const inputHeight = 36; // Make Input default: h-9
+  const inputHeight = 48; // Latest Make AuthModal: input is h-12
   const inputRadius = 8; // Make: rounded-md (approx)
 
   // Make ThemeContext: inputs differ from button secondary background (notably light theme).
@@ -267,10 +267,12 @@ export function UltimateAuthModal({
               </Pressable>
 
               <View style={{ alignItems: 'center', gap: 8 }}>
-                <MakeText weight="bold" style={{ fontSize: 18, textAlign: 'center' }}>
+                {/* Make: h2 defaults to text-xl, font-weight-medium */}
+                <MakeText weight="medium" style={{ fontSize: 20, lineHeight: 30, textAlign: 'center' }}>
                   Welcome to Ultimate Sudoku
                 </MakeText>
-                <MakeText tone="secondary" style={{ textAlign: 'center' }}>
+                {/* Make: p defaults to text-base */}
+                <MakeText tone="secondary" style={{ fontSize: 16, lineHeight: 24, textAlign: 'center' }}>
                   Save progress • Track stats • Compete globally
                 </MakeText>
               </View>
@@ -290,7 +292,7 @@ export function UltimateAuthModal({
                     borderColor: 'rgba(239,68,68,0.20)',
                   }}
                 >
-                  <MakeText style={{ fontSize: 12 }}>{error}</MakeText>
+                  <MakeText style={{ fontSize: 14, lineHeight: 21 }}>{error}</MakeText>
                 </View>
               ) : null}
 
@@ -318,7 +320,7 @@ export function UltimateAuthModal({
                     }
                   }}
                   leftIcon={
-                    isLoading && loading === 'apple' ? (
+                    isLoading ? (
                       <Loader2 width={20} height={20} color="#000000" />
                     ) : (
                       <AppleLogo size={20} />
@@ -332,7 +334,7 @@ export function UltimateAuthModal({
                     borderColor: '#000000',
                     borderWidth: 2,
                   }}
-                  titleStyle={{ lineHeight: 18, color: '#000000' }}
+                  titleStyle={{ fontSize: 16, lineHeight: 24, color: '#000000' }}
                 />
 
                 {/* Google Sign In - Standard light style */}
@@ -367,7 +369,7 @@ export function UltimateAuthModal({
                     }
                   }}
                   leftIcon={
-                    isLoading && loading === 'google' ? (
+                    isLoading ? (
                       <Loader2 width={20} height={20} color="#374151" />
                     ) : (
                       <GoogleLogo size={20} />
@@ -381,7 +383,7 @@ export function UltimateAuthModal({
                     borderColor: '#d1d5db',
                     borderWidth: 1,
                   }}
-                  titleStyle={{ lineHeight: 18, color: '#374151' }}
+                  titleStyle={{ fontSize: 16, lineHeight: 24, color: '#374151' }}
                 />
               </View>
 
@@ -389,7 +391,7 @@ export function UltimateAuthModal({
               <View style={{ position: 'relative', height: 20, justifyContent: 'center' }}>
                 <View style={{ position: 'absolute', left: 0, right: 0, height: 1, backgroundColor: makeTheme.card.border }} />
                 <View style={{ alignSelf: 'center', paddingHorizontal: 16, backgroundColor: makeTheme.card.background }}>
-                  <MakeText tone="muted" style={{ fontSize: 12 }}>
+                  <MakeText tone="muted" style={{ fontSize: 14, lineHeight: 20 }}>
                     or use email
                   </MakeText>
                 </View>
@@ -398,7 +400,9 @@ export function UltimateAuthModal({
               {/* Email Section (Make: magic link) — UI matches, but disabled until backend exists */}
               <View style={{ gap: 12, opacity: emailEnabled ? 1 : 0.75 }}>
                 <View style={{ gap: 8 }}>
-                  <MakeText tone="secondary">Email</MakeText>
+                  <MakeText tone="secondary" weight="medium" style={{ fontSize: 16, lineHeight: 24 }}>
+                    Email
+                  </MakeText>
                   <TextInput
                     editable={emailEnabled && !isLoading}
                     value={email}
@@ -424,7 +428,7 @@ export function UltimateAuthModal({
                 </View>
 
                 <MakeButton
-                  title={isLoading && loading === 'email' ? 'Sending…' : 'Send magic link'}
+                  title={isLoading && loading === 'email' ? 'Sending...' : 'Send Magic Link'}
                   disabled={!emailEnabled || isLoading}
                   onPress={() => {
                     // Keep the UI deterministic: until backend supports it, show a consistent message.
@@ -432,10 +436,30 @@ export function UltimateAuthModal({
                   }}
                   elevation="flat"
                   radius={12}
-                  leftIcon={isLoading && loading === 'email' ? <Loader2 width={18} height={18} color={makeTheme.button.textOnPrimary} /> : <Mail width={18} height={18} color={makeTheme.button.textOnPrimary} />}
+                  leftIcon={
+                    isLoading && loading === 'email' ? (
+                      <Loader2 width={18} height={18} color={makeTheme.button.textOnPrimary} />
+                    ) : (
+                      <Mail width={18} height={18} color={makeTheme.button.textOnPrimary} />
+                    )
+                  }
                   contentStyle={{ height: buttonHeight, paddingVertical: 0, paddingHorizontal: 18 }}
-                  titleStyle={{ lineHeight: 18 }}
+                  titleStyle={{ fontSize: 16, lineHeight: 24 }}
                 />
+              </View>
+
+              {/* Footer (Make) */}
+              <View>
+                <MakeText tone="muted" style={{ fontSize: 12, lineHeight: 18, textAlign: 'center' }}>
+                  By signing in, you agree to our{' '}
+                  <MakeText tone="secondary" style={{ textDecorationLine: 'underline' }}>
+                    Terms
+                  </MakeText>
+                  {' & '}
+                  <MakeText tone="secondary" style={{ textDecorationLine: 'underline' }}>
+                    Privacy
+                  </MakeText>
+                </MakeText>
               </View>
             </View>
           </MakeCard>
