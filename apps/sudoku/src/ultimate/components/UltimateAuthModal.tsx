@@ -21,6 +21,41 @@ export function UltimateAuthModal({
   const { theme: makeTheme } = useMakeTheme();
   const [loading, setLoading] = React.useState<'none' | 'apple' | 'google'>('none');
   const [error, setError] = React.useState<string | null>(null);
+  const [activeTab, setActiveTab] = React.useState<'signin' | 'signup'>('signin');
+  const [username, setUsername] = React.useState('');
+  const [password, setPassword] = React.useState('');
+
+  // Match Make: max-w-md (448px)
+  const cardMaxWidth = 448;
+  const headerPad = 24;
+  const contentPad = 24;
+  const sectionGap = 24;
+  const providerGap = 12;
+  const tabHeight = 48;
+  const buttonHeight = 48; // Make: h-12
+  const inputHeight = 36; // Make Input default: h-9
+  const inputRadius = 8; // Make: rounded-md (approx)
+
+  const inputBg = makeTheme.button.secondaryBackground;
+  const inputBorder = makeTheme.card.border;
+
+  const emailEnabled = false; // Backend contract: Apple/Google only today.
+  const emailDisabledReason = 'Email sign-in is not available yet.';
+
+  // Web: allow Esc to close the auth modal when idle.
+  React.useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    if (typeof window === 'undefined') return;
+    if (!open) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      if (loading !== 'none') return;
+      e.preventDefault();
+      onClose();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [loading, onClose, open]);
 
   if (!open) return null;
 
@@ -33,6 +68,7 @@ export function UltimateAuthModal({
         style={{
           flex: 1,
           backgroundColor: 'rgba(0,0,0,0.50)',
+          ...(Platform.OS === 'web' ? ({ backdropFilter: 'blur(12px)' } as unknown as object) : null),
           alignItems: 'center',
           justifyContent: 'center',
           padding: 16,
@@ -40,24 +76,79 @@ export function UltimateAuthModal({
       >
         <Pressable
           accessibilityRole="none"
-          onPress={() => {}}
-          style={{ width: '100%', maxWidth: 420 }}
+          onPress={(e) => {
+            // RN web: prevent the outer overlay from receiving the click.
+            const maybe = e as unknown as { stopPropagation?: () => void };
+            maybe.stopPropagation?.();
+          }}
+          style={{ width: '100%', maxWidth: cardMaxWidth }}
         >
           <MakeCard style={{ borderRadius: 24 }}>
-            <View style={{ padding: 18 }}>
-              <View style={{ position: 'relative', alignItems: 'center', paddingBottom: 12 }}>
-                <MakeText style={{ fontSize: 22 }} weight="bold">
-                  Welcome
-                </MakeText>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Close"
-                  onPress={loading === 'none' ? onClose : undefined}
-                  style={{ position: 'absolute', right: 0, top: 0, padding: 6, opacity: loading === 'none' ? 1 : 0.6 }}
-                >
-                  <X width={22} height={22} color={makeTheme.text.muted} />
-                </Pressable>
-              </View>
+            {/* Header */}
+            <View
+              style={{
+                position: 'relative',
+                padding: headerPad,
+                borderBottomWidth: 1,
+                borderBottomColor: makeTheme.card.border,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <MakeText style={{ fontSize: 22 }} weight="bold">
+                Welcome
+              </MakeText>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Close"
+                onPress={loading === 'none' ? onClose : undefined}
+                style={({ pressed }) => ({
+                  position: 'absolute',
+                  top: headerPad,
+                  right: headerPad,
+                  width: 32,
+                  height: 32,
+                  borderRadius: 8,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  opacity: loading === 'none' ? (pressed ? 0.75 : 1) : 0.6,
+                })}
+              >
+                <X width={24} height={24} color={makeTheme.text.muted} />
+              </Pressable>
+            </View>
+
+            {/* Tabs */}
+            <View style={{ flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: makeTheme.card.border }}>
+              {(['signin', 'signup'] as const).map((tab) => {
+                const selected = activeTab === tab;
+                return (
+                  <Pressable
+                    key={tab}
+                    accessibilityRole="tab"
+                    accessibilityLabel={tab === 'signin' ? 'Sign In tab' : 'Sign Up tab'}
+                    accessibilityState={{ selected }}
+                    onPress={() => setActiveTab(tab)}
+                    style={({ pressed }) => ({
+                      flex: 1,
+                      height: tabHeight,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      opacity: pressed ? 0.9 : 1,
+                      ...(Platform.OS === 'web'
+                        ? ({
+                            transition: 'opacity 150ms ease',
+                          } as unknown as object)
+                        : null),
+                    })}
+                  >
+                    <MakeText tone={selected ? 'secondary' : 'muted'} weight={selected ? 'semibold' : 'regular'}>
+                      {tab === 'signin' ? 'Sign In' : 'Sign Up'}
+                    </MakeText>
+                  </Pressable>
+                );
+              })}
+            </View>
 
               {error ? (
                 <MakeText tone="muted" style={{ color: '#ff5a6b', marginBottom: theme.spacing.sm }}>
@@ -65,11 +156,19 @@ export function UltimateAuthModal({
                 </MakeText>
               ) : null}
 
+            {/* Content */}
+            <View style={{ padding: contentPad, gap: sectionGap }}>
+              {error ? (
+                <MakeText tone="muted" style={{ color: '#ff5a6b' }}>
+                  {error}
+                </MakeText>
+              ) : null}
+
               {/* Provider buttons */}
-              <View style={{ gap: 10 }}>
+              <View style={{ gap: providerGap }}>
                 <MakeButton
                   accessibilityLabel="Continue with Apple"
-                  title={Platform.OS === 'web' ? 'Apple sign-in (iOS only)' : loading === 'apple' ? 'Signing in…' : 'Continue with Apple'}
+                  title={loading === 'apple' ? 'Signing in…' : 'Continue with Apple'}
                   disabled={Platform.OS === 'web' || loading !== 'none'}
                   onPress={async () => {
                     setError(null);
@@ -84,7 +183,11 @@ export function UltimateAuthModal({
                       setLoading('none');
                     }
                   }}
-                  leftIcon={<Apple width={18} height={18} color={makeTheme.button.textOnPrimary} />}
+                  leftIcon={<Apple width={20} height={20} color={makeTheme.button.textOnPrimary} />}
+                  radius={8}
+                  elevation="flat"
+                  contentStyle={{ height: buttonHeight, paddingVertical: 0, paddingHorizontal: 18 }}
+                  titleStyle={{ lineHeight: 18 }}
                 />
 
                 <MakeButton
@@ -115,57 +218,86 @@ export function UltimateAuthModal({
                       setLoading('none');
                     }
                   }}
-                  leftIcon={<Chrome width={18} height={18} color={makeTheme.text.primary} />}
+                  leftIcon={<Chrome width={20} height={20} color={makeTheme.text.primary} />}
+                  radius={8}
+                  elevation="flat"
+                  contentStyle={{ height: buttonHeight, paddingVertical: 0, paddingHorizontal: 18 }}
+                  titleStyle={{ lineHeight: 18, color: makeTheme.button.textOnSecondary }}
                 />
               </View>
 
-              {/* Divider */}
-              <View style={{ height: 1, backgroundColor: makeTheme.card.border, marginVertical: 14 }} />
-
-              {/* Email UI (design present, backend contract unknown) */}
-              <MakeText tone="muted" style={{ marginBottom: 8 }}>
-                Or continue with email (disabled)
-              </MakeText>
-              <View style={{ gap: 10, opacity: 0.6 }}>
-                <View>
-                  <MakeText tone="secondary" style={{ marginBottom: 6 }}>
-                    Username
+              {/* Divider (Make: line with centered label) */}
+              <View style={{ position: 'relative', height: 20, justifyContent: 'center' }}>
+                <View style={{ position: 'absolute', left: 0, right: 0, height: 1, backgroundColor: makeTheme.card.border }} />
+                <View style={{ alignSelf: 'center', paddingHorizontal: 16, backgroundColor: makeTheme.card.background }}>
+                  <MakeText tone="muted" style={{ fontSize: 12 }}>
+                    Or continue with email
                   </MakeText>
+                </View>
+              </View>
+
+              {/* Email form (design present; disabled until backend exists) */}
+              <View style={{ gap: 16, opacity: emailEnabled ? 1 : 0.6 }}>
+                {!emailEnabled ? (
+                  <MakeText tone="muted" style={{ fontSize: 12 }}>
+                    {emailDisabledReason}
+                  </MakeText>
+                ) : null}
+
+                <View style={{ gap: 8 }}>
+                  <MakeText tone="secondary">Username</MakeText>
                   <TextInput
-                    editable={false}
+                    editable={emailEnabled && loading === 'none'}
+                    value={username}
+                    onChangeText={setUsername}
                     placeholder="Enter your username"
                     placeholderTextColor={makeTheme.text.muted}
                     style={{
+                      height: inputHeight,
                       borderWidth: 1,
-                      borderColor: makeTheme.card.border,
-                      backgroundColor: 'rgba(255,255,255,0.06)',
+                      borderColor: inputBorder,
+                      backgroundColor: inputBg,
                       color: makeTheme.text.primary,
-                      borderRadius: 14,
-                      paddingHorizontal: 14,
-                      paddingVertical: 12,
+                      borderRadius: inputRadius,
+                      paddingHorizontal: 12,
+                      paddingVertical: 0,
                     }}
                   />
                 </View>
-                <View>
-                  <MakeText tone="secondary" style={{ marginBottom: 6 }}>
-                    Password
-                  </MakeText>
+
+                <View style={{ gap: 8 }}>
+                  <MakeText tone="secondary">Password</MakeText>
                   <TextInput
-                    editable={false}
+                    editable={emailEnabled && loading === 'none'}
+                    value={password}
+                    onChangeText={setPassword}
                     placeholder="Enter your password"
                     placeholderTextColor={makeTheme.text.muted}
+                    secureTextEntry
                     style={{
+                      height: inputHeight,
                       borderWidth: 1,
-                      borderColor: makeTheme.card.border,
-                      backgroundColor: 'rgba(255,255,255,0.06)',
+                      borderColor: inputBorder,
+                      backgroundColor: inputBg,
                       color: makeTheme.text.primary,
-                      borderRadius: 14,
-                      paddingHorizontal: 14,
-                      paddingVertical: 12,
+                      borderRadius: inputRadius,
+                      paddingHorizontal: 12,
+                      paddingVertical: 0,
                     }}
                   />
                 </View>
-                <MakeButton title="Sign In" disabled onPress={() => {}} />
+
+                <MakeButton
+                  title={activeTab === 'signin' ? 'Sign In' : 'Create Account'}
+                  disabled={!emailEnabled || loading !== 'none'}
+                  onPress={() => {
+                    setError(emailDisabledReason);
+                  }}
+                  radius={8}
+                  elevation="flat"
+                  contentStyle={{ height: buttonHeight, paddingVertical: 0, paddingHorizontal: 18 }}
+                  titleStyle={{ lineHeight: 18 }}
+                />
               </View>
             </View>
           </MakeCard>
