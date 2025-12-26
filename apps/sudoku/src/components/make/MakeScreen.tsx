@@ -23,8 +23,8 @@ export function MakeScreen({ scroll = true, style, children, ...rest }: MakeScre
       Animated.loop(
         Animated.sequence([
           Animated.delay(delayMs),
-          Animated.timing(v, { toValue: 1, duration: 2200, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-          Animated.timing(v, { toValue: 0, duration: 2200, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+          Animated.timing(v, { toValue: 1, duration: 2200, easing: Easing.inOut(Easing.sin), useNativeDriver: Platform.OS !== 'web' }),
+          Animated.timing(v, { toValue: 0, duration: 2200, easing: Easing.inOut(Easing.sin), useNativeDriver: Platform.OS !== 'web' }),
         ]),
       );
 
@@ -66,7 +66,7 @@ export function MakeScreen({ scroll = true, style, children, ...rest }: MakeScre
       style={{ flex: 1, overflow: 'hidden' }}
     >
       {/* Background particles (Figma Make: 3 blobs, blur-3xl, pulse + delays) */}
-      <View pointerEvents="none" style={{ position: 'absolute', inset: 0 }}>
+      <View style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
         <Animated.View
           style={{
             position: 'absolute',

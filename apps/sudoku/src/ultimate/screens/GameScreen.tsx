@@ -197,7 +197,7 @@ export function UltimateGameScreen({
       toValue: menuOpen ? 1 : 0,
       duration,
       easing: Easing.out(Easing.cubic),
-      useNativeDriver: true,
+      useNativeDriver: Platform.OS !== 'web',
     }).start();
   }, [menuAnim, menuOpen, reducedMotion]);
 
@@ -239,6 +239,8 @@ export function UltimateGameScreen({
   const desiredScale = (sizing?.gridSizePct ?? UI_SIZING_LIMITS.gridSizePct.default) / 100;
   const maxScaleToFit = stackBaseWidth > 0 ? contentMaxWidth / stackBaseWidth : 1;
   const effectiveScale = Math.min(desiredScale, maxScaleToFit);
+  // Header content should not exceed the effective game area width (grid stack after scaling).
+  const headerContentMaxWidth = Math.max(0, Math.floor(stackBaseWidth * effectiveScale));
 
   function SwitchRow({
     label,
@@ -320,7 +322,7 @@ export function UltimateGameScreen({
         <View style={{ backgroundColor: makeTheme.card.background, borderBottomWidth: 1, borderBottomColor: makeTheme.card.border }}>
           <BlurView intensity={18} tint="dark" style={{ position: 'absolute', inset: 0 }} />
           <View style={{ height: headerHeight, paddingHorizontal: isMd ? 24 : 12, justifyContent: 'center' }}>
-            <View style={{ maxWidth: containerMaxWidth, alignSelf: 'center', width: '100%' }}>
+            <View style={{ maxWidth: headerContentMaxWidth, alignSelf: 'center', width: '100%' }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: isMd ? 16 : 10 }}>
                 {/* Left: menu + difficulty */}
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>

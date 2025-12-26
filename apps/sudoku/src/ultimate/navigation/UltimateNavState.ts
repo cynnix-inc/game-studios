@@ -25,7 +25,8 @@ export type UltimateNavAction =
   | { type: 'SET_AUTH_MODAL_OPEN'; open: boolean }
   | { type: 'AUTH_SUCCESS'; username: string }
   | { type: 'SIGN_OUT' }
-  | { type: 'START_DAILY' };
+  | { type: 'START_DAILY' }
+  | { type: 'RESUME_FREE_PLAY' };
 
 export const initialUltimateNavState: UltimateNavState = {
   screen: 'menu',
@@ -72,6 +73,11 @@ export function ultimateNavReducer(state: UltimateNavState, action: UltimateNavA
 
     case 'START_DAILY': {
       return { ...state, screen: 'game', gameType: 'daily' };
+    }
+
+    case 'RESUME_FREE_PLAY': {
+      // Home screen "Resume" should go directly back into the game surface without a difficulty pick.
+      return { ...state, screen: 'game', gameType: 'classic' };
     }
 
     default: {

@@ -15,7 +15,7 @@ test('make theme: home hub renders glass background + card + primary button', as
   // Should be translucent (not fully opaque).
   expect(cardBg).toContain('rgba');
 
-  const play = page.getByRole('button', { name: 'Play Game' });
+  const play = page.getByRole('button', { name: 'Free Play play' });
   await expect(play).toBeVisible();
   const playBgLayer = play.getByTestId('make-button-primary-bg');
   await expect(playBgLayer).toBeVisible();

@@ -5,7 +5,7 @@ test.describe('visual: game (Ultimate Sudoku)', () => {
   async function startGame(page: Page) {
     await page.goto('/');
     await expect(page.getByRole('heading', { name: 'Ultimate Sudoku' })).toBeVisible();
-    await page.getByRole('button', { name: 'Play Game' }).click();
+    await page.getByRole('button', { name: 'Free Play play' }).click();
     await expect(page.getByText('Select Difficulty')).toBeVisible();
     await page.getByRole('button', { name: 'Easy' }).click();
     await expect(page.getByRole('button', { name: 'Menu' })).toBeVisible();

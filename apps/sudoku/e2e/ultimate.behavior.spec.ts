@@ -29,7 +29,7 @@ test.describe('ultimate: behavior gates (Figma Make parity)', () => {
   test('game menu opens and closes (Menu button + overlay)', async ({ page }) => {
     await gotoMenu(page);
 
-    await page.getByRole('button', { name: 'Play Game' }).click();
+    await page.getByRole('button', { name: 'Free Play play' }).click();
     await expect(page.getByText('Select Difficulty', { exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'Easy' }).click();
 
@@ -49,7 +49,7 @@ test.describe('ultimate: behavior gates (Figma Make parity)', () => {
   test('in-game menu sliders are interactive (music volume updates)', async ({ page }) => {
     await gotoMenu(page);
 
-    await page.getByRole('button', { name: 'Play Game' }).click();
+    await page.getByRole('button', { name: 'Free Play play' }).click();
     await expect(page.getByText('Select Difficulty', { exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'Easy' }).click();
 
@@ -94,7 +94,7 @@ test.describe('ultimate: behavior gates (Figma Make parity)', () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await gotoMenu(page);
 
-    await page.getByRole('button', { name: 'Play Game' }).click();
+    await page.getByRole('button', { name: 'Free Play play' }).click();
     await expect(page.getByText('Select Difficulty', { exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'Easy' }).click();
 
@@ -138,7 +138,7 @@ test.describe('ultimate: behavior gates (Figma Make parity)', () => {
 
     await gotoMenu(page);
 
-    await page.getByRole('button', { name: 'Play Game' }).click();
+    await page.getByRole('button', { name: 'Free Play play' }).click();
     await expect(page.getByText('Select Difficulty', { exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'Easy' }).click();
     await expect(page.getByLabel('Sudoku grid')).toBeVisible();
@@ -188,7 +188,7 @@ test.describe('ultimate: behavior gates (Figma Make parity)', () => {
   test('lock mode: choosing a digit and tapping an empty cell places that digit', async ({ page }) => {
     await gotoMenu(page);
 
-    await page.getByRole('button', { name: 'Play Game' }).click();
+    await page.getByRole('button', { name: 'Free Play play' }).click();
     await expect(page.getByText('Select Difficulty', { exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'Easy' }).click();
     await expect(page.getByLabel('Sudoku grid')).toBeVisible();
