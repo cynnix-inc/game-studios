@@ -16,6 +16,7 @@ import { UltimateProfileScreen } from './screens/ProfileScreen';
 import { UltimateSettingsScreen } from './screens/SettingsScreen';
 import { UltimateStatsScreen } from './screens/StatsScreen';
 import { UltimateMenuScreen } from './screens/MenuScreen';
+import { readLocalInProgressSave } from '../services/saves';
 
 /**
  * Design-faithful container for the Figma Make UI.
@@ -27,6 +28,8 @@ export function UltimateRoot() {
   const profile = usePlayerStore((s) => s.profile);
   const newPuzzle = usePlayerStore((s) => s.newPuzzle);
   const loadDaily = usePlayerStore((s) => s.loadDaily);
+  const loadTodayDaily = usePlayerStore((s) => s.loadTodayDaily);
+  const restoreDailyProgressFromSave = usePlayerStore((s) => s.restoreDailyProgressFromSave);
 
   const [state, dispatch] = React.useReducer(ultimateNavReducer, initialUltimateNavState, (base) => {
     // Test-only: allow Playwright visual snapshot runs to force a specific screen/state.
@@ -68,6 +71,39 @@ export function UltimateRoot() {
           nowMs={nowMs}
           onShowAuth={() => dispatch({ type: 'SET_AUTH_MODAL_OPEN', open: true })}
           onNavigate={(screen) => dispatch({ type: 'NAVIGATE', screen })}
+          onResumeFreePlay={() => dispatch({ type: 'RESUME_FREE_PLAY' })}
+          onStartDailyToday={async () => {
+            await loadTodayDaily();
+            dispatch({ type: 'START_DAILY' });
+          }}
+          onResumeDailyFromSave={async () => {
+            const saved = await readLocalInProgressSave();
+            if (!saved || saved.mode !== 'daily') {
+              await loadTodayDaily();
+              // If we didn't have a specific daily save to restore, ensure the run starts unpaused.
+              usePlayerStore.getState().resumeRun();
+              dispatch({ type: 'START_DAILY' });
+              return;
+            }
+            await loadDaily(saved.dailyDateKey);
+            restoreDailyProgressFromSave({
+              dailyDateKey: saved.dailyDateKey,
+              serializedPuzzle: saved.serializedPuzzle,
+              givensMask: saved.givensMask,
+              mistakes: saved.mistakes,
+              hintsUsedCount: saved.hintsUsedCount,
+              hintBreakdown: saved.hintBreakdown ?? {},
+              runTimer: saved.runTimer,
+              runStatus: saved.runStatus,
+              revision: saved.revision,
+              moves: saved.moves,
+              undoStack: saved.undoStack,
+              redoStack: saved.redoStack,
+            });
+            // Restored runs may be paused (common when we save on background). "Resume" should resume.
+            usePlayerStore.getState().resumeRun();
+            dispatch({ type: 'START_DAILY' });
+          }}
         />
         <UltimateAuthModal open={state.authModalOpen} onClose={() => dispatch({ type: 'SET_AUTH_MODAL_OPEN', open: false })} />
       </>

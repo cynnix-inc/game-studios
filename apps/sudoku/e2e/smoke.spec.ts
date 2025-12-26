@@ -4,7 +4,7 @@ test('ultimate UI: can start free play and see the grid', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Ultimate Sudoku' })).toBeVisible();
 
-  await page.getByRole('button', { name: 'Play Game' }).click();
+  await page.getByRole('button', { name: 'Free Play play' }).click();
   await expect(page.getByText('Select Difficulty')).toBeVisible();
   await page.getByRole('button', { name: 'Easy' }).click();
 

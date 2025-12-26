@@ -5,7 +5,7 @@ test.describe('visual: dailyChallenges (Ultimate Sudoku)', () => {
   async function gotoDailyChallenges(page: Page) {
     await page.goto('/');
     await expect(page.getByRole('heading', { name: 'Ultimate Sudoku' })).toBeVisible();
-    await page.getByRole('button', { name: 'Play Now' }).click();
+    await page.getByRole('button', { name: 'Daily calendar' }).click();
     await expect(page.getByText('Daily Challenges', { exact: true })).toBeVisible();
   }
 

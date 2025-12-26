@@ -5,6 +5,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 
 import { MakeText } from '../../components/make/MakeText';
 import { useMakeTheme } from '../../components/make/MakeThemeProvider';
+import { SudokuLogoMark } from '../components/SudokuLogoMark';
 
 function clamp01(n: number): number {
   return Math.max(0, Math.min(1, n));
@@ -23,137 +24,9 @@ function useFadeIn({
   React.useEffect(() => {
     const duration = reducedMotion ? 0 : durationMs;
     const delay = reducedMotion ? 0 : delayMs;
-    Animated.timing(v, { toValue: 1, duration, delay, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
+    Animated.timing(v, { toValue: 1, duration, delay, easing: Easing.out(Easing.cubic), useNativeDriver: Platform.OS !== 'web' }).start();
   }, [delayMs, durationMs, reducedMotion, v]);
   return v;
-}
-
-function SudokuLogoLite({ animated, darkMode }: { animated: boolean; darkMode: boolean }) {
-  const { theme } = useMakeTheme();
-  const [phase, setPhase] = React.useState<'initial' | 'notes' | 'solving' | 'complete'>(() => (animated ? 'initial' : 'complete'));
-  const [visibleNotes, setVisibleNotes] = React.useState<Set<string>>(() => new Set<string>());
-  const [visibleSolutions, setVisibleSolutions] = React.useState<Set<number>>(() => new Set<number>());
-
-  React.useEffect(() => {
-    if (!animated) return;
-    const timers: Array<ReturnType<typeof setTimeout>> = [];
-
-    timers.push(setTimeout(() => setPhase('notes'), 500));
-    const pencil = [
-      { cell: 1, n: 3 },
-      { cell: 1, n: 6 },
-      { cell: 1, n: 9 },
-      { cell: 3, n: 2 },
-      { cell: 3, n: 9 },
-      { cell: 4, n: 6 },
-      { cell: 4, n: 9 },
-      { cell: 7, n: 3 },
-      { cell: 7, n: 9 },
-    ];
-    pencil.forEach((p, i) => {
-      timers.push(
-        setTimeout(() => {
-          setVisibleNotes((prev) => new Set(prev).add(`${p.cell}-${p.n}`));
-        }, 800 + i * 300),
-      );
-    });
-
-    const notesEnd = 800 + pencil.length * 300 + 400;
-    timers.push(setTimeout(() => setPhase('solving'), notesEnd));
-
-    const solving = [1, 3, 4, 7] as const;
-    solving.forEach((cell, i) => {
-      timers.push(
-        setTimeout(() => {
-          setVisibleSolutions((prev) => new Set(prev).add(cell));
-        }, notesEnd + 400 + i * 500),
-      );
-    });
-
-    timers.push(setTimeout(() => setPhase('complete'), notesEnd + 400 + solving.length * 500 + 300));
-
-    return () => timers.forEach(clearTimeout);
-  }, [animated]);
-
-  const gridData: Array<number | null> = [5, null, 7, null, null, 4, 1, null, 8];
-  const solutions: Record<number, number> = { 1: 3, 3: 2, 4: 6, 7: 9 };
-  const pencilMarks: Record<number, number[]> = { 1: [3, 6, 9], 3: [2, 9], 4: [6, 9], 7: [3, 9] };
-
-  const outerBg = darkMode ? 'rgba(255,255,255,0.10)' : theme.card.background;
-  const outerBorder = darkMode ? 'rgba(255,255,255,0.20)' : theme.card.border;
-  const cellBg = darkMode ? 'rgba(255,255,255,0.10)' : theme.card.background;
-  const cellBorder = darkMode ? 'rgba(255,255,255,0.30)' : theme.card.border;
-  const text = darkMode ? '#ffffff' : theme.text.primary;
-  const notes = darkMode ? 'rgba(255,255,255,0.50)' : theme.text.muted;
-  const accent = darkMode ? 'rgb(216,180,254)' : theme.accent;
-
-  return (
-    <View
-      style={{
-        width: 112,
-        height: 112,
-        borderRadius: 12,
-        borderWidth: 2,
-        borderColor: outerBorder,
-        backgroundColor: outerBg,
-        padding: 4,
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: 2,
-        ...(Platform.OS === 'web' ? ({ backdropFilter: 'blur(10px)' } as unknown as object) : null),
-      }}
-    >
-      {gridData.map((cell, idx) => {
-        const isSolving = cell == null;
-        const showSolution = isSolving && (phase === 'solving' || phase === 'complete') && visibleSolutions.has(idx);
-        const isComplete = phase === 'complete';
-
-        return (
-          <View
-            key={idx}
-            style={{
-              width: '32%',
-              aspectRatio: 1,
-              borderRadius: 8,
-              borderWidth: 1,
-              borderColor: cellBorder,
-              backgroundColor: cellBg,
-              alignItems: 'center',
-              justifyContent: 'center',
-              overflow: 'hidden',
-              ...(isComplete && isSolving ? ({ boxShadow: '0 0 12px rgba(168, 85, 247, 0.4)' } as unknown as object) : null),
-            }}
-          >
-            {typeof cell === 'number' ? (
-              <MakeText weight="semibold" style={{ color: text, fontSize: 18 }}>
-                {String(cell)}
-              </MakeText>
-            ) : null}
-
-            {isSolving && !showSolution ? (
-              <View style={{ position: 'absolute', inset: 0, padding: 4, flexDirection: 'row', flexWrap: 'wrap' }}>
-                {([1, 2, 3, 4, 5, 6, 7, 8, 9] as const).map((n) => {
-                  const isMark = (pencilMarks[idx] ?? []).includes(n);
-                  const isVisible = isMark && visibleNotes.has(`${idx}-${n}`);
-                  return (
-                    <View key={n} style={{ width: '33.33%', height: '33.33%', alignItems: 'center', justifyContent: 'center' }}>
-                      <MakeText style={{ fontSize: 9, color: notes, lineHeight: 10 }}>{isVisible ? String(n) : ''}</MakeText>
-                    </View>
-                  );
-                })}
-              </View>
-            ) : null}
-
-            {showSolution ? (
-              <MakeText weight="semibold" style={{ color: isComplete ? accent : text, fontSize: 18 }}>
-                {String(solutions[idx] ?? '')}
-              </MakeText>
-            ) : null}
-          </View>
-        );
-      })}
-    </View>
-  );
 }
 
 export function UltimateLoadingScreen({
@@ -202,7 +75,7 @@ export function UltimateLoadingScreen({
     <View style={{ flex: 1 }}>
       <LinearGradient colors={['#020617', '#0f172a', '#020617']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ flex: 1 }}>
         {/* Background particles */}
-        <View pointerEvents="none" style={{ position: 'absolute', inset: 0, overflow: 'hidden' }}>
+        <View style={{ position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none' }}>
           <View
             style={{
               position: 'absolute',
@@ -233,7 +106,7 @@ export function UltimateLoadingScreen({
           <View style={{ alignItems: 'center', gap: 32 }}>
             <Animated.View style={{ opacity: logoOpacity }}>
               <View style={{ padding: 24, borderRadius: 16 }}>
-                <SudokuLogoLite animated={showAnimatedLogo} darkMode />
+                <SudokuLogoMark size="md" animated={showAnimatedLogo} darkMode isMd={isMd} />
               </View>
             </Animated.View>
 

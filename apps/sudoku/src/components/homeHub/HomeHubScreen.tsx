@@ -143,7 +143,10 @@ export function HomeHubScreen() {
           <View style={{ width: '100%', maxWidth: 448, paddingHorizontal: 16, marginBottom: isMd ? 24 : 16 }}>
             <DailyChallengeCard
               nowMs={Date.now()}
-              onNavigateDaily={() => {}}
+              status="play"
+              streak={0}
+              onPlay={() => {}}
+              onOpenCalendar={() => {}}
               dailyEntryEnabled={dailyEntryEnabled}
             />
           </View>

@@ -47,6 +47,16 @@ async function getOrCreateSessionId(): Promise<string> {
   return sessionId;
 }
 
+let disabledForSession = false;
+
+function isLocalDevFunctionsBase(base: string): boolean {
+  return (
+    base.includes('127.0.0.1:54321/functions/v1') ||
+    base.includes('localhost:54321/functions/v1') ||
+    base.includes('0.0.0.0:54321/functions/v1')
+  );
+}
+
 async function buildAuthHeaders(): Promise<Record<string, string>> {
   const { anonKey } = getSupabasePublicEnv();
   const token = await getAccessToken();
@@ -60,6 +70,7 @@ async function buildAuthHeaders(): Promise<Record<string, string>> {
 export async function trackEvent(args: TrackArgs): Promise<void> {
   const base = functionsBaseUrl();
   if (!base) return;
+  if (disabledForSession) return;
 
   const deviceId = await getOrCreateDeviceId();
   const sid = await getOrCreateSessionId();
@@ -92,6 +103,8 @@ export async function trackEvent(args: TrackArgs): Promise<void> {
     );
   } catch {
     // MVP: telemetry is best-effort; never crash the app.
+    // Local dev: if Supabase isn't running, avoid repeatedly spamming failing requests.
+    if (isLocalDevFunctionsBase(base)) disabledForSession = true;
     return;
   }
 }

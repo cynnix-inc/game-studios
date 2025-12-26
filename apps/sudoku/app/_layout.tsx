@@ -12,6 +12,16 @@ import { trackEvent } from '../src/services/telemetry';
 import { usePlayerStore } from '../src/state/usePlayerStore';
 import { UltimateLoadingScreen } from '../src/ultimate/screens/LoadingScreen';
 
+function readMinLoadingMs(): number {
+  const raw = process.env.EXPO_PUBLIC_ULTIMATE_LOADING_MIN_MS;
+  // Product requirement: always show the loading/splash screen for ~2s
+  // (unless we need longer for real work like pack downloads/updates).
+  if (!raw) return 2000;
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return 2000;
+  return Math.max(0, Math.min(30_000, Math.floor(n)));
+}
+
 export default function RootLayout() {
   const [boot, setBoot] = React.useState<{ status: 'loading' | 'ready'; message: string; progress01: number | null }>(() => ({
     status: 'loading',
@@ -22,6 +32,7 @@ export default function RootLayout() {
   useEffect(() => {
     let cancelled = false;
     void (async () => {
+      const startedAt = Date.now();
       const steps: Array<{ message: string; run: () => Promise<void> | void }> = [
         {
           message: 'Preparing device…',
@@ -56,6 +67,19 @@ export default function RootLayout() {
       void syncSettingsOnce();
       void syncStatsOnce();
       void trackEvent({ name: 'app_open' });
+
+      // Optional: keep the loading screen visible long enough to see animations / progress.
+      // Default is 0ms (no artificial delay).
+      // Set `EXPO_PUBLIC_ULTIMATE_LOADING_MIN_MS` in local dev if desired.
+      // Skip in visual snapshot runs.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const isVisual = typeof globalThis !== 'undefined' && (globalThis as any).__VISUAL_TEST__ === true;
+      const minMs = isVisual ? 0 : readMinLoadingMs();
+      if (minMs > 0) {
+        const elapsed = Date.now() - startedAt;
+        const remaining = Math.max(0, minMs - elapsed);
+        if (remaining > 0) await new Promise((r) => setTimeout(r, remaining));
+      }
 
       if (cancelled) return;
       setBoot({ status: 'ready', message: 'Ready', progress01: 1 });
