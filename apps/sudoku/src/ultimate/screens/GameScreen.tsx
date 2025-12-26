@@ -328,7 +328,10 @@ export function UltimateGameScreen({
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: isMd ? 16 : 8 }}>
                   <Pressable
                     accessibilityRole="button"
-                    accessibilityLabel={menuOpen || isPaused ? 'Resume' : 'Menu'}
+                    // Show "Resume" only when the in-game menu panel is open.
+                    // When the app auto-pauses due to backgrounding/visibility, we still show "Menu" to avoid the
+                    // header icon appearing to "flip" unexpectedly while the player is actively playing.
+                    accessibilityLabel={menuOpen ? 'Resume' : 'Menu'}
                     onPress={() => (menuOpen ? closeMenu() : openMenu())}
                     style={(state) => ({
                       width: 44,
@@ -348,7 +351,7 @@ export function UltimateGameScreen({
                         : null),
                     })}
                   >
-                    {menuOpen || isPaused ? (
+                    {menuOpen ? (
                       <Play width={isMd ? 24 : 20} height={isMd ? 24 : 20} color={makeTheme.text.primary} />
                     ) : (
                       <Menu width={isMd ? 24 : 20} height={isMd ? 24 : 20} color={makeTheme.text.primary} />
