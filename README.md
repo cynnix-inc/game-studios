@@ -69,6 +69,13 @@ Then choose iOS/Android from the Expo dev server.
 corepack pnpm web:sudoku
 ```
 
+## Free Play packs + generator tooling
+
+See `docs/freeplay-packs-tooling.md` for:
+
+- how Free Play chooses puzzles (cached packs → bundled packs → generator fallback)
+- how to generate/update bundled pack JSONs (`pnpm gen:freeplay-packs`)
+
 ## Export Sudoku web for Netlify
 
 ```bash
