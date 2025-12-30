@@ -25,18 +25,16 @@ import { useMakeTheme } from '../../components/make/MakeThemeProvider';
 import { Slider } from '../../components/Slider';
 import { usePlayerStore } from '../../state/usePlayerStore';
 import { useSettingsStore } from '../../state/useSettingsStore';
+import { GridCustomizerModal } from '../components/GridCustomizerModal';
 import {
   AUDIO_LIMITS,
-  UI_SIZING_LIMITS,
   getAudioSettings,
   getGameplaySettings,
   getSettingsToggles,
-  getUiSizingSettings,
   type HintMode,
   setAudioSettings,
   setGameplaySettings,
   setSettingsToggles,
-  setUiSizingSettings,
 } from '../../services/settingsModel';
 import { updateLocalSettings } from '../../services/settings';
 
@@ -91,7 +89,65 @@ function MakeSwitch({
 
 function InfoHelp({ text, label }: { text: string; label: string }) {
   const [open, setOpen] = React.useState(false);
+  const [pinned, setPinned] = React.useState(false);
   const { theme: makeTheme } = useMakeTheme();
+
+  if (Platform.OS === 'web') {
+    const isShown = open || pinned;
+    return (
+      <View style={{ position: 'relative' }}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={label}
+          onHoverIn={() => setOpen(true)}
+          onHoverOut={() => {
+            if (!pinned) setOpen(false);
+          }}
+          onFocus={() => setOpen(true)}
+          onBlur={() => {
+            if (!pinned) setOpen(false);
+          }}
+          onPress={() => setPinned((v) => !v)}
+          style={({ pressed }) => ({
+            padding: 4,
+            borderRadius: 999,
+            opacity: pressed ? 0.8 : 1,
+          })}
+        >
+          <Info width={14} height={14} color={makeTheme.text.muted} />
+        </Pressable>
+
+        {isShown ? (
+          <View
+            pointerEvents="none"
+            style={{
+              position: 'absolute',
+              top: 22,
+              left: 0,
+              width: 280,
+              paddingHorizontal: 10,
+              paddingVertical: 8,
+              borderRadius: 12,
+              borderWidth: 1,
+              borderColor: makeTheme.card.border,
+              backgroundColor: makeTheme.card.background,
+              ...(Platform.OS === 'web'
+                ? ({
+                    backdropFilter: 'blur(14px)',
+                    boxShadow: '0 10px 28px rgba(0,0,0,0.25)',
+                  } as unknown as object)
+                : null),
+            }}
+          >
+            <MakeText tone="secondary" style={{ fontSize: 12, lineHeight: 16 }}>
+              {text}
+            </MakeText>
+          </View>
+        ) : null}
+      </View>
+    );
+  }
+
   return (
     <>
       <Pressable
@@ -254,136 +310,13 @@ function MakeSelect<T extends string>({
   );
 }
 
-function GridPreview({ gridScale, digitScale, noteScale }: { gridScale: number; digitScale: number; noteScale: number }) {
-  const { theme: makeTheme, resolvedThemeType } = useMakeTheme();
-
-  // Sample data for preview - fixed to never overlap (mirrors Make `Settings.tsx`)
-  const previewCells: ReadonlyArray<{ value: number; notes: readonly number[] }> = [
-    { value: 5, notes: [] },
-    { value: 0, notes: [1, 2, 3] },
-    { value: 7, notes: [] },
-    { value: 0, notes: [4, 6] },
-    { value: 9, notes: [] },
-    { value: 0, notes: [2, 8] },
-    { value: 3, notes: [] },
-    { value: 0, notes: [5, 7, 9] },
-    { value: 6, notes: [] },
-  ];
-
-  // Grid size ONLY affects cell dimensions
-  const baseSize = 48;
-  const cellSize = (baseSize * gridScale) / 100;
-
-  // Font sizes scale independently
-  const baseDigitSize = 20;
-  const digitFontSize = (baseDigitSize * digitScale) / 100;
-
-  // Note size as a percentage of sub-cell
-  const subCellSize = cellSize / 3;
-  const notePercentage = 0.5 + (noteScale - 100) / 500; // 100→50%, 150→60%, ..., 300→90%
-  const noteFontSize = subCellSize * notePercentage;
-
-  const cellBackground = resolvedThemeType === 'light' ? 'rgba(15, 23, 42, 0.04)' : 'rgba(255, 255, 255, 0.05)';
-
-  return (
-    <View
-      style={{
-        borderRadius: 12,
-        borderWidth: 1,
-        borderColor: makeTheme.card.border,
-        padding: 16,
-        backgroundColor: makeTheme.card.background,
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}
-    >
-      <View
-        style={{
-          width: cellSize * 3,
-          height: cellSize * 3,
-          borderRadius: 8,
-          overflow: 'hidden',
-          borderWidth: 2,
-          borderColor: makeTheme.card.border,
-          flexDirection: 'row',
-          flexWrap: 'wrap',
-        }}
-      >
-        {previewCells.map((cell, idx) => {
-          return (
-            <View
-              key={idx}
-              style={{
-                width: cellSize,
-                height: cellSize,
-                borderWidth: 1,
-                borderColor: makeTheme.card.border,
-                backgroundColor: cellBackground,
-                alignItems: 'center',
-                justifyContent: 'center',
-                position: 'relative',
-                overflow: 'hidden',
-              }}
-            >
-              {cell.value !== 0 ? (
-                <MakeText
-                  style={{
-                    fontSize: Math.min(digitFontSize, cellSize * 0.7),
-                    lineHeight: Math.min(digitFontSize, cellSize * 0.7) * 1.02,
-                  }}
-                >
-                  {String(cell.value)}
-                </MakeText>
-              ) : (
-                <View
-                  style={{
-                    position: 'absolute',
-                    inset: 0,
-                    flexDirection: 'row',
-                    flexWrap: 'wrap',
-                  }}
-                >
-                  {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => {
-                    const show = cell.notes.includes(num);
-                    return (
-                      <View
-                        key={num}
-                        style={{
-                          width: subCellSize,
-                          height: subCellSize,
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          opacity: show ? 1 : 0,
-                        }}
-                      >
-                        <MakeText
-                          tone="muted"
-                          style={{
-                            fontSize: noteFontSize,
-                            lineHeight: noteFontSize * 0.8,
-                          }}
-                        >
-                          {String(num)}
-                        </MakeText>
-                      </View>
-                    );
-                  })}
-                </View>
-              )}
-            </View>
-          );
-        })}
-      </View>
-    </View>
-  );
-}
-
 export function UltimateSettingsScreen({ onBack }: { onBack: () => void }) {
   const { theme: makeTheme, themeType, setThemeType } = useMakeTheme();
   const { width } = useWindowDimensions();
   const isMd = width >= 768;
   const isLg = width >= 1024;
   const [language, setLanguage] = React.useState<'en' | 'es' | 'fr' | 'de' | 'ja' | 'zh'>('en');
+  const [gridCustomizerOpen, setGridCustomizerOpen] = React.useState(false);
 
   const deviceId = usePlayerStore((s) => s.deviceId) ?? 'unknown';
   const settings = useSettingsStore((s) => s.settings);
@@ -401,7 +334,6 @@ export function UltimateSettingsScreen({ onBack }: { onBack: () => void }) {
     );
   }
 
-  const sizing = getUiSizingSettings(settings);
   const toggles = getSettingsToggles(settings);
   const audio = getAudioSettings(settings);
   const gameplay = getGameplaySettings(settings);
@@ -417,7 +349,6 @@ export function UltimateSettingsScreen({ onBack }: { onBack: () => void }) {
     { value: 'light', label: 'Light' },
     { value: 'dark', label: 'Dark' },
     { value: 'grayscale', label: 'Grayscale' },
-    { value: 'vibrant', label: 'Vibrant' },
     { value: 'device', label: 'Match Device' },
   ];
   const languageOptions: readonly [SelectOption<typeof language>, ...SelectOption<typeof language>[]] = [
@@ -431,6 +362,7 @@ export function UltimateSettingsScreen({ onBack }: { onBack: () => void }) {
   return (
     <MakeScreen style={{ paddingHorizontal: 0, paddingTop: 32, paddingBottom: 96 }}>
       <View style={{ width: '100%', maxWidth: 896, alignSelf: 'center' }}>
+        <GridCustomizerModal open={gridCustomizerOpen} onClose={() => setGridCustomizerOpen(false)} settings={settings} deviceId={deviceId} />
         {/* Header */}
         <View style={{ marginBottom: 32, paddingHorizontal: 16 }}>
           <View style={{ marginBottom: 16, alignSelf: 'flex-start' }}>
@@ -445,8 +377,8 @@ export function UltimateSettingsScreen({ onBack }: { onBack: () => void }) {
         />
           </View>
           <MakeText weight="bold" style={{ fontSize: isMd ? 36 : 30 }}>
-          Settings
-              </MakeText>
+            Settings
+          </MakeText>
             </View>
 
         {/* Sections */}
@@ -605,118 +537,19 @@ export function UltimateSettingsScreen({ onBack }: { onBack: () => void }) {
               </MakeText>
             </View>
 
-            <View style={{ flexDirection: isLg ? 'row' : 'column', gap: 32 }}>
-              {/* Sliders */}
-              <View style={{ flex: 1, gap: 16 }}>
-                {/* Grid Size */}
-                <View style={{ gap: 8 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                      <MakeText tone="secondary" style={{ fontSize: 14 }}>
-                        Grid Size
+            <MakeText tone="secondary" style={{ fontSize: 14 }}>
+              Adjust grid size, digit size, note size, and highlight settings with a full-screen preview.
             </MakeText>
-                      <InfoHelp label="Grid Size help" text="Adjusts overall board/cell size." />
-          </View>
-                    <MakeText style={{ fontSize: 14 }}>{sizing.gridSizePct === 85 ? 'S' : sizing.gridSizePct === 100 ? 'M' : 'L'}</MakeText>
-            </View>
-                <Slider
-                  accessibilityLabel="Grid size"
-                  value={sizing.gridSizePct}
-                  min={UI_SIZING_LIMITS.gridSizePct.min}
-                  max={UI_SIZING_LIMITS.gridSizePct.max}
-                  step={UI_SIZING_LIMITS.gridSizePct.step}
-                  onChange={(gridSizePct) => {
-                    const next = setUiSizingSettings(settings, { gridSizePct }, { updatedAtMs: Date.now(), updatedByDeviceId: deviceId });
-                    updateLocalSettings(next);
-                  }}
-                />
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                    <MakeText tone="muted" style={{ fontSize: 12 }}>
-                      Small
-                    </MakeText>
-                    <MakeText tone="muted" style={{ fontSize: 12 }}>
-                      Large
-                    </MakeText>
-                  </View>
-              </View>
 
-                {/* Input Number Size */}
-                <View style={{ gap: 8 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                      <MakeText tone="secondary" style={{ fontSize: 14 }}>
-                        Input Number Size
-                      </MakeText>
-                      <InfoHelp label="Input Number Size help" text="Scales the main digit inside each cell." />
-                    </View>
-                    <MakeText style={{ fontSize: 14 }}>
-                      {sizing.digitSizePct === 80 ? 'XS' : sizing.digitSizePct === 90 ? 'S' : sizing.digitSizePct === 100 ? 'M' : sizing.digitSizePct === 110 ? 'L' : 'XL'}
-                </MakeText>
-                  </View>
-                <Slider
-                  accessibilityLabel="Primary number font size"
-                  value={sizing.digitSizePct}
-                  min={UI_SIZING_LIMITS.digitSizePct.min}
-                  max={UI_SIZING_LIMITS.digitSizePct.max}
-                  step={UI_SIZING_LIMITS.digitSizePct.step}
-                  onChange={(digitSizePct) => {
-                    const next = setUiSizingSettings(settings, { digitSizePct }, { updatedAtMs: Date.now(), updatedByDeviceId: deviceId });
-                    updateLocalSettings(next);
-                  }}
-                />
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                    <MakeText tone="muted" style={{ fontSize: 12 }}>
-                      XS
-                    </MakeText>
-                    <MakeText tone="muted" style={{ fontSize: 12 }}>
-                      XL
-                    </MakeText>
-                  </View>
-              </View>
-
-                {/* Notes Size */}
-                <View style={{ gap: 8 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                      <MakeText tone="secondary" style={{ fontSize: 14 }}>
-                        Notes Size
-                      </MakeText>
-                      <InfoHelp label="Notes Size help" text="Scales pencil-mark annotations." />
-                    </View>
-                    <MakeText style={{ fontSize: 14 }}>
-                      {sizing.noteSizePct === 100 ? 'XS' : sizing.noteSizePct === 150 ? 'S' : sizing.noteSizePct === 200 ? 'M' : sizing.noteSizePct === 250 ? 'L' : 'XL'}
-                </MakeText>
-                  </View>
-                <Slider
-                  accessibilityLabel="Note font size"
-                  value={sizing.noteSizePct}
-                  min={UI_SIZING_LIMITS.noteSizePct.min}
-                  max={UI_SIZING_LIMITS.noteSizePct.max}
-                  step={UI_SIZING_LIMITS.noteSizePct.step}
-                  onChange={(noteSizePct) => {
-                    const next = setUiSizingSettings(settings, { noteSizePct }, { updatedAtMs: Date.now(), updatedByDeviceId: deviceId });
-                    updateLocalSettings(next);
-                  }}
-                />
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                    <MakeText tone="muted" style={{ fontSize: 12 }}>
-                      XS
-                    </MakeText>
-                    <MakeText tone="muted" style={{ fontSize: 12 }}>
-                      XL
-                    </MakeText>
-                  </View>
-                </View>
-              </View>
-
-              {/* Preview */}
-              <View style={{ width: isLg ? 256 : '100%', alignItems: 'center', justifyContent: 'center' }}>
-                <MakeText tone="secondary" style={{ fontSize: 14, marginBottom: 12 }}>
-                  Preview
-                </MakeText>
-                <GridPreview gridScale={sizing.gridSizePct} digitScale={sizing.digitSizePct} noteScale={sizing.noteSizePct} />
-              </View>
-            </View>
+            <MakeButton
+              title="Customize Grid"
+              accessibilityLabel="Customize Grid"
+              elevation="flat"
+              radius={12}
+              onPress={() => setGridCustomizerOpen(true)}
+              leftIcon={<Maximize2 width={18} height={18} color={makeTheme.button.textOnPrimary} />}
+              contentStyle={{ height: 44, paddingVertical: 0, paddingHorizontal: 18 }}
+            />
           </View>
         </MakeCard>
 
@@ -919,6 +752,7 @@ export function UltimateSettingsScreen({ onBack }: { onBack: () => void }) {
             </View>
           </View>
         </MakeCard>
+
       </View>
       </View>
     </MakeScreen>

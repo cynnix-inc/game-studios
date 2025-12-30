@@ -12,23 +12,6 @@ import { useMakeTheme } from './make/MakeThemeProvider';
 
 type Digit = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
 
-function rgbaFromHex(hex: string, alpha: number): string {
-  // Supports #rgb, #rrggbb
-  const h = hex.startsWith('#') ? hex.slice(1) : hex;
-  const expanded =
-    h.length === 3
-      ? `${h[0]}${h[0]}${h[1]}${h[1]}${h[2]}${h[2]}`
-      : h.length === 6
-        ? h
-        : null;
-  if (!expanded) return `rgba(0,0,0,${alpha})`;
-  const r = Number.parseInt(expanded.slice(0, 2), 16);
-  const g = Number.parseInt(expanded.slice(2, 4), 16);
-  const b = Number.parseInt(expanded.slice(4, 6), 16);
-  if (!Number.isFinite(r) || !Number.isFinite(g) || !Number.isFinite(b)) return `rgba(0,0,0,${alpha})`;
-  return `rgba(${r},${g},${b},${alpha})`;
-}
-
 function digitFromKey(key: string): Digit | null {
   switch (key) {
     case '1':
@@ -71,6 +54,8 @@ function Cell({
   noteFontSize,
   makeTheme,
   resolvedThemeType,
+  highlightContrast,
+  highlightAssistance,
   onPress,
 }: {
   i: number;
@@ -88,7 +73,9 @@ function Cell({
   numberFontSize: number;
   noteFontSize: number;
   makeTheme: { card: { background: string; border: string }; text: { primary: string; secondary: string; muted: string }; accent: string };
-  resolvedThemeType: 'default' | 'light' | 'dark' | 'grayscale' | 'vibrant';
+  resolvedThemeType: 'default' | 'light' | 'dark' | 'grayscale';
+  highlightContrast: number;
+  highlightAssistance: boolean;
   onPress: () => void;
 }) {
   const r = Math.floor(i / 9);
@@ -98,10 +85,24 @@ function Cell({
   // We want the glass card to be the only “surface” behind the grid (Figma parity),
   // so leave unhighlighted cells transparent and let the board card show through.
   const baseBg = 'transparent';
-  const rowColBg = isLight ? 'rgba(15,23,42,0.05)' : 'rgba(255,255,255,0.06)';
-  const boxBg = isLight ? 'rgba(15,23,42,0.035)' : 'rgba(255,255,255,0.04)';
-  const sameValueBg = rgbaFromHex(makeTheme.accent, isLight ? 0.12 : 0.14);
-  const selectedBg = rgbaFromHex(makeTheme.accent, isLight ? 0.16 : 0.18);
+  const contrastFactor = Math.max(0, Math.min(2, highlightContrast / 100));
+  const assist = highlightAssistance && contrastFactor > 0;
+  // Make parity: sudoku highlights are neutral overlays (not accent-tinted).
+  // From Make `ThemeContext.tsx`:
+  // - selected: 20%
+  // - row/col: 10%
+  // - box: 5%
+  // - same number: 15%
+  const rgb = isLight ? '15,23,42' : '255,255,255';
+  const alphaSelected = Math.min(0.5, 0.2 * Math.max(1, contrastFactor));
+  const alphaRowCol = Math.min(0.35, 0.1 * contrastFactor);
+  const alphaBox = Math.min(0.25, 0.05 * contrastFactor);
+  const alphaSame = Math.min(0.4, 0.15 * contrastFactor);
+
+  const rowColBg = assist ? `rgba(${rgb},${alphaRowCol.toFixed(3)})` : baseBg;
+  const boxBg = assist ? `rgba(${rgb},${alphaBox.toFixed(3)})` : baseBg;
+  const sameValueBg = assist ? `rgba(${rgb},${alphaSame.toFixed(3)})` : baseBg;
+  const selectedBg = `rgba(${rgb},${alphaSelected.toFixed(3)})`;
   const conflictBg = isLight ? 'rgba(239,68,68,0.16)' : 'rgba(239,68,68,0.20)'; // Make: bg-red-500/20
 
   const bg = hasConflict
@@ -124,17 +125,24 @@ function Cell({
       style={(state) => {
         const hovered =
           Platform.OS === 'web' && 'hovered' in state ? Boolean((state as unknown as { hovered?: boolean }).hovered) : false;
+        const hoverBg =
+          !selected && !hasConflict && bg === 'transparent'
+            ? isLight
+              ? 'rgba(15,23,42,0.03)'
+              : 'rgba(255,255,255,0.04)'
+            : null;
         return {
           width: cellSize,
           height: cellSize,
           alignItems: 'center',
           justifyContent: 'center',
-          backgroundColor: bg,
-          // Make parity: minor cell dividers only (right/bottom), plus a full accent border for selected.
-          borderColor: selected ? makeTheme.accent : makeTheme.card.border,
-          borderWidth: selected ? 2 : 0,
-          borderRightWidth: selected ? 2 : isRightEdge ? 0 : 1,
-          borderBottomWidth: selected ? 2 : isBottomEdge ? 0 : 1,
+          backgroundColor: hovered && hoverBg ? hoverBg : bg,
+          // Make parity: minor cell dividers only (right/bottom). Selection is a bg overlay, not a thick border.
+          borderColor: makeTheme.card.border,
+          borderWidth: 0,
+          borderRightWidth: isRightEdge ? 0 : 1,
+          borderBottomWidth: isBottomEdge ? 0 : 1,
+          zIndex: selected ? 2 : 0,
           opacity: state.pressed ? 0.92 : 1,
           ...(Platform.OS === 'web'
             ? ({
@@ -163,7 +171,8 @@ function Cell({
                   tone="muted"
                   style={{
                     fontSize: noteFontSize,
-                    lineHeight: Math.round(noteFontSize * 1.15),
+                    // Make web uses line-height: 1 for notes.
+                    lineHeight: noteFontSize,
                     color: makeTheme.text.muted,
                   }}
                 >
@@ -182,6 +191,8 @@ function Cell({
             fontSize: numberFontSize,
             lineHeight: Math.round(numberFontSize * 1.1),
             color: given ? makeTheme.text.primary : makeTheme.text.secondary,
+            // Make web uses `opacity-80` for user-entered digits.
+            opacity: given ? 1 : 0.8,
           }}
         >
           {String(value)}
@@ -190,6 +201,8 @@ function Cell({
     </Pressable>
   );
 }
+
+type InputMeta = { autoAdvanceDirection?: 'forward' | 'backward' };
 
 export function SudokuGrid({
   puzzle,
@@ -200,7 +213,10 @@ export function SudokuGrid({
   uiSizing,
   cellSizePx,
   autoCandidatesEnabled,
+  hintCandidates,
   showConflicts,
+  highlightContrast,
+  highlightAssistance,
   onSelectCell,
   onDigit,
   onClear,
@@ -225,11 +241,23 @@ export function SudokuGrid({
    */
   autoCandidatesEnabled?: boolean;
   /**
+   * Hint affordance (Make: Assist) to show candidates for a single cell without mutating notes.
+   */
+  hintCandidates?: { cell: number; candidates: ReadonlySet<number> } | null;
+  /**
    * When enabled, show Make-style red conflict highlights for duplicate values.
    */
   showConflicts?: boolean;
+  /**
+   * Make GridCustomizer: 0=Off, 100=Normal, 150=High, 200=Max
+   */
+  highlightContrast?: number;
+  /**
+   * When false, disables row/col/box/same-number highlights (selection still shows).
+   */
+  highlightAssistance?: boolean;
   onSelectCell: (i: number) => void;
-  onDigit?: (d: Digit) => void;
+  onDigit?: (d: Digit, meta?: InputMeta) => void;
   onClear?: () => void;
   onToggleNotesMode?: () => void;
   onUndo?: () => void;
@@ -254,10 +282,18 @@ export function SudokuGrid({
   const boardSize = 9 * cellSize + 4 * gap;
 
   const digitScale = (uiSizing?.digitSizePct ?? 100) / 100;
-  // Legacy parity: notes used to be ~1.0 default; Make default is 200 (so 200 -> 1.0 multiplier).
-  const noteScale = (uiSizing?.noteSizePct ?? 200) / 200;
-  const numberFontSize = Math.max(12, Math.round(cellSize * 0.55 * digitScale));
-  const noteFontSize = Math.max(8, Math.round(cellSize * 0.22 * noteScale));
+  // Make parity: base digit size is ~40% of cell size at default, then scaled by digitSizePct.
+  // Cap high values so very large digits never overlap cell borders.
+  const numberFontSize = Math.max(12, Math.round(Math.min(cellSize * 0.72, cellSize * 0.4 * digitScale)));
+
+  // Make parity: notes scale as a percentage of the sub-cell size (not a simple multiplier).
+  // noteSizePct is one of 120/160/200/250/300 (XS..XL). Make maps 100→50% .. 300→90%.
+  const noteSizePct = uiSizing?.noteSizePct ?? 200;
+  const subCellSize = cellSize / 3;
+  const notePercentage = 0.5 + (noteSizePct - 100) / 500; // 100→50%, 150→60%, ..., 300→90%
+  const noteFontSize = Math.max(7, Math.round(subCellSize * notePercentage));
+  const effectiveHighlightContrast = typeof highlightContrast === 'number' && Number.isFinite(highlightContrast) ? highlightContrast : 100;
+  const effectiveHighlightAssistance = typeof highlightAssistance === 'boolean' ? highlightAssistance : effectiveHighlightContrast > 0;
 
   const autoNotes = useMemo(() => {
     if (!autoCandidatesEnabled) return null;
@@ -276,7 +312,8 @@ export function SudokuGrid({
   }, [puzzle, showConflicts]);
 
   const handleKey = useCallback(
-    (key: string, preventDefault?: () => void) => {
+    (args: { key: string; shiftKey?: boolean }, preventDefault?: () => void) => {
+      const key = args.key;
       const lower = key.toLowerCase();
 
       // Esc: close-only (modal/overlay) per PRD 7.2. If nothing is open, this is a no-op.
@@ -306,7 +343,7 @@ export function SudokuGrid({
       const digit = digitFromKey(key);
       if (digit) {
         preventDefault?.();
-        onDigit?.(digit);
+        onDigit?.(digit, { autoAdvanceDirection: args.shiftKey ? 'backward' : 'forward' });
         return;
       }
 
@@ -342,7 +379,7 @@ export function SudokuGrid({
 
     function onKeyDown(e: KeyboardEvent) {
       // NOTE: keeping this local allows keyboard support without relying on react-native-web specific props.
-      handleKey(e.key, () => e.preventDefault());
+      handleKey({ key: e.key, shiftKey: e.shiftKey }, () => e.preventDefault());
     }
 
     window.addEventListener('keydown', onKeyDown);
@@ -392,8 +429,9 @@ export function SudokuGrid({
         style={{
           width: boardSize,
           height: boardSize,
-          backgroundColor: 'transparent',
-          borderRadius: 10,
+          backgroundColor: makeTheme.card.border,
+          // Make: rounded-lg
+          borderRadius: 8,
           overflow: 'hidden',
           padding: outerPad,
         }}
@@ -427,16 +465,21 @@ export function SudokuGrid({
                         const isRightEdge = minorCol === 2;
                         const isBottomEdge = minorRow === 2;
                         const v = puzzle[i] ?? 0;
+                        const inlineHintCandidates =
+                          hintCandidates && hintCandidates.cell === i && hintCandidates.candidates.size > 0 ? hintCandidates.candidates : null;
+                        const notesToShow =
+                          notes?.[i] && notes[i]!.size > 0 ? notes[i] : inlineHintCandidates ? inlineHintCandidates : autoNotes?.[i];
+
                         return (
                           <Cell
                             key={i}
                             i={i}
                             value={v}
-                            notes={notes?.[i] && notes[i]!.size > 0 ? notes[i] : autoNotes?.[i]}
+                            notes={notesToShow}
                             selected={selectedIndex === i}
-                            highlightRowCol={selectedIndex != null && (highlights.row.has(i) || highlights.col.has(i))}
-                            highlightBox={selectedIndex != null && highlights.box.has(i)}
-                            highlightSameValue={selectedIndex != null && highlights.sameValue.has(i)}
+                            highlightRowCol={effectiveHighlightAssistance && selectedIndex != null && (highlights.row.has(i) || highlights.col.has(i))}
+                            highlightBox={effectiveHighlightAssistance && selectedIndex != null && highlights.box.has(i)}
+                            highlightSameValue={effectiveHighlightAssistance && selectedIndex != null && highlights.sameValue.has(i)}
                             hasConflict={!!conflicts?.has(i)}
                             isRightEdge={isRightEdge}
                             isBottomEdge={isBottomEdge}
@@ -446,6 +489,8 @@ export function SudokuGrid({
                             noteFontSize={noteFontSize}
                             makeTheme={makeTheme}
                             resolvedThemeType={resolvedThemeType}
+                            highlightContrast={effectiveHighlightContrast}
+                            highlightAssistance={effectiveHighlightAssistance}
                             onPress={() => {
                               setActive(true);
                               onSelectCell(i);

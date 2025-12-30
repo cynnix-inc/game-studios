@@ -21,6 +21,12 @@ interface SettingsContextType {
   livesLimit: number;
   setLivesLimit: (limit: number) => void;
   
+  // Grid Highlights
+  highlightAssistance: boolean;
+  setHighlightAssistance: (value: boolean) => void;
+  highlightContrast: number;
+  setHighlightContrast: (contrast: number) => void;
+  
   // Audio
   soundVolume: number;
   setSoundVolume: (volume: number) => void;
@@ -53,6 +59,10 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const [zenMode, setZenMode] = useState(false);
   const [livesLimit, setLivesLimit] = useState(3);
   
+  // Grid Highlights
+  const [highlightAssistance, setHighlightAssistance] = useState(true);
+  const [highlightContrastState, setHighlightContrastState] = useState(100);
+  
   // Audio
   const [soundVolume, setSoundVolume] = useState(75);
   const [musicVolume, setMusicVolume] = useState(50);
@@ -75,7 +85,11 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const setNoteSize = (size: number | number[]) => {
     setNoteSizeState(Array.isArray(size) ? size[0] : size);
   };
-
+  
+  const setHighlightContrast = (contrast: number | number[]) => {
+    setHighlightContrastState(Array.isArray(contrast) ? contrast[0] : contrast);
+  };
+  
   return (
     <SettingsContext.Provider
       value={{
@@ -95,6 +109,10 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         setZenMode,
         livesLimit,
         setLivesLimit,
+        highlightAssistance,
+        setHighlightAssistance,
+        highlightContrast: highlightContrastState,
+        setHighlightContrast,
         soundVolume,
         setSoundVolume,
         musicVolume,

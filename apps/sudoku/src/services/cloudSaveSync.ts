@@ -134,10 +134,14 @@ async function upsertSaveToCloud(args: { slot: CloudSaveSlot; data: unknown; tok
 
 let syncInFlight: Promise<void> | null = null;
 let lastSyncedUserId: string | null = null;
+let lastSyncedAtMs: number | null = null;
 
-export async function syncSignedInSaveSlotsOnce(userId: string): Promise<void> {
+export async function syncSignedInSaveSlotsOnce(userId: string, opts?: { force?: boolean }): Promise<void> {
   if (syncInFlight) return syncInFlight;
-  if (lastSyncedUserId === userId) return;
+
+  const force = Boolean(opts?.force);
+  const MIN_INTERVAL_MS = 30_000;
+  if (!force && lastSyncedUserId === userId && lastSyncedAtMs != null && Date.now() - lastSyncedAtMs < MIN_INTERVAL_MS) return;
 
   syncInFlight = (async () => {
     try {
@@ -170,6 +174,7 @@ export async function syncSignedInSaveSlotsOnce(userId: string): Promise<void> {
       }
 
       lastSyncedUserId = userId;
+      lastSyncedAtMs = Date.now();
     } finally {
       syncInFlight = null;
     }

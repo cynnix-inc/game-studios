@@ -23,7 +23,16 @@ const MakeThemeContext = React.createContext<MakeThemeContextValue>({
 function readStoredThemeTypeWeb(): MakeThemeType | null {
   try {
     const v = window.localStorage.getItem(THEME_STORAGE_KEY);
-    if (v === 'default' || v === 'light' || v === 'dark' || v === 'grayscale' || v === 'vibrant' || v === 'device') return v;
+    // Migration: 'vibrant' was removed; coerce to 'default' to avoid a broken/stuck theme.
+    if (v === 'vibrant') {
+      try {
+        window.localStorage.setItem(THEME_STORAGE_KEY, 'default');
+      } catch {
+        // ignore
+      }
+      return 'default';
+    }
+    if (v === 'default' || v === 'light' || v === 'dark' || v === 'grayscale' || v === 'device') return v;
     return null;
   } catch {
     return null;

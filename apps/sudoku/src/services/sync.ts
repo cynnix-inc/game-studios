@@ -69,6 +69,9 @@ function buildLocalPuzzleSave(): PuzzleSaveV1 | null {
   const deviceId = s.deviceId;
   if (!deviceId) return null;
 
+  // Journey mode is not yet part of the puzzle-save sync contract.
+  if (s.mode === 'journey') return null;
+
   const puzzleKey = getCurrentPuzzleKey();
   if (!puzzleKey) return null;
 

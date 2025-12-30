@@ -8,25 +8,29 @@ describe('ultimateNavReducer (Figma Make screen state machine)', () => {
       isAuthenticated: false,
       username: '',
       selectedDifficulty: 'skilled',
+      selectedVariant: 'classic',
       gameType: 'classic',
     });
   });
 
-  it('navigating to game routes to difficulty first (guarded transition)', () => {
+  it('navigating to game routes to variant select first (guarded transition)', () => {
     const next = ultimateNavReducer(initialUltimateNavState, {
       type: 'NAVIGATE',
       screen: 'game',
     });
-    expect(next.screen).toBe('difficulty');
+    expect(next.screen).toBe('variantSelect');
   });
 
   it('selecting difficulty sets it and routes to game', () => {
     const stateAtDifficulty = ultimateNavReducer(initialUltimateNavState, { type: 'NAVIGATE', screen: 'game' });
-    expect(stateAtDifficulty.screen).toBe('difficulty');
+    expect(stateAtDifficulty.screen).toBe('variantSelect');
 
-    const next = ultimateNavReducer(stateAtDifficulty, { type: 'SELECT_DIFFICULTY', difficulty: 'expert' });
+    const stateAtSetup = ultimateNavReducer(stateAtDifficulty, { type: 'SELECT_VARIANT', variant: 'classic' });
+    expect(stateAtSetup.screen).toBe('difficulty');
+
+    const next = ultimateNavReducer(stateAtSetup, { type: 'SELECT_DIFFICULTY', difficulty: 'expert' });
     expect(next).toEqual<UltimateNavState>({
-      ...stateAtDifficulty,
+      ...stateAtSetup,
       screen: 'game',
       selectedDifficulty: 'expert',
       gameType: 'classic',
@@ -53,6 +57,7 @@ describe('ultimateNavReducer (Figma Make screen state machine)', () => {
       isAuthenticated: true,
       username: 'Neil',
       selectedDifficulty: 'advanced',
+      selectedVariant: 'classic',
       gameType: 'classic',
     };
 

@@ -1,4 +1,4 @@
-import { getUiSizingSettings, setUiSizingSettings, UI_SIZING_LIMITS, type SudokuSettingsV1 } from '../settingsModel';
+import { getGridHighlightSettings, getUiSizingSettings, setGridCustomizationSettings, setUiSizingSettings, HIGHLIGHT_LIMITS, UI_SIZING_LIMITS, type SudokuSettingsV1 } from '../settingsModel';
 
 describe('Epic 9 settings: UI sizing (grid + font scales)', () => {
   function baseSettings(overrides?: Partial<SudokuSettingsV1>): SudokuSettingsV1 {
@@ -31,8 +31,8 @@ describe('Epic 9 settings: UI sizing (grid + font scales)', () => {
     });
     expect(getUiSizingSettings(s)).toEqual({
       gridSizePct: UI_SIZING_LIMITS.gridSizePct.default,
-      digitSizePct: UI_SIZING_LIMITS.digitSizePct.max,
-      noteSizePct: UI_SIZING_LIMITS.noteSizePct.min,
+      digitSizePct: UI_SIZING_LIMITS.digitSizePct.allowed[UI_SIZING_LIMITS.digitSizePct.allowed.length - 1],
+      noteSizePct: UI_SIZING_LIMITS.noteSizePct.allowed[0],
     });
   });
 
@@ -46,7 +46,7 @@ describe('Epic 9 settings: UI sizing (grid + font scales)', () => {
     });
     expect(getUiSizingSettings(s)).toEqual({
       gridSizePct: 100,
-      digitSizePct: 110,
+      digitSizePct: 100,
       noteSizePct: 200,
     });
   });
@@ -66,9 +66,42 @@ describe('Epic 9 settings: UI sizing (grid + font scales)', () => {
     expect(s1.updatedAtMs).toBe(1234);
     expect(s1.updatedByDeviceId).toBe('device-b');
     expect(getUiSizingSettings(s1)).toEqual({
-      gridSizePct: 115,
-      digitSizePct: 110,
+      gridSizePct: 120,
+      digitSizePct: 100,
       noteSizePct: 200,
+    });
+  });
+
+  test('getGridHighlightSettings returns defaults when missing', () => {
+    const s = baseSettings({ ui: undefined });
+    expect(getGridHighlightSettings(s)).toEqual({
+      highlightContrast: HIGHLIGHT_LIMITS.contrast.default,
+      highlightAssistance: true,
+    });
+  });
+
+  test('setGridCustomizationSettings updates sizing + highlight settings in one stamp', () => {
+    const s0 = baseSettings({
+      ui: { gridSize: 100, numberFontScale: 100, noteFontScale: 200, highlightContrast: 0, highlightAssistance: false },
+    });
+
+    const s1 = setGridCustomizationSettings(
+      s0,
+      { gridSizePct: 115, digitSizePct: 110, highlightContrast: 150 },
+      { updatedAtMs: 1234, updatedByDeviceId: 'device-b' },
+    );
+
+    expect(s1).not.toBe(s0);
+    expect(s1.updatedAtMs).toBe(1234);
+    expect(s1.updatedByDeviceId).toBe('device-b');
+    expect(getUiSizingSettings(s1)).toEqual({
+      gridSizePct: 120,
+      digitSizePct: 100,
+      noteSizePct: 200,
+    });
+    expect(getGridHighlightSettings(s1)).toEqual({
+      highlightContrast: 150,
+      highlightAssistance: true,
     });
   });
 });

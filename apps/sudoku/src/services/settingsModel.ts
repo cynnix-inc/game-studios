@@ -16,6 +16,8 @@ export type SudokuSettingsV1 = {
     gridSize?: unknown;
     numberFontScale?: unknown;
     noteFontScale?: unknown;
+    highlightContrast?: unknown;
+    highlightAssistance?: unknown;
   };
   toggles?: {
     sound?: unknown;
@@ -31,17 +33,28 @@ export type SudokuSettingsV1 = {
 
 export type UiSizingSettings = {
   /**
-   * Make semantics: percent scale applied to the whole grid stack (S/M/L = 85/100/115).
+   * Make semantics: percent scale applied to the whole grid stack (S/M/L/XL = 80/100/120/140).
    */
   gridSizePct: number;
   /**
-   * Make semantics: percent scale applied to the main digits (XS..XL = 80..120).
+   * Make semantics: percent scale applied to the main digits (XS/S/M/L/XL = 70/85/100/130/170).
    */
   digitSizePct: number;
   /**
-   * Make semantics: percent scale applied to notes (XS..XL = 100..300).
+   * Make semantics: percent scale applied to notes (XS/S/M/L/XL = 120/160/200/250/300).
    */
   noteSizePct: number;
+};
+
+export type GridHighlightSettings = {
+  /**
+   * Make semantics: 0=Off, 100=Normal, 150=High, 200=Max
+   */
+  highlightContrast: number;
+  /**
+   * When false, row/col/box/same-number highlights are disabled (selection still shows).
+   */
+  highlightAssistance: boolean;
 };
 
 export type SettingsToggles = {
@@ -56,12 +69,16 @@ export type SettingsToggles = {
 
 export const UI_SIZING_LIMITS = {
   // Figma Make (Ultimate Sudoku) slider semantics:
-  // - Grid Size: 85/100/115 (S/M/L)
-  // - Digit Size: 80..120 step 10 (XS..XL)
-  // - Notes Size: 100..300 step 50 (XS..XL)
-  gridSizePct: { min: 85, max: 115, step: 15, default: 100 },
-  digitSizePct: { min: 80, max: 120, step: 10, default: 100 },
-  noteSizePct: { min: 100, max: 300, step: 50, default: 200 },
+  // - Grid Size: 80/100/120/140 (S/M/L/XL)
+  // - Digit Size: 70/85/100/130/170 (XS/S/M/L/XL)
+  // - Notes Size: 120/160/200/250/300 (XS/S/M/L/XL)
+  gridSizePct: { allowed: [80, 100, 120, 140] as const, default: 100 },
+  digitSizePct: { allowed: [70, 85, 100, 130, 170] as const, default: 100 },
+  noteSizePct: { allowed: [120, 160, 200, 250, 300] as const, default: 200 },
+} as const;
+
+export const HIGHLIGHT_LIMITS = {
+  contrast: { min: 0, max: 200, step: 50, default: 100 },
 } as const;
 
 const TOGGLES_DEFAULTS: SettingsToggles = {
@@ -90,6 +107,35 @@ function snapToStep(v: number, min: number, max: number, step: number, fallback:
   const snapped = Math.round((clamped - min) / step) * step + min;
   // Re-clamp after snapping to avoid rounding drift
   return Math.max(min, Math.min(max, snapped));
+}
+
+function snapToAllowed(v: number, allowed: readonly number[], fallback: number): number {
+  if (!Number.isFinite(v)) return fallback;
+  let best = allowed[0] ?? fallback;
+  let bestDist = Number.POSITIVE_INFINITY;
+  for (const a of allowed) {
+    const d = Math.abs(v - a);
+    if (d < bestDist) {
+      bestDist = d;
+      best = a;
+      continue;
+    }
+    // tie-breaker: prefer the larger (feels better when dragging right)
+    if (d === bestDist && a > best) best = a;
+  }
+  return best;
+}
+
+function allowedMin(allowed: readonly number[], fallback: number): number {
+  let m = Number.POSITIVE_INFINITY;
+  for (const a of allowed) m = Math.min(m, a);
+  return Number.isFinite(m) ? m : fallback;
+}
+
+function allowedMax(allowed: readonly number[], fallback: number): number {
+  let m = Number.NEGATIVE_INFINITY;
+  for (const a of allowed) m = Math.max(m, a);
+  return Number.isFinite(m) ? m : fallback;
 }
 
 function readBool(v: unknown, fallback: boolean): boolean {
@@ -146,58 +192,55 @@ export function getUiSizingSettings(settings: SudokuSettingsV1): UiSizingSetting
   const looksLegacyDigit = typeof rawDigit === 'number' && Number.isFinite(rawDigit) && rawDigit <= 2.5;
   const looksLegacyNote = typeof rawNote === 'number' && Number.isFinite(rawNote) && rawNote <= 3;
 
+  const gridAllowed = UI_SIZING_LIMITS.gridSizePct.allowed as readonly number[];
+  const gridMin = allowedMin(gridAllowed, UI_SIZING_LIMITS.gridSizePct.default);
+  const gridMax = allowedMax(gridAllowed, UI_SIZING_LIMITS.gridSizePct.default);
   const gridSizePct = looksLegacyGrid
-    ? // Map 28..56 to S/M/L buckets (85/100/115) with a simple midpoint heuristic.
+    ? // Map 28..56 to S/M/L buckets (80/100/120); legacy never reached XL.
       rawGrid <= 34
-      ? 85
+      ? 80
       : rawGrid <= 42
         ? 100
-        : 115
-    : snapToStep(
-        clampFiniteNumber(rawGrid, UI_SIZING_LIMITS.gridSizePct.min, UI_SIZING_LIMITS.gridSizePct.max, UI_SIZING_LIMITS.gridSizePct.default),
-        UI_SIZING_LIMITS.gridSizePct.min,
-        UI_SIZING_LIMITS.gridSizePct.max,
-        UI_SIZING_LIMITS.gridSizePct.step,
-        UI_SIZING_LIMITS.gridSizePct.default,
-      );
+        : 120
+    : snapToAllowed(clampFiniteNumber(rawGrid, gridMin, gridMax, UI_SIZING_LIMITS.gridSizePct.default), gridAllowed, UI_SIZING_LIMITS.gridSizePct.default);
 
+  const digitAllowed = UI_SIZING_LIMITS.digitSizePct.allowed as readonly number[];
+  const digitMin = allowedMin(digitAllowed, UI_SIZING_LIMITS.digitSizePct.default);
+  const digitMax = allowedMax(digitAllowed, UI_SIZING_LIMITS.digitSizePct.default);
   const digitSizePct = looksLegacyDigit
-    ? snapToStep(
-        clampFiniteNumber(rawDigit * 100, UI_SIZING_LIMITS.digitSizePct.min, UI_SIZING_LIMITS.digitSizePct.max, UI_SIZING_LIMITS.digitSizePct.default),
-        UI_SIZING_LIMITS.digitSizePct.min,
-        UI_SIZING_LIMITS.digitSizePct.max,
-        UI_SIZING_LIMITS.digitSizePct.step,
-        UI_SIZING_LIMITS.digitSizePct.default,
-      )
-    : snapToStep(
-        clampFiniteNumber(rawDigit, UI_SIZING_LIMITS.digitSizePct.min, UI_SIZING_LIMITS.digitSizePct.max, UI_SIZING_LIMITS.digitSizePct.default),
-        UI_SIZING_LIMITS.digitSizePct.min,
-        UI_SIZING_LIMITS.digitSizePct.max,
-        UI_SIZING_LIMITS.digitSizePct.step,
-        UI_SIZING_LIMITS.digitSizePct.default,
-      );
+    ? snapToAllowed(clampFiniteNumber(rawDigit * 100, digitMin, digitMax, UI_SIZING_LIMITS.digitSizePct.default), digitAllowed, UI_SIZING_LIMITS.digitSizePct.default)
+    : snapToAllowed(clampFiniteNumber(rawDigit, digitMin, digitMax, UI_SIZING_LIMITS.digitSizePct.default), digitAllowed, UI_SIZING_LIMITS.digitSizePct.default);
 
+  const noteAllowed = UI_SIZING_LIMITS.noteSizePct.allowed as readonly number[];
+  const noteMin = allowedMin(noteAllowed, UI_SIZING_LIMITS.noteSizePct.default);
+  const noteMax = allowedMax(noteAllowed, UI_SIZING_LIMITS.noteSizePct.default);
   const noteSizePct = looksLegacyNote
-    ? snapToStep(
-        clampFiniteNumber(rawNote * 200, UI_SIZING_LIMITS.noteSizePct.min, UI_SIZING_LIMITS.noteSizePct.max, UI_SIZING_LIMITS.noteSizePct.default),
-        UI_SIZING_LIMITS.noteSizePct.min,
-        UI_SIZING_LIMITS.noteSizePct.max,
-        UI_SIZING_LIMITS.noteSizePct.step,
-        UI_SIZING_LIMITS.noteSizePct.default,
-      )
-    : snapToStep(
-        clampFiniteNumber(rawNote, UI_SIZING_LIMITS.noteSizePct.min, UI_SIZING_LIMITS.noteSizePct.max, UI_SIZING_LIMITS.noteSizePct.default),
-        UI_SIZING_LIMITS.noteSizePct.min,
-        UI_SIZING_LIMITS.noteSizePct.max,
-        UI_SIZING_LIMITS.noteSizePct.step,
-        UI_SIZING_LIMITS.noteSizePct.default,
-      );
+    ? snapToAllowed(clampFiniteNumber(rawNote * 200, noteMin, noteMax, UI_SIZING_LIMITS.noteSizePct.default), noteAllowed, UI_SIZING_LIMITS.noteSizePct.default)
+    : snapToAllowed(clampFiniteNumber(rawNote, noteMin, noteMax, UI_SIZING_LIMITS.noteSizePct.default), noteAllowed, UI_SIZING_LIMITS.noteSizePct.default);
 
   return {
     gridSizePct,
     digitSizePct,
     noteSizePct,
   };
+}
+
+export function getGridHighlightSettings(settings: SudokuSettingsV1): GridHighlightSettings {
+  const ui = settings.ui;
+  const rawContrast = ui?.highlightContrast;
+  const rawAssist = ui?.highlightAssistance;
+
+  const highlightContrast = snapToStep(
+    clampFiniteNumber(rawContrast, HIGHLIGHT_LIMITS.contrast.min, HIGHLIGHT_LIMITS.contrast.max, HIGHLIGHT_LIMITS.contrast.default),
+    HIGHLIGHT_LIMITS.contrast.min,
+    HIGHLIGHT_LIMITS.contrast.max,
+    HIGHLIGHT_LIMITS.contrast.step,
+    HIGHLIGHT_LIMITS.contrast.default,
+  );
+
+  const highlightAssistance = readBool(rawAssist, highlightContrast > 0);
+
+  return { highlightContrast, highlightAssistance };
 }
 
 export function getSettingsToggles(settings: SudokuSettingsV1): SettingsToggles {
@@ -305,43 +348,13 @@ export function setUiSizingSettings(
   args: { updatedByDeviceId: string; updatedAtMs: number },
 ): SudokuSettingsV1 {
   const current = getUiSizingSettings(settings);
+  const gridAllowed = UI_SIZING_LIMITS.gridSizePct.allowed as readonly number[];
+  const digitAllowed = UI_SIZING_LIMITS.digitSizePct.allowed as readonly number[];
+  const noteAllowed = UI_SIZING_LIMITS.noteSizePct.allowed as readonly number[];
   const next: UiSizingSettings = {
-    gridSizePct: snapToStep(
-      clampFiniteNumber(
-        patch.gridSizePct ?? current.gridSizePct,
-        UI_SIZING_LIMITS.gridSizePct.min,
-        UI_SIZING_LIMITS.gridSizePct.max,
-        UI_SIZING_LIMITS.gridSizePct.default,
-      ),
-      UI_SIZING_LIMITS.gridSizePct.min,
-      UI_SIZING_LIMITS.gridSizePct.max,
-      UI_SIZING_LIMITS.gridSizePct.step,
-      UI_SIZING_LIMITS.gridSizePct.default,
-    ),
-    digitSizePct: snapToStep(
-      clampFiniteNumber(
-        patch.digitSizePct ?? current.digitSizePct,
-        UI_SIZING_LIMITS.digitSizePct.min,
-        UI_SIZING_LIMITS.digitSizePct.max,
-        UI_SIZING_LIMITS.digitSizePct.default,
-      ),
-      UI_SIZING_LIMITS.digitSizePct.min,
-      UI_SIZING_LIMITS.digitSizePct.max,
-      UI_SIZING_LIMITS.digitSizePct.step,
-      UI_SIZING_LIMITS.digitSizePct.default,
-    ),
-    noteSizePct: snapToStep(
-      clampFiniteNumber(
-        patch.noteSizePct ?? current.noteSizePct,
-        UI_SIZING_LIMITS.noteSizePct.min,
-        UI_SIZING_LIMITS.noteSizePct.max,
-        UI_SIZING_LIMITS.noteSizePct.default,
-      ),
-      UI_SIZING_LIMITS.noteSizePct.min,
-      UI_SIZING_LIMITS.noteSizePct.max,
-      UI_SIZING_LIMITS.noteSizePct.step,
-      UI_SIZING_LIMITS.noteSizePct.default,
-    ),
+    gridSizePct: snapToAllowed(patch.gridSizePct ?? current.gridSizePct, gridAllowed, UI_SIZING_LIMITS.gridSizePct.default),
+    digitSizePct: snapToAllowed(patch.digitSizePct ?? current.digitSizePct, digitAllowed, UI_SIZING_LIMITS.digitSizePct.default),
+    noteSizePct: snapToAllowed(patch.noteSizePct ?? current.noteSizePct, noteAllowed, UI_SIZING_LIMITS.noteSizePct.default),
   };
 
   return {
@@ -354,6 +367,45 @@ export function setUiSizingSettings(
       gridSize: next.gridSizePct,
       numberFontScale: next.digitSizePct,
       noteFontScale: next.noteSizePct,
+    },
+  };
+}
+
+export function setGridCustomizationSettings(
+  settings: SudokuSettingsV1,
+  patch: Partial<UiSizingSettings & GridHighlightSettings>,
+  args: { updatedByDeviceId: string; updatedAtMs: number },
+): SudokuSettingsV1 {
+  const nextSizing = setUiSizingSettings(
+    settings,
+    { gridSizePct: patch.gridSizePct, digitSizePct: patch.digitSizePct, noteSizePct: patch.noteSizePct },
+    args,
+  );
+
+  const currentHighlights = getGridHighlightSettings(nextSizing);
+  const nextHighlightContrast = snapToStep(
+    clampFiniteNumber(
+      patch.highlightContrast ?? currentHighlights.highlightContrast,
+      HIGHLIGHT_LIMITS.contrast.min,
+      HIGHLIGHT_LIMITS.contrast.max,
+      HIGHLIGHT_LIMITS.contrast.default,
+    ),
+    HIGHLIGHT_LIMITS.contrast.min,
+    HIGHLIGHT_LIMITS.contrast.max,
+    HIGHLIGHT_LIMITS.contrast.step,
+    HIGHLIGHT_LIMITS.contrast.default,
+  );
+  const nextHighlightAssistance =
+    typeof patch.highlightAssistance === 'boolean' ? patch.highlightAssistance : nextHighlightContrast > 0;
+
+  return {
+    ...nextSizing,
+    updatedAtMs: args.updatedAtMs,
+    updatedByDeviceId: args.updatedByDeviceId,
+    ui: {
+      ...(isObject(nextSizing.ui) ? nextSizing.ui : undefined),
+      highlightContrast: nextHighlightContrast,
+      highlightAssistance: nextHighlightAssistance,
     },
   };
 }

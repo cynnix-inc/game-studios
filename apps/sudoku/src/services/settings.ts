@@ -53,6 +53,10 @@ export function updateLocalSettings(next: SudokuSettingsV1): void {
   }, SETTINGS_SYNC_DEBOUNCE_MS);
 }
 
+export async function clearLocalSettings(): Promise<void> {
+  await saveService.local.clear(GAME_KEY, SLOT);
+}
+
 export async function loadLocalSettings(): Promise<SudokuSettingsV1> {
   const deviceId = usePlayerStore.getState().deviceId ?? 'unknown';
 

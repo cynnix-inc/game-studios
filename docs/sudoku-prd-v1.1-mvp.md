@@ -122,6 +122,9 @@ On mobile web, UI should behave like mobile native.
 - Autosave on meaningful changes (debounced)
 - Autosave on background/tab hidden
 - Resume returns the player to the last in-progress puzzle
+- On app close / background (best effort):
+  - flush local in-progress save immediately
+  - if signed in, attempt a best-effort cloud sync so another device can resume (no realtime guarantee)
 
 ### 7.4 UI sizing (required)
 Settings must allow resizing:
@@ -217,6 +220,11 @@ For each in-progress puzzle, store:
 - No conflict dialogs for MVP
 - The board always resolves to the merged latest state
 - Show a subtle sync indicator and last sync time (settings or pause menu)
+
+### 10.4 Sync cadence (MVP)
+- **Not realtime**: cross-device continuation is best-effort and event-driven.
+- **Signed-in users**: sync occurs on app start/auth events and on lifecycle flush events (background/close).
+- **Guests**: local-only until conversion.
 
 ## 11. Performance targets (MVP)
 - Grid input latency: less than 50ms perceived response (web and mobile)

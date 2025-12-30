@@ -1,16 +1,29 @@
 import { useState, useEffect } from 'react';
-import { Lightbulb, Undo, Edit3, AlertCircle, CheckCircle2, Lock } from 'lucide-react';
+import { Eraser, RefreshCw, Lightbulb, Pencil, Lock, CheckCircle2, Undo, Edit3 } from 'lucide-react';
 import { Button } from './ui/button';
 import { useTheme } from '../contexts/ThemeContext';
 import { useSettings } from '../contexts/SettingsContext';
+import type { Difficulty } from '../types/difficulty';
 
 interface SudokuProps {
-  onWin?: () => void;
-  difficulty: 'easy' | 'medium' | 'hard' | 'expert';
-  onMistake?: () => void;
+  difficulty: Difficulty;
+  mode: 'play' | 'edit';
+  onComplete?: () => void;
   onHintUsed?: () => void;
-  mistakes?: number;
-  hintsUsed?: number;
+  onMistake?: () => void;
+  initialLivesCount?: number;
+  initialBoard?: Cell[][];
+  initialSolution?: number[][];
+  // Preview mode for grid customizer
+  previewMode?: boolean;
+  previewSettings?: {
+    gridSize: number;
+    digitSize: number;
+    noteSize: number;
+    highlightContrast: number;
+    highlightAssistance: boolean;
+  };
+  previewSelectedCell?: { row: number; col: number } | null;
 }
 
 type Cell = {
@@ -19,14 +32,34 @@ type Cell = {
   notes: number[];
 };
 
-export function Sudoku({ onWin, difficulty, onMistake, onHintUsed, mistakes = 0, hintsUsed = 0 }: SudokuProps) {
-  const { theme } = useTheme();
-  const settings = useSettings();
+export function Sudoku({ 
+  difficulty, 
+  mode, 
+  onComplete, 
+  onHintUsed, 
+  onMistake,
+  initialLivesCount, 
+  initialBoard, 
+  initialSolution,
+  previewMode = false,
+  previewSettings,
+  previewSelectedCell
+}: SudokuProps) {
+  const { theme, themeType } = useTheme();
+  const contextSettings = useSettings();
+  
+  // Use preview settings if in preview mode, otherwise use context settings
+  const settings = previewMode && previewSettings ? previewSettings : contextSettings;
+  
   const [board, setBoard] = useState<Cell[][]>([]);
   const [solution, setSolution] = useState<number[][]>([]);
-  const [selectedCell, setSelectedCell] = useState<{ row: number; col: number } | null>(null);
+  const [selectedCell, setSelectedCell] = useState<{ row: number; col: number } | null>(previewSelectedCell || null);
   const [notesMode, setNotesMode] = useState(false);
-  const [lockMode, setLockMode] = useState(false);
+  const [lockMode, setLockMode] = useState(() => {
+    // Load lock mode preference from localStorage, default to true for new users
+    const saved = localStorage.getItem('lockModePreference');
+    return saved !== null ? saved === 'true' : true;
+  });
   const [lockedNumber, setLockedNumber] = useState<number | null>(null);
   const [history, setHistory] = useState<Cell[][][]>([]);
   const [isComplete, setIsComplete] = useState(false);
@@ -50,8 +83,45 @@ export function Sudoku({ onWin, difficulty, onMistake, onHintUsed, mistakes = 0,
 
   // Generate a Sudoku puzzle
   useEffect(() => {
+    // Skip puzzle generation in preview mode - use initialBoard instead
+    if (previewMode && initialBoard) {
+      setBoard(initialBoard);
+      setSelectedCell(previewSelectedCell || null);
+      return;
+    }
+    
+    // Try to load saved game state first
+    const savedState = localStorage.getItem('sudokuGameState');
+    if (savedState) {
+      try {
+        const parsed = JSON.parse(savedState);
+        // Verify it matches current difficulty
+        if (parsed.difficulty === difficulty) {
+          setBoard(parsed.board);
+          setSolution(parsed.solution);
+          setHistory([JSON.parse(JSON.stringify(parsed.board))]);
+          setIsComplete(false);
+          return;
+        }
+      } catch (e) {
+        console.error('Failed to load saved game:', e);
+      }
+    }
+    
+    // No saved game or wrong difficulty - generate new puzzle
     generatePuzzle();
-  }, [difficulty]);
+  }, [difficulty, previewMode, initialBoard, previewSelectedCell]);
+
+  // Save game state whenever board changes
+  useEffect(() => {
+    if (board.length > 0 && solution.length > 0 && !isComplete) {
+      localStorage.setItem('sudokuGameState', JSON.stringify({
+        board,
+        solution,
+        difficulty
+      }));
+    }
+  }, [board, solution, difficulty, isComplete]);
 
   const generatePuzzle = () => {
     // Generate a complete solved board
@@ -60,10 +130,12 @@ export function Sudoku({ onWin, difficulty, onMistake, onHintUsed, mistakes = 0,
 
     // Create puzzle by removing numbers based on difficulty
     const cellsToRemove = {
-      easy: 35,
-      medium: 45,
-      hard: 52,
-      expert: 58,
+      novice: 40,      // 41-45 clues
+      skilled: 47,     // 34-38 clues
+      advanced: 53,    // 28-32 clues
+      expert: 56,      // 25-28 clues
+      fiendish: 58,    // 23-25 clues
+      ultimate: 60,    // 21-23 clues
     }[difficulty];
 
     const newBoard: Cell[][] = newSolution.map((row) =>
@@ -140,6 +212,9 @@ export function Sudoku({ onWin, difficulty, onMistake, onHintUsed, mistakes = 0,
   };
 
   const handleCellClick = (row: number, col: number) => {
+    // Disable interactions in preview mode
+    if (previewMode) return;
+    
     setSelectedCell({ row, col });
     
     // Guard against uninitialized board
@@ -240,7 +315,9 @@ export function Sudoku({ onWin, difficulty, onMistake, onHintUsed, mistakes = 0,
 
       if (isCorrect) {
         setIsComplete(true);
-        if (onWin) onWin();
+        // Clear saved game state on completion
+        localStorage.removeItem('sudokuGameState');
+        if (onComplete) onComplete();
       }
     }
   };
@@ -328,8 +405,73 @@ export function Sudoku({ onWin, difficulty, onMistake, onHintUsed, mistakes = 0,
   };
 
   const isSameNumber = (row: number, col: number): boolean => {
-    if (!selectedCell || board[row][col].value === 0) return false;
-    return board[row][col].value === board[selectedCell.row][selectedCell.col].value;
+    if (!selectedCell) return false;
+    
+    const selectedValue = board[selectedCell.row][selectedCell.col].value;
+    if (selectedValue === 0) return false;
+    
+    // Only highlight cells with the same value (not notes)
+    if (board[row][col].value === selectedValue) return true;
+    
+    return false;
+  };
+
+  const getNumberCount = (num: number): number => {
+    let count = 0;
+    for (let row = 0; row < 9; row++) {
+      for (let col = 0; col < 9; col++) {
+        if (board[row]?.[col]?.value === num) {
+          count++;
+        }
+      }
+    }
+    return count;
+  };
+  
+  // Helper function to get highlight background color with dynamic opacity
+  const getHighlightStyle = (type: 'selected' | 'rowColumn' | 'box' | 'sameNumber' | 'conflict'): React.CSSProperties => {
+    // Always show selected cell and conflicts, even when assistance is disabled
+    if (!settings.highlightAssistance && type !== 'conflict' && type !== 'selected') {
+      return {};
+    }
+    
+    // Convert contrast setting (50-200) to multiplier (0.5-2.0)
+    const contrast = settings.highlightContrast / 100;
+    
+    // Determine if we're in light theme
+    const isLightTheme = themeType === 'light';
+    
+    // Base opacities optimized for accessibility (WCAG AA contrast)
+    // Light theme uses dark overlays (less opacity needed for visibility)
+    // Dark themes use white overlays (more opacity needed for visibility)
+    const baseOpacities = isLightTheme ? {
+      selected: 0.20,      // Primary selection - most prominent
+      rowColumn: 0.10,     // Row/column assistance
+      box: 0.05,           // Box grouping - subtle
+      sameNumber: 0.15,    // Same number highlighting
+      conflict: 0.30,      // Conflicts - highly visible
+    } : {
+      selected: 0.25,      // Needs higher opacity on dark backgrounds
+      rowColumn: 0.12,     // Slightly more visible
+      box: 0.06,           // Slightly more visible
+      sameNumber: 0.18,    // More prominent on dark
+      conflict: 0.35,      // More prominent on dark
+    };
+    
+    // Calculate final opacity with contrast adjustment
+    const opacity = baseOpacities[type] * contrast;
+    
+    // Base colors for overlays
+    const baseColor = isLightTheme ? '15, 23, 42' : '255, 255, 255'; // slate-900 or white
+    
+    // Special handling for conflicts - always use red with good contrast
+    if (type === 'conflict') {
+      // Use brighter red on dark themes, darker red on light theme
+      const conflictColor = isLightTheme ? '220, 38, 38' : '248, 113, 113'; // red-700 or red-400
+      return { backgroundColor: `rgba(${conflictColor}, ${opacity})` };
+    }
+    
+    return { backgroundColor: `rgba(${baseColor}, ${opacity})` };
   };
 
   return (
@@ -347,14 +489,14 @@ export function Sudoku({ onWin, difficulty, onMistake, onHintUsed, mistakes = 0,
           <h2 className={`text-2xl ${theme.text.primary}`}>Puzzle Complete!</h2>
           <p className="text-green-400">+250 points!</p>
           <p className={`text-sm ${theme.text.muted}`}>
-            Mistakes: {mistakes} • Hints: {hintsUsed}
+            Mistakes: {initialLivesCount} • Hints: {hintsUsed}
           </p>
         </div>
       )}
 
       {/* Sudoku Board */}
       <div 
-        className={`${theme.card.background} ${theme.card.border} border rounded-3xl p-3 md:p-6 shadow-xl backdrop-blur-xl`}
+        className={`${theme.card.background} ${theme.card.border} border rounded-xl p-2 md:p-3 shadow-xl backdrop-blur-xl`}
       >
         <div className="aspect-square w-full">
           {/* Outer wrapper with gap background */}
@@ -382,6 +524,20 @@ export function Sudoku({ onWin, difficulty, onMistake, onHintUsed, mistakes = 0,
                         const isSameNum = isSameNumber(rowIndex, colIndex);
                         const isRightEdge = minorCol === 2;
                         const isBottomEdge = minorRow === 2;
+                        
+                        // Determine which highlight style to apply (priority order)
+                        let highlightStyle: React.CSSProperties = {};
+                        if (hasConflict) {
+                          highlightStyle = getHighlightStyle('conflict');
+                        } else if (isSelected) {
+                          highlightStyle = getHighlightStyle('selected');
+                        } else if (isSameNum) {
+                          highlightStyle = getHighlightStyle('sameNumber');
+                        } else if (isHighlight) {
+                          highlightStyle = getHighlightStyle('rowColumn');
+                        } else if (isBox) {
+                          highlightStyle = getHighlightStyle('box');
+                        }
 
                         return (
                           <button
@@ -390,43 +546,53 @@ export function Sudoku({ onWin, difficulty, onMistake, onHintUsed, mistakes = 0,
                             className={`
                               aspect-square flex items-center justify-center relative
                               transition-all duration-200
-                              ${isSelected ? theme.sudoku.selected + ' z-10' : ''}
-                              ${isHighlight && !isSelected && !isSameNum ? theme.sudoku.rowColumn : ''}
-                              ${isBox && !isHighlight && !isSelected && !isSameNum ? theme.sudoku.box : ''}
-                              ${isSameNum && !isSelected ? theme.sudoku.sameNumber : ''}
-                              ${hasConflict ? 'bg-red-500/20' : ''}
+                              ${isSelected ? 'z-10' : ''}
                               ${cell.isFixed ? theme.text.primary : theme.text.secondary}
                               ${!isRightEdge ? `border-r ${theme.card.border}` : ''}
                               ${!isBottomEdge ? `border-b ${theme.card.border}` : ''}
                               ${theme.card.hover}
                             `}
+                            style={highlightStyle}
                             disabled={isComplete}
                           >
                             {cell.value !== 0 ? (
                               <span 
-                                className={`${cell.isFixed ? 'opacity-100' : 'opacity-80'}`}
+                                className={`${cell.isFixed ? `${theme.text.primary} font-semibold` : theme.sudoku.userFilled}`}
                                 style={{ fontSize: `${digitFontSize}px`, lineHeight: 1 }}
                               >
                                 {cell.value}
                               </span>
                             ) : (
                               <div className="absolute inset-0 grid grid-cols-3 gap-0 p-0.5 overflow-hidden">
-                                {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
-                                  <div
-                                    key={num}
-                                    className={`flex items-center justify-center ${
-                                      cell.notes.includes(num) ? theme.text.muted : 'opacity-0'
-                                    }`}
-                                    style={{ 
-                                      fontSize: `${noteFontSize}px`, 
-                                      lineHeight: 1,
-                                      maxWidth: '100%',
-                                      maxHeight: '100%'
-                                    }}
-                                  >
-                                    {num}
-                                  </div>
-                                ))}
+                                {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => {
+                                  const hasNote = cell.notes.includes(num);
+                                  const isHighlightedNote = selectedCell && 
+                                    board[selectedCell.row][selectedCell.col].value === num && 
+                                    hasNote;
+                                  
+                                  // Get subcell highlight style - same intensity as full cell highlights
+                                  const subcellHighlight = isHighlightedNote 
+                                    ? getHighlightStyle('sameNumber')
+                                    : {};
+                                  
+                                  return (
+                                    <div
+                                      key={num}
+                                      className={`flex items-center justify-center ${
+                                        hasNote ? theme.text.muted : 'opacity-0'
+                                      }`}
+                                      style={{ 
+                                        fontSize: `${noteFontSize}px`, 
+                                        lineHeight: 1,
+                                        maxWidth: '100%',
+                                        maxHeight: '100%',
+                                        ...subcellHighlight
+                                      }}
+                                    >
+                                      {num}
+                                    </div>
+                                  );
+                                })}
                               </div>
                             )}
                           </button>
@@ -441,121 +607,139 @@ export function Sudoku({ onWin, difficulty, onMistake, onHintUsed, mistakes = 0,
         </div>
       </div>
 
-      {/* Number Input Buttons */}
-      <div className="px-3 md:px-6">
-        <div className="grid grid-cols-9 gap-px">
-          {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
-            <Button
-              key={num}
-              onClick={() => handleNumberInput(num)}
-              className={`
-                ${lockedNumber === num && lockMode ? theme.button.primary.background : theme.button.secondary.background}
-                ${lockedNumber === num && lockMode ? theme.button.primary.hover : theme.button.secondary.hover}
-                ${lockedNumber === num && lockMode ? theme.button.primary.text : theme.button.secondary.text}
-                ${theme.card.border} 
-                border 
-                aspect-square p-0 w-full h-full min-h-[48px] md:min-h-[64px]
-                transition-all duration-300
-              `}
-              disabled={!lockMode && (!selectedCell || isComplete)}
-              style={{ fontSize: `${digitFontSize}px`, lineHeight: 1 }}
-            >
-              {num}
-            </Button>
-          ))}
-        </div>
-      </div>
+      {/* Hide controls in preview mode */}
+      {!previewMode && (
+        <>
+          {/* Number Input Buttons */}
+          <div className="px-3 md:px-6">
+            <div className="grid grid-cols-9 gap-2">
+              {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => {
+                const isNumberComplete = getNumberCount(num) === 9;
+                const isLocked = lockedNumber === num && lockMode;
+                return (
+                  <Button
+                    key={num}
+                    onClick={() => handleNumberInput(num)}
+                    className={`
+                      ${isLocked ? theme.button.primary.background : theme.button.secondary.background}
+                      ${isLocked ? theme.button.primary.hover : 'hover:bg-white/20'}
+                      ${isLocked ? theme.button.primary.text : theme.button.secondary.text}
+                      ${isLocked ? `${theme.card.border} border` : 'border-0'}
+                      aspect-square p-0 w-full h-full min-h-[48px] md:min-h-[64px]
+                      transition-all duration-300
+                      ${isNumberComplete ? 'opacity-30 cursor-not-allowed' : ''}
+                    `}
+                    disabled={isNumberComplete || (!lockMode && (!selectedCell || isComplete))}
+                    style={{ fontSize: `${digitFontSize}px`, lineHeight: 1 }}
+                  >
+                    {num}
+                  </Button>
+                );
+              })}
+            </div>
+          </div>
 
-      {/* Control Buttons */}
-      <div className="px-3 md:px-6">
-        <div className="grid grid-cols-4 gap-3">
-          <Button
-            onClick={handleUndo}
-            className={`
-              ${theme.button.secondary.background} 
-              ${theme.button.secondary.hover} 
-              ${theme.button.secondary.text} 
-              ${theme.card.border} 
-              border 
-              transition-all duration-300
-            `}
-            disabled={history.length <= 1 || isComplete}
-          >
-            <Undo className="w-5 h-5 mr-2" />
-            Undo
-          </Button>
+          {/* Control Buttons - Reordered: Hint, Undo, Notes, Lock */}
+          <div className="px-3 md:px-6 pt-1">
+            <div className="grid grid-cols-4 gap-2">
+              {/* Hint - Most important action */}
+              <Button
+                onClick={handleHint}
+                className={`
+                  ${theme.button.secondary.background} 
+                  ${theme.button.secondary.hover} 
+                  ${theme.button.secondary.text} 
+                  ${theme.card.border} 
+                  border 
+                  transition-all duration-300
+                  aspect-square p-0
+                `}
+                disabled={isComplete}
+              >
+                <Lightbulb className="w-5 h-5 md:w-6 md:h-6" />
+              </Button>
 
-          <Button
-            onClick={() => setNotesMode(!notesMode)}
-            className={`
-              ${notesMode ? theme.button.primary.background : theme.button.secondary.background} 
-              ${notesMode ? theme.button.primary.hover : theme.button.secondary.hover} 
-              ${notesMode ? theme.button.primary.text : theme.button.secondary.text} 
-              ${theme.card.border} 
-              border 
-              transition-all duration-300
-            `}
-            disabled={isComplete}
-          >
-            <Edit3 className="w-5 h-5 mr-2" />
-            Notes
-          </Button>
+              {/* Undo */}
+              <Button
+                onClick={handleUndo}
+                className={`
+                  ${theme.button.secondary.background} 
+                  ${theme.button.secondary.hover} 
+                  ${theme.button.secondary.text} 
+                  ${theme.card.border} 
+                  border 
+                  transition-all duration-300
+                  aspect-square p-0
+                `}
+                disabled={history.length <= 1 || isComplete}
+              >
+                <Undo className="w-5 h-5 md:w-6 md:h-6" />
+              </Button>
 
-          <Button
-            onClick={() => {
-              setLockMode(!lockMode);
-              if (lockMode) {
-                setLockedNumber(null); // Clear locked number when turning off lock mode
-              }
-            }}
-            className={`
-              ${lockMode ? theme.button.primary.background : theme.button.secondary.background} 
-              ${lockMode ? theme.button.primary.hover : theme.button.secondary.hover} 
-              ${lockMode ? theme.button.primary.text : theme.button.secondary.text} 
-              ${theme.card.border} 
-              border 
-              transition-all duration-300
-            `}
-            disabled={isComplete}
-          >
-            <Lock className="w-5 h-5 mr-2" />
-            Lock
-          </Button>
+              {/* Notes - Stronger active state */}
+              <Button
+                onClick={() => setNotesMode(!notesMode)}
+                className={`
+                  ${theme.button.secondary.background} 
+                  ${theme.button.secondary.hover} 
+                  ${theme.button.secondary.text} 
+                  ${theme.card.border} 
+                  border 
+                  transition-all duration-300
+                  aspect-square p-0
+                  ${notesMode ? 'bg-blue-500/20' : ''}
+                `}
+                disabled={isComplete}
+              >
+                <Edit3 className={`w-5 h-5 md:w-6 md:h-6 ${notesMode ? 'text-blue-400' : ''}`} />
+              </Button>
 
-          <Button
-            onClick={handleHint}
-            className={`
-              ${theme.button.secondary.background} 
-              ${theme.button.secondary.hover} 
-              ${theme.button.secondary.text} 
-              ${theme.card.border} 
-              border 
-              transition-all duration-300
-            `}
-            disabled={isComplete}
-          >
-            <Lightbulb className="w-5 h-5 mr-2" />
-            Hint
-          </Button>
-        </div>
-      </div>
+              {/* Lock - Stronger active state */}
+              <Button
+                onClick={() => {
+                  const newLockMode = !lockMode;
+                  setLockMode(newLockMode);
+                  // Save preference to localStorage
+                  localStorage.setItem('lockModePreference', newLockMode.toString());
+                  if (newLockMode === false) {
+                    setLockedNumber(null); // Clear locked number when turning off lock mode
+                  }
+                }}
+                className={`
+                  ${theme.button.secondary.background} 
+                  ${theme.button.secondary.hover} 
+                  ${theme.button.secondary.text} 
+                  ${theme.card.border} 
+                  border 
+                  transition-all duration-300
+                  aspect-square p-0
+                  ${lockMode ? 'bg-purple-500/20' : ''}
+                `}
+                disabled={isComplete}
+              >
+                <Lock className={`w-5 h-5 md:w-6 md:h-6 ${lockMode ? 'text-purple-400' : ''}`} />
+              </Button>
+            </div>
+          </div>
 
-      {/* New Puzzle Button */}
-      {isComplete && (
-        <div className="text-center px-3 md:px-6">
-          <Button
-            onClick={generatePuzzle}
-            className={`
-              ${theme.button.primary.background} 
-              ${theme.button.primary.hover} 
-              ${theme.button.primary.text} 
-              px-8
-              transition-all duration-300
-            `}
-          >
-            New Puzzle
-          </Button>
-        </div>
+          {/* New Puzzle Button */}
+          {isComplete && (
+            <div className="text-center px-3 md:px-6">
+              <Button
+                onClick={generatePuzzle}
+                className={`
+                  ${theme.button.primary.background} 
+                  ${theme.button.primary.hover} 
+                  ${theme.button.primary.text} 
+                  px-8
+                  transition-all duration-300
+                `}
+              >
+                New Puzzle
+              </Button>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

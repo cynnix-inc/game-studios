@@ -10,6 +10,8 @@ import { MakeScreen } from '../../components/make/MakeScreen';
 import { MakeText } from '../../components/make/MakeText';
 import { useMakeTheme } from '../../components/make/MakeThemeProvider';
 import type { PlayerProfile } from '@cynnix-studios/game-foundation';
+import { loadLocalStats } from '../../services/stats';
+import { computeScoreMs } from '@cynnix-studios/sudoku-core';
 
 function usernameFromProfile(profile: PlayerProfile | null): string {
   if (!profile) return '';
@@ -40,12 +42,74 @@ export function UltimateStatsScreen({ profile, onBack }: { profile: PlayerProfil
   const { theme: makeTheme } = useMakeTheme();
   const username = usernameFromProfile(profile);
 
-  // UI-only placeholders until a stable stats contract exists (see `docs/ultimate-sudoku-figma-gap-log.md` GAP-010).
+  const [excludeZen, setExcludeZen] = React.useState(true);
+  const [loading, setLoading] = React.useState(true);
+  const [summary, setSummary] = React.useState<{
+    puzzlesSolved: number;
+    totalScoreMs: number;
+    playTimeMs: number;
+    startedCount: number;
+  }>({ puzzlesSolved: 0, totalScoreMs: 0, playTimeMs: 0, startedCount: 0 });
+
+  React.useEffect(() => {
+    let alive = true;
+    (async () => {
+      setLoading(true);
+      const stats = await loadLocalStats();
+      if (!alive) return;
+
+      let puzzlesSolved = 0;
+      let startedCount = 0;
+      let playTimeMs = 0;
+      let totalScoreMs = 0;
+
+      for (const dev of Object.values(stats.devices)) {
+        for (const [bucketKey, bucket] of Object.entries(dev.buckets)) {
+          const zenFlag = bucketKey.split('::')[4] ?? '0';
+          const isZen = zenFlag === '1';
+          if (excludeZen && isZen) continue;
+
+          startedCount += bucket.startedCount;
+          puzzlesSolved += bucket.completedCount;
+          playTimeMs += bucket.completed.totalTimeMs + bucket.abandoned.totalTimeMs;
+          totalScoreMs += computeScoreMs({
+            raw_time_ms: bucket.completed.totalTimeMs,
+            mistakes_count: bucket.completed.totalMistakesCount,
+            hint_breakdown: bucket.completed.hintBreakdown,
+          });
+        }
+      }
+
+      setSummary({ puzzlesSolved, totalScoreMs, playTimeMs, startedCount });
+      setLoading(false);
+    })();
+
+    return () => {
+      alive = false;
+    };
+  }, [excludeZen]);
+
+  function formatDuration(ms: number): string {
+    const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    if (hours <= 0) return `${minutes}m`;
+    return `${hours}h ${minutes.toString().padStart(2, '0')}m`;
+  }
+
+  function formatScoreMs(totalMs: number): string {
+    // Score is "lower is better" but this screen is a lifetime aggregate; show total seconds as an easy-to-read number.
+    const seconds = Math.max(0, Math.floor(totalMs / 1000));
+    return seconds.toLocaleString();
+  }
+
+  const completionRatePct = summary.startedCount > 0 ? Math.round((summary.puzzlesSolved / summary.startedCount) * 100) : 0;
+
   const stats = [
-    { label: 'Puzzles Solved', value: '156', icon: Target, color: '#60a5fa' },
-    { label: 'Total Score', value: '45,230', icon: Trophy, color: '#facc15' },
-    { label: 'Play Time', value: '42h 15m', icon: Clock, color: '#a78bfa' },
-    { label: 'Completion Rate', value: '67%', icon: TrendingUp, color: '#4ade80' },
+    { label: 'Puzzles Solved', value: loading ? '—' : String(summary.puzzlesSolved), icon: Target, color: '#60a5fa' },
+    { label: 'Total Score', value: loading ? '—' : formatScoreMs(summary.totalScoreMs), icon: Trophy, color: '#facc15' },
+    { label: 'Play Time', value: loading ? '—' : formatDuration(summary.playTimeMs), icon: Clock, color: '#a78bfa' },
+    { label: 'Completion Rate', value: loading ? '—' : `${completionRatePct}%`, icon: TrendingUp, color: '#4ade80' },
   ] as const;
 
   const achievements = [
@@ -71,6 +135,22 @@ export function UltimateStatsScreen({ profile, onBack }: { profile: PlayerProfil
         <MakeText weight="bold" style={{ fontSize: 32, marginTop: 12, marginBottom: 16 }}>
           {username ? `${username}’s Stats` : 'Your Stats'}
         </MakeText>
+
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+          <MakeText tone="muted" style={{ fontSize: 12 }}>
+            {excludeZen ? 'Excluding Zen runs' : 'Including Zen runs'}
+          </MakeText>
+          <MakeButton
+            accessibilityLabel={excludeZen ? 'Include Zen runs' : 'Exclude Zen runs'}
+            title={excludeZen ? 'Include Zen' : 'Exclude Zen'}
+            variant="secondary"
+            elevation="flat"
+            radius={12}
+            onPress={() => setExcludeZen((v) => !v)}
+            contentStyle={{ height: 36, paddingVertical: 0, paddingHorizontal: 12 }}
+            titleStyle={{ fontSize: 12, lineHeight: 16 }}
+          />
+        </View>
 
         {/* Stats Grid */}
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
@@ -140,7 +220,7 @@ export function UltimateStatsScreen({ profile, onBack }: { profile: PlayerProfil
             ))}
 
             <MakeText tone="muted" style={{ fontSize: 12 }}>
-              UI-only placeholders until stats contracts are finalized.
+              Stats are local-first and sync when signed in; Zen runs are tracked but can be excluded.
             </MakeText>
           </View>
         </MakeCard>

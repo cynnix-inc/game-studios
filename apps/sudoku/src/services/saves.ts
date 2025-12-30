@@ -11,6 +11,11 @@ const SLOT = 'main';
 type InProgressSaveV1Free = {
   v: 1;
   mode: 'free';
+  runId?: string;
+  variantId?: string;
+  subVariantId?: string | null;
+  statsStartedCounted?: boolean;
+  zenModeAtStart?: boolean | null;
   deviceId?: string | null;
   revision?: number;
   moves?: SudokuMove[];
@@ -23,13 +28,18 @@ type InProgressSaveV1Free = {
   hintsUsedCount: number;
   hintBreakdown: Partial<Record<HintType, number>>;
   runTimer: RunTimer;
-  runStatus: 'running' | 'paused' | 'completed';
+  runStatus: 'running' | 'paused' | 'completed' | 'failed';
   difficulty: Difficulty;
 };
 
 type InProgressSaveV1Daily = {
   v: 1;
   mode: 'daily';
+  runId?: string;
+  variantId?: string;
+  subVariantId?: string | null;
+  statsStartedCounted?: boolean;
+  zenModeAtStart?: boolean | null;
   deviceId?: string | null;
   revision?: number;
   moves?: SudokuMove[];
@@ -42,7 +52,8 @@ type InProgressSaveV1Daily = {
   hintsUsedCount: number;
   hintBreakdown: Partial<Record<HintType, number>>;
   runTimer: RunTimer;
-  runStatus: 'running' | 'paused' | 'completed';
+  runStatus: 'running' | 'paused' | 'completed' | 'failed';
+  difficulty?: Difficulty;
 };
 
 export type InProgressSaveV1 = InProgressSaveV1Free | InProgressSaveV1Daily;
@@ -121,6 +132,11 @@ function parseInProgressSaveV1(raw: unknown): InProgressSaveV1 | null {
   if (!isObject(raw)) return null;
   if (raw.v !== 1) return null;
   if (raw.mode === 'free') {
+    if (raw.runId != null && typeof raw.runId !== 'string') return null;
+    if (raw.variantId != null && typeof raw.variantId !== 'string') return null;
+    if (raw.subVariantId != null && typeof raw.subVariantId !== 'string') return null;
+    if (raw.statsStartedCounted != null && typeof raw.statsStartedCounted !== 'boolean') return null;
+    if (raw.zenModeAtStart != null && typeof raw.zenModeAtStart !== 'boolean') return null;
     if (raw.deviceId != null && typeof raw.deviceId !== 'string') return null;
     if (raw.revision != null && typeof raw.revision !== 'number') return null;
     const moves = raw.moves == null ? undefined : parseMoveLog(raw.moves);
@@ -136,7 +152,7 @@ function parseInProgressSaveV1(raw: unknown): InProgressSaveV1 | null {
     if (typeof raw.hintsUsedCount !== 'number') return null;
     if (!isObject(raw.hintBreakdown)) return null;
     if (!isRunTimer(raw.runTimer)) return null;
-    if (raw.runStatus !== 'running' && raw.runStatus !== 'paused' && raw.runStatus !== 'completed') return null;
+    if (raw.runStatus !== 'running' && raw.runStatus !== 'paused' && raw.runStatus !== 'completed' && raw.runStatus !== 'failed') return null;
     if (
       raw.difficulty !== 'novice' &&
       raw.difficulty !== 'skilled' &&
@@ -149,6 +165,11 @@ function parseInProgressSaveV1(raw: unknown): InProgressSaveV1 | null {
     return { ...(raw as InProgressSaveV1Free), moves, undoStack, redoStack };
   }
   if (raw.mode === 'daily') {
+    if (raw.runId != null && typeof raw.runId !== 'string') return null;
+    if (raw.variantId != null && typeof raw.variantId !== 'string') return null;
+    if (raw.subVariantId != null && typeof raw.subVariantId !== 'string') return null;
+    if (raw.statsStartedCounted != null && typeof raw.statsStartedCounted !== 'boolean') return null;
+    if (raw.zenModeAtStart != null && typeof raw.zenModeAtStart !== 'boolean') return null;
     if (raw.deviceId != null && typeof raw.deviceId !== 'string') return null;
     if (raw.revision != null && typeof raw.revision !== 'number') return null;
     const moves = raw.moves == null ? undefined : parseMoveLog(raw.moves);
@@ -164,7 +185,17 @@ function parseInProgressSaveV1(raw: unknown): InProgressSaveV1 | null {
     if (typeof raw.hintsUsedCount !== 'number') return null;
     if (!isObject(raw.hintBreakdown)) return null;
     if (!isRunTimer(raw.runTimer)) return null;
-    if (raw.runStatus !== 'running' && raw.runStatus !== 'paused' && raw.runStatus !== 'completed') return null;
+    if (raw.runStatus !== 'running' && raw.runStatus !== 'paused' && raw.runStatus !== 'completed' && raw.runStatus !== 'failed') return null;
+    if (
+      raw.difficulty != null &&
+      raw.difficulty !== 'novice' &&
+      raw.difficulty !== 'skilled' &&
+      raw.difficulty !== 'advanced' &&
+      raw.difficulty !== 'expert' &&
+      raw.difficulty !== 'fiendish' &&
+      raw.difficulty !== 'ultimate'
+    )
+      return null;
     return { ...(raw as InProgressSaveV1Daily), moves, undoStack, redoStack };
   }
   return null;
@@ -230,8 +261,14 @@ export async function loadLocalSave() {
   if (saved.mode !== 'free') return;
 
   const nowMs = Date.now();
+  const status: 'paused' | 'completed' | 'failed' = saved.runStatus === 'completed' || saved.runStatus === 'failed' ? saved.runStatus : 'paused';
   usePlayerStore.getState().hydrateFromSave(saved.serializedPuzzle, saved.serializedSolution, saved.givensMask, {
     deviceId: saved.deviceId ?? undefined,
+    runId: saved.runId,
+    variantId: saved.variantId,
+    subVariantId: saved.subVariantId ?? null,
+    statsStartedCounted: saved.statsStartedCounted,
+    zenModeAtStart: saved.zenModeAtStart ?? null,
     revision: saved.revision ?? undefined,
     moves: saved.moves ?? undefined,
     undoStack: saved.undoStack ?? undefined,
@@ -240,7 +277,8 @@ export async function loadLocalSave() {
     hintBreakdown: saved.hintBreakdown ?? {},
     hintsUsedCount: saved.hintsUsedCount,
     runTimer: forcePaused(saved.runTimer, nowMs),
-    runStatus: 'paused',
+    runStatus: status,
+    difficulty: saved.difficulty,
   });
 }
 
@@ -253,6 +291,10 @@ export async function writeLocalSave() {
     slot: SLOT,
     data: { ...payload, clientUpdatedAtMs },
   });
+}
+
+export async function clearLocalInProgressSave(): Promise<void> {
+  await saveService.local.clear(GAME_KEY, SLOT);
 }
 
 

@@ -1,28 +1,45 @@
-import { Calendar, Flame, CheckCircle, Clock } from 'lucide-react';
+import { Calendar, Clock, Flame, CalendarDays, CheckCircle, Play, RotateCcw } from 'lucide-react';
 import { Button } from './ui/button';
 import { useTheme } from '../contexts/ThemeContext';
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 interface DailyChallengeProps {
   onNavigate: () => void;
+  onNavigateToCalendar?: () => void;
 }
 
-export function DailyChallenge({ onNavigate }: DailyChallengeProps) {
+export function DailyChallenge({ onNavigate, onNavigateToCalendar }: DailyChallengeProps) {
   const { theme } = useTheme();
-  const [timeRemaining, setTimeRemaining] = useState('');
-
-  // Mock data - In production, this would come from your backend
-  const isCompleted = false; // Today's challenge completion status
-  const todayScore = 1250; // Score if completed
-  const currentStreak = 5; // Days in a row
+  const [timeRemaining, setTimeRemaining] = useState<string>('');
+  const [currentStreak, setCurrentStreak] = useState<number>(0);
+  const [status, setStatus] = useState<'play' | 'resume' | 'completed'>('play');
 
   useEffect(() => {
+    // Load daily challenge state
+    const dailyProgress = localStorage.getItem('dailyChallengeInProgress');
+    const dailyCompleted = localStorage.getItem('dailyChallengeCompleted');
+    const today = new Date().toDateString();
+    const completedDate = localStorage.getItem('dailyChallengeCompletedDate');
+    
+    if (dailyCompleted === 'true' && completedDate === today) {
+      setStatus('completed');
+    } else if (dailyProgress === 'true') {
+      setStatus('resume');
+    } else {
+      setStatus('play');
+    }
+
+    // Load streak
+    const streak = localStorage.getItem('dailyChallengeStreak');
+    if (streak) setCurrentStreak(parseInt(streak));
+
+    // Calculate time until midnight
     const updateTimer = () => {
       const now = new Date();
       const tomorrow = new Date(now);
       tomorrow.setHours(24, 0, 0, 0);
-      
       const diff = tomorrow.getTime() - now.getTime();
+      
       const hours = Math.floor(diff / (1000 * 60 * 60));
       const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
       
@@ -31,66 +48,69 @@ export function DailyChallenge({ onNavigate }: DailyChallengeProps) {
 
     updateTimer();
     const interval = setInterval(updateTimer, 60000); // Update every minute
+
     return () => clearInterval(interval);
   }, []);
 
   return (
     <div 
-      className={`${theme.card.background} ${theme.card.border} border rounded-xl p-4 md:p-5 shadow-xl backdrop-blur-xl ${theme.card.hover} cursor-pointer transition-all duration-300 group`}
-      onClick={onNavigate}
+      className={`${theme.card.background} ${theme.card.border} border rounded-xl p-3 md:p-4 shadow-xl backdrop-blur-xl transition-all duration-300`}
     >
-      <div className="flex items-start justify-between mb-3">
-        <div className="flex items-center gap-2 md:gap-3">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
           <div className="relative">
-            <Calendar className={`w-8 h-8 md:w-9 md:h-9 ${theme.accent}`} />
-            <div className="absolute -top-1 -right-1 bg-gradient-to-r from-purple-500 to-pink-500 text-white text-xs px-1.5 py-0.5 rounded-full shadow-lg">
-              DAILY
-            </div>
+            <Calendar className={`w-7 h-7 md:w-8 md:h-8 ${theme.accent}`} />
+            {currentStreak > 0 && (
+              <div className="absolute -top-1 -right-1 bg-gradient-to-r from-orange-400 to-red-500 text-white text-xs px-1.5 py-0.5 rounded-full shadow-lg flex items-center gap-0.5">
+                <Flame className="w-2.5 h-2.5" />
+                {currentStreak}
+              </div>
+            )}
           </div>
           <div>
-            <h3 className={`${theme.text.primary} text-base md:text-lg`}>Daily Challenge</h3>
-            <div className={`flex items-center gap-1.5 ${theme.text.secondary} text-xs md:text-sm`}>
-              <Clock className="w-3 h-3 md:w-4 md:h-4" />
+            <h3 className={`${theme.text.primary} text-sm md:text-base`}>Daily Challenge</h3>
+            <div className={`flex items-center gap-1.5 ${theme.text.secondary} text-xs`}>
+              <Clock className="w-3 h-3" />
               <span>Resets in {timeRemaining}</span>
             </div>
           </div>
         </div>
 
-        {currentStreak > 0 && (
-          <div className={`flex items-center gap-1 px-2 py-1 ${theme.card.background} ${theme.card.border} border rounded-full`}>
-            <Flame className="w-3 h-3 md:w-4 md:h-4 text-orange-500" />
-            <span className={`${theme.text.primary} text-sm`}>{currentStreak}</span>
-          </div>
-        )}
-      </div>
-
-      <div className="flex items-center justify-between">
-        <div className="flex-1">
-          {isCompleted ? (
-            <div className="flex items-center gap-2">
-              <CheckCircle className="w-4 h-4 md:w-5 md:h-5 text-green-500" />
-              <div>
-                <p className={`${theme.text.primary} text-sm md:text-base`}>Completed!</p>
-                <p className={`${theme.text.secondary} text-xs md:text-sm`}>Score: {todayScore}</p>
-              </div>
-            </div>
-          ) : (
-            <div>
-              <p className={`${theme.text.primary} text-sm md:text-base`}>Ready to play</p>
-              <p className={`${theme.text.secondary} text-xs md:text-sm`}>Complete today's challenge</p>
-            </div>
+        <div className="flex items-center gap-2">
+          {onNavigateToCalendar && (
+            <Button
+              onClick={(e) => {
+                e.stopPropagation();
+                onNavigateToCalendar();
+              }}
+              className={`${theme.button.secondary.background} ${theme.button.secondary.hover} ${theme.button.secondary.text} ${theme.card.border} border backdrop-blur-xl transition-all duration-300 p-2`}
+            >
+              <CalendarDays className="w-3 h-3 md:w-4 md:h-4" />
+            </Button>
           )}
+          
+          <Button 
+            className={`${status === 'completed' ? theme.button.secondary.background + ' ' + theme.button.secondary.hover + ' ' + theme.button.secondary.text + ' ' + theme.card.border + ' border' : theme.button.primary.background + ' ' + theme.button.primary.hover + ' ' + theme.button.primary.text} transition-all duration-300 text-xs md:text-sm px-2 py-1.5 md:px-3 md:py-2 ${status === 'completed' ? 'cursor-default' : ''} flex flex-col items-center gap-0.5`}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (status !== 'completed') {
+                onNavigate();
+              }
+            }}
+            disabled={status === 'completed'}
+          >
+            <div className="w-4 h-4 flex items-center justify-center">
+              {status === 'completed' && <CheckCircle className="w-3 h-3 md:w-4 md:h-4" />}
+              {status === 'play' && <Play className="w-3 h-3 md:w-4 md:h-4" />}
+              {status === 'resume' && <Play className="w-3 h-3 md:w-4 md:h-4" fill="currentColor" />}
+            </div>
+            {status === 'resume' && (
+              <div className={`w-8 h-0.5 ${theme.button.primary.text} opacity-20 rounded-full overflow-hidden`}>
+                <div className={`h-full w-2/3 ${theme.button.primary.text} opacity-80`}></div>
+              </div>
+            )}
+          </Button>
         </div>
-
-        <Button 
-          className={`${isCompleted ? theme.button.secondary.background + ' ' + theme.button.secondary.hover + ' ' + theme.button.secondary.text : theme.button.primary.background + ' ' + theme.button.primary.hover + ' ' + theme.button.primary.text} transition-all duration-300 group-hover:scale-105 text-sm md:text-base px-3 py-2 md:px-4`}
-          onClick={(e) => {
-            e.stopPropagation();
-            onNavigate();
-          }}
-        >
-          {isCompleted ? 'View Results' : 'Play Now'}
-        </Button>
       </div>
     </div>
   );

@@ -1,13 +1,17 @@
-import { Play, Settings, Trophy, BarChart3, User, LogIn } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { User, LogIn, BarChart3, Trophy, Settings } from 'lucide-react';
 import { Button } from './ui/button';
-import { useTheme } from '../contexts/ThemeContext';
+import { SudokuLogo } from './SudokuLogo';
 import { DailyChallenge } from './DailyChallenge';
 import { FreePlayCard } from './FreePlayCard';
 import { JourneyCard } from './JourneyCard';
-import { SudokuLogo } from './SudokuLogo';
+import { MainMenuBottomNav } from './MainMenuBottomNav';
+import { useTheme } from '../contexts/ThemeContext';
+import type { Difficulty } from '../types/difficulty';
+import { DIFFICULTIES } from '../types/difficulty';
 
 interface MainMenuProps {
-  onNavigate: (screen: 'menu' | 'settings' | 'stats' | 'leaderboard' | 'profile' | 'game' | 'dailyChallenges' | 'difficulty', options?: { difficulty?: 'easy' | 'medium' | 'hard' | 'expert'; gameType?: 'classic' | 'daily' }) => void;
+  onNavigate: (screen: 'menu' | 'settings' | 'stats' | 'leaderboard' | 'profile' | 'game' | 'dailyChallenges' | 'variantSelect', options?: { difficulty?: Difficulty; gameType?: 'classic' | 'daily' }) => void;
   onShowAuth: () => void;
   isAuthenticated: boolean;
   username: string;
@@ -15,26 +19,25 @@ interface MainMenuProps {
 
 export function MainMenu({ onNavigate, onShowAuth, isAuthenticated, username }: MainMenuProps) {
   const { theme } = useTheme();
-  
+
   const handleDailyPlay = () => {
     // Generate random difficulty for daily challenge
-    const difficulties: ('easy' | 'medium' | 'hard' | 'expert')[] = ['easy', 'medium', 'hard', 'expert'];
-    const randomDifficulty = difficulties[Math.floor(Math.random() * difficulties.length)];
+    const randomDifficulty = DIFFICULTIES[Math.floor(Math.random() * DIFFICULTIES.length)];
     onNavigate('game', { difficulty: randomDifficulty, gameType: 'daily' });
   };
   
   const handleFreePlayAgain = (difficulty: string, mode: string) => {
-    // Save to localStorage and navigate to game with last settings
+    // Save to localStorage and navigate to variant select
     localStorage.setItem('lastFreePlayDifficulty', difficulty);
     localStorage.setItem('lastFreePlayMode', mode);
-    onNavigate('difficulty');
+    onNavigate('variantSelect');
   };
 
   const handleFreePlayResume = () => {
     // Resume game in progress with saved difficulty
-    const savedDifficulty = localStorage.getItem('lastFreePlayDifficulty') || 'medium';
+    const savedDifficulty = localStorage.getItem('lastFreePlayDifficulty') || 'Skilled';
     onNavigate('game', { 
-      difficulty: savedDifficulty as 'easy' | 'medium' | 'hard' | 'expert', 
+      difficulty: savedDifficulty.toLowerCase() as Difficulty, 
       gameType: 'classic' 
     });
   };
@@ -77,7 +80,7 @@ export function MainMenu({ onNavigate, onShowAuth, isAuthenticated, username }: 
         
         {/* Free Play */}
         <FreePlayCard 
-          onPlay={() => onNavigate('difficulty')}
+          onPlay={() => onNavigate('variantSelect')}
           onResume={handleFreePlayResume}
           onPlayAgain={handleFreePlayAgain}
         />
@@ -121,21 +124,21 @@ export function MainMenu({ onNavigate, onShowAuth, isAuthenticated, username }: 
             onClick={() => onNavigate('stats')}
             className={`w-12 h-12 md:w-14 md:h-14 ${theme.button.secondary.background} ${theme.button.secondary.hover} backdrop-blur-xl ${theme.card.border} border ${theme.button.secondary.text} shadow-xl hover:shadow-2xl transition-all duration-300 group p-0`}
           >
-            <BarChart3 className="w-5 h-5 md:w-6 md:h-6 text-cyan-400 group-hover:scale-110 transition-transform" />
+            <BarChart3 className={`w-5 h-5 md:w-6 md:h-6 ${theme.accent} group-hover:scale-110 transition-transform`} />
           </Button>
 
           <Button
             onClick={() => onNavigate('leaderboard')}
             className={`w-12 h-12 md:w-14 md:h-14 ${theme.button.secondary.background} ${theme.button.secondary.hover} backdrop-blur-xl ${theme.card.border} border ${theme.button.secondary.text} shadow-xl hover:shadow-2xl transition-all duration-300 group p-0`}
           >
-            <Trophy className="w-5 h-5 md:w-6 md:h-6 text-amber-400 group-hover:scale-110 transition-transform" />
+            <Trophy className={`w-5 h-5 md:w-6 md:h-6 ${theme.accent} group-hover:scale-110 transition-transform`} />
           </Button>
 
           <Button
             onClick={() => onNavigate('settings')}
             className={`w-12 h-12 md:w-14 md:h-14 ${theme.button.secondary.background} ${theme.button.secondary.hover} backdrop-blur-xl ${theme.card.border} border ${theme.button.secondary.text} shadow-xl hover:shadow-2xl transition-all duration-300 group p-0`}
           >
-            <Settings className={`w-5 h-5 md:w-6 md:h-6 ${theme.button.secondary.text} group-hover:scale-110 transition-transform`} />
+            <Settings className={`w-5 h-5 md:w-6 md:h-6 ${theme.accent} group-hover:scale-110 transition-transform`} />
           </Button>
         </div>
       </div>

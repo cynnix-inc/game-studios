@@ -67,3 +67,10 @@ When a change is primarily UI/UX (layout, styling, interaction patterns), add a 
 - **Responsive coverage**: run the key UI flows at **2–3 representative viewports** (phone/tablet/desktop) when breakpoints/layout behavior changes.
 - **Accessibility/keyboard**: keep/extend keyboard navigation coverage for the grid and core controls.
 
+### Persistence & resume (required when changing saves/resume/sync triggers)
+
+If you touch autosave, resume, or lifecycle sync behavior, add explicit regression coverage:
+
+- **Resume availability**: start a run, reload, and verify the Home screen shows a Resume affordance.
+- **Lifecycle flush**: verify saves are flushed on background/close (web `pagehide/beforeunload`, native app background). Cloud sync on flush is best-effort and should be validated via mocks/unit tests where practical.
+

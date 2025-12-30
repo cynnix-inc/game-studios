@@ -12,6 +12,10 @@ export type MakeButtonProps = Omit<PressableProps, 'children'> & {
   title: string;
   variant?: MakeButtonVariant;
   leftIcon?: React.ReactNode;
+  /**
+   * Spacing between leftIcon and title. Make uses a slightly tighter gap for some compact controls.
+   */
+  contentGap?: number;
   contentStyle?: { [key: string]: unknown };
   titleStyle?: { [key: string]: unknown };
   radius?: number;
@@ -23,6 +27,7 @@ export function MakeButton({
   variant = 'primary',
   disabled,
   leftIcon,
+  contentGap = 10,
   contentStyle,
   titleStyle,
   radius = 16,
@@ -89,7 +94,7 @@ export function MakeButton({
             ...(contentStyle ?? {}),
           }}
         >
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: contentGap }}>
             {leftIcon}
             {title ? (
               <MakeText weight="semibold" style={titleStyle}>
@@ -112,7 +117,7 @@ export function MakeButton({
             ...(contentStyle ?? {}),
           }}
         >
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: contentGap }}>
             {leftIcon}
             {title ? (
               <MakeText weight="semibold" style={titleStyle}>
@@ -133,7 +138,7 @@ export function MakeButton({
             ...(contentStyle ?? {}),
           }}
         >
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: contentGap }}>
             {leftIcon}
             {title ? (
               <MakeText weight="semibold" style={titleStyle}>

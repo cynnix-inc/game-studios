@@ -78,7 +78,7 @@ export function JourneyCard({ isMd }: { isMd: boolean }) {
                     ...(Platform.OS === 'web' ? ({ boxShadow: '0 10px 18px rgba(0,0,0,0.25)' } as unknown as object) : null),
                   }}
                 >
-                  <MakeText weight="bold" style={{ fontSize: 10, color: '#ffffff' }}>
+                  <MakeText weight="bold" style={{ fontSize: 10, color: makeTheme.button.textOnPrimary }}>
                     COMING SOON
                   </MakeText>
                 </View>

@@ -3,11 +3,14 @@ import { Animated, AppState, Easing, Platform, Pressable, ScrollView, useWindowD
 import { BlurView } from 'expo-blur';
 import {
   AlertTriangle,
+  ArrowRight,
+  CheckCircle2,
   ChevronDown,
   ChevronUp,
   Clock,
   Edit3,
   Gamepad2,
+  Info,
   Lightbulb,
   Lock,
   LogOut,
@@ -20,7 +23,6 @@ import {
   User,
   Vibrate,
   Volume2,
-  VolumeX,
 } from 'lucide-react-native';
 
 import { getRunTimerElapsedMs } from '@cynnix-studios/sudoku-core';
@@ -31,25 +33,27 @@ import { MakeScreen } from '../../components/make/MakeScreen';
 import { MakeText } from '../../components/make/MakeText';
 import { useMakeTheme } from '../../components/make/MakeThemeProvider';
 import { Slider } from '../../components/Slider';
-import { SudokuSizingPreview } from '../../components/SudokuSizingPreview';
 import { SudokuGrid } from '../../components/SudokuGrid';
 import { usePlayerStore } from '../../state/usePlayerStore';
 import { useSettingsStore } from '../../state/useSettingsStore';
 import { formatElapsedSecondsMMSS } from './game/formatTime';
 import { MakeCard } from '../../components/make/MakeCard';
+import { GridCustomizerModal } from '../components/GridCustomizerModal';
 import {
   UI_SIZING_LIMITS,
   getAudioSettings,
+  getGridHighlightSettings,
   getGameplaySettings,
   getSettingsToggles,
   getUiSizingSettings,
   setAudioSettings,
   setGameplaySettings,
   setSettingsToggles,
-  setUiSizingSettings,
   type HintMode,
 } from '../../services/settingsModel';
 import { updateLocalSettings } from '../../services/settings';
+import { readLockModePreference, writeLockModePreference } from '../../services/lockModePreference';
+import { isDevToolsAllowed } from '../../services/runtimeEnv';
 import { MakeDigitPad } from '../components/MakeDigitPad';
 
 type Digit = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
@@ -120,17 +124,41 @@ export function UltimateGameScreen({
   const undo = usePlayerStore((s) => s.undo);
   const redo = usePlayerStore((s) => s.redo);
   const hintRevealCellValue = usePlayerStore((s) => s.hintRevealCellValue);
+  const hintShowCandidates = usePlayerStore((s) => s.hintShowCandidates);
+  const hintExplainTechnique = usePlayerStore((s) => s.hintExplainTechnique);
+  const newPuzzle = usePlayerStore((s) => s.newPuzzle);
   const pauseRun = usePlayerStore((s) => s.pauseRun);
   const resumeRun = usePlayerStore((s) => s.resumeRun);
+  const devForceComplete = usePlayerStore((s) => s.devForceComplete);
+  const devForceFail = usePlayerStore((s) => s.devForceFail);
 
   const [menuOpen, setMenuOpen] = React.useState(false);
   // Mirror latest Make: when the app auto-pauses due to background/visibility change,
   // show a dedicated "Welcome Back" overlay that hides the puzzle until the user explicitly resumes.
   const [autoResumeNeeded, setAutoResumeNeeded] = React.useState(false);
-  const { theme: makeTheme, reducedMotion } = useMakeTheme();
+  const { theme: makeTheme, reducedMotion, resolvedThemeType } = useMakeTheme();
   const isComplete = runStatus === 'completed';
+  const isFailed = runStatus === 'failed';
   const [lockMode, setLockMode] = React.useState(false);
   const [lockedDigit, setLockedDigit] = React.useState<Digit | null>(null);
+
+  // Make parity: lock mode preference is remembered locally (and can be reset via Developer Menu).
+  React.useEffect(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const g = typeof globalThis !== 'undefined' ? (globalThis as any) : null;
+    if (g?.__VISUAL_TEST__ === true) return;
+    void (async () => {
+      const pref = await readLockModePreference();
+      if (typeof pref === 'boolean') setLockMode(pref);
+    })();
+  }, []);
+
+  React.useEffect(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const g = typeof globalThis !== 'undefined' ? (globalThis as any) : null;
+    if (g?.__VISUAL_TEST__ === true) return;
+    void writeLockModePreference(lockMode);
+  }, [lockMode]);
 
   // Track latest runStatus to avoid stale closures in background listeners.
   const runStatusRef = React.useRef(runStatus);
@@ -157,6 +185,28 @@ export function UltimateGameScreen({
     });
     return () => sub.remove();
   }, [pauseRun]);
+
+  // Make parity: Developer Menu can trigger pause/win/lose via a `devTrigger` CustomEvent on web.
+  React.useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    if (!isDevToolsAllowed()) return;
+    if (typeof window === 'undefined') return;
+    if (typeof sessionStorage === 'undefined') return;
+
+    const handler = (e: Event) => {
+      const ce = e as CustomEvent;
+      const detail = (typeof ce.detail === 'string' ? ce.detail : null) as 'pause' | 'win' | 'lose' | null;
+      const fallback = sessionStorage.getItem('devTrigger');
+      const trigger = (detail ?? fallback) as 'pause' | 'win' | 'lose' | null;
+      if (trigger === 'pause') pauseRun();
+      if (trigger === 'win') devForceComplete();
+      if (trigger === 'lose') devForceFail();
+      sessionStorage.removeItem('devTrigger');
+    };
+
+    window.addEventListener('devTrigger' as never, handler as never);
+    return () => window.removeEventListener('devTrigger' as never, handler as never);
+  }, [pauseRun, devForceComplete, devForceFail]);
 
   React.useEffect(() => {
     if (Platform.OS !== 'web') return;
@@ -201,6 +251,9 @@ export function UltimateGameScreen({
   }, [resumeRun]);
 
   const [hintPickerOpen, setHintPickerOpen] = React.useState(false);
+  const [hintCandidates, setHintCandidates] = React.useState<{ cell: number; candidates: ReadonlySet<number>; untilMs: number } | null>(null);
+  const [hintLogic, setHintLogic] = React.useState<{ title: string; body: string } | null>(null);
+  const [escalateStep, setEscalateStep] = React.useState<0 | 1 | 2>(0);
 
   // Web: allow Esc to close the in-game menu (even when the grid isn't focused).
   React.useEffect(() => {
@@ -245,14 +298,98 @@ export function UltimateGameScreen({
 
   const [audioExpanded, setAudioExpanded] = React.useState(false);
   const [gameplayExpanded, setGameplayExpanded] = React.useState(false);
-  const [gridExpanded, setGridExpanded] = React.useState(false);
+  const [gridCustomizerOpen, setGridCustomizerOpen] = React.useState(false);
 
   const settings = useSettingsStore((s) => s.settings);
   const deviceId = usePlayerStore((s) => s.deviceId) ?? 'unknown';
   const toggles = settings ? getSettingsToggles(settings) : null;
   const audio = settings ? getAudioSettings(settings) : null;
   const gameplay = settings ? getGameplaySettings(settings) : null;
+  const zenModeEnabled = !!toggles?.zenMode;
+  // Clear ephemeral hint affordances when selection changes or after a short timeout.
+  React.useEffect(() => {
+    if (!hintCandidates) return;
+    if (selectedIndex == null || hintCandidates.cell !== selectedIndex) {
+      setHintCandidates(null);
+      return;
+    }
+    const t = setInterval(() => {
+      if (Date.now() >= hintCandidates.untilMs) setHintCandidates(null);
+    }, 250);
+    return () => clearInterval(t);
+  }, [hintCandidates, selectedIndex]);
+
+  React.useEffect(() => {
+    // If the user changes hint mode, reset the escalate chain.
+    setEscalateStep(0);
+  }, [gameplay?.hintMode]);
+
+  const onHintPress = React.useCallback(() => {
+    if (!gameplay) {
+      // Default to direct if settings haven't loaded yet.
+      hintRevealCellValue();
+      setHintCandidates(null);
+      setHintLogic(null);
+      setEscalateStep(0);
+      return;
+    }
+
+    const mode = gameplay.hintMode;
+
+    function doDirect() {
+      hintRevealCellValue();
+      setHintCandidates(null);
+      setHintLogic(null);
+      setEscalateStep(0);
+    }
+
+    function doLogic() {
+      const res = hintExplainTechnique();
+      if (!res) {
+        // If we can't find a useful "logic" cell, fall back to Assist (candidates).
+        doAssist();
+        return;
+      }
+      setHintLogic({ title: 'Logic Hint', body: res.explanation });
+      // Logic step doesn't show candidates by default; keep assist cleared.
+      setHintCandidates(null);
+    }
+
+    function doAssist() {
+      const c = hintShowCandidates();
+      if (!c || selectedIndex == null) return;
+      setHintCandidates({ cell: selectedIndex, candidates: c, untilMs: Date.now() + 6000 });
+      setHintLogic(null);
+    }
+
+    if (mode === 'direct') {
+      doDirect();
+      return;
+    }
+    if (mode === 'logic') {
+      doLogic();
+      return;
+    }
+    if (mode === 'assist') {
+      doAssist();
+      return;
+    }
+
+    // Escalate: logic → candidates → reveal
+    if (escalateStep === 0) {
+      setEscalateStep(1);
+      doLogic();
+      return;
+    }
+    if (escalateStep === 1) {
+      setEscalateStep(2);
+      doAssist();
+      return;
+    }
+    doDirect();
+  }, [escalateStep, gameplay, hintExplainTechnique, hintRevealCellValue, hintShowCandidates, selectedIndex]);
   const sizing = settings ? getUiSizingSettings(settings) : null;
+  const gridHighlights = settings ? getGridHighlightSettings(settings) : null;
 
   // --- Grid + keypad sizing ---
   // Goal:
@@ -276,18 +413,128 @@ export function UltimateGameScreen({
   // Header content should not exceed the effective game area width (grid stack after scaling).
   const headerContentMaxWidth = Math.max(0, Math.floor(stackBaseWidth * effectiveScale));
 
+  const menuHoverBg = resolvedThemeType === 'light' ? 'rgba(15,23,42,0.05)' : 'rgba(255,255,255,0.08)';
+  // Behind-card fill to reduce board bleed-through between stacked menu cards (Make's menu sits on a strong blurred scrim).
+  const menuUnderlayBg = resolvedThemeType === 'light' ? 'rgba(15,23,42,0.10)' : 'rgba(0,0,0,0.35)';
+  const menuHoverBgSoft = resolvedThemeType === 'light' ? 'rgba(15,23,42,0.035)' : 'rgba(255,255,255,0.05)';
+
+  function MenuInfoHelp({ text, label }: { text: string; label: string }) {
+    const [open, setOpen] = React.useState(false);
+    const [pinned, setPinned] = React.useState(false);
+
+    if (Platform.OS === 'web') {
+      const isShown = open || pinned;
+      return (
+        <View style={{ position: 'relative' }}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={label}
+            onHoverIn={() => setOpen(true)}
+            onHoverOut={() => {
+              if (!pinned) setOpen(false);
+            }}
+            onFocus={() => setOpen(true)}
+            onBlur={() => {
+              if (!pinned) setOpen(false);
+            }}
+            onPress={() => setPinned((v) => !v)}
+            style={({ pressed }) => ({ opacity: pressed ? 0.85 : 1 })}
+          >
+            <Info width={14} height={14} color={makeTheme.text.muted} />
+          </Pressable>
+
+          {isShown ? (
+            <View
+              // hover tooltips should not steal pointer events; keeps hover stable and matches Make's lightweight feel
+              pointerEvents="none"
+              style={{
+                position: 'absolute',
+                top: 18,
+                right: 0,
+                width: 240,
+                maxWidth: 240,
+                paddingHorizontal: 10,
+                paddingVertical: 8,
+                borderRadius: 12,
+                borderWidth: 1,
+                borderColor: makeTheme.card.border,
+                backgroundColor: makeTheme.card.background,
+                ...(Platform.OS === 'web'
+                  ? ({
+                      backdropFilter: 'blur(14px)',
+                      boxShadow: '0 10px 28px rgba(0,0,0,0.25)',
+                      transition: 'opacity 120ms ease',
+                    } as unknown as object)
+                  : null),
+              }}
+            >
+              <MakeText tone="secondary" style={{ fontSize: 12, lineHeight: 16 }}>
+                {text}
+              </MakeText>
+            </View>
+          ) : null}
+        </View>
+      );
+    }
+
+    return (
+      <>
+        <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={() => setOpen(true)} style={({ pressed }) => ({ opacity: pressed ? 0.85 : 1 })}>
+          <Info width={14} height={14} color={makeTheme.text.muted} />
+        </Pressable>
+
+        {open ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Close help"
+            onPress={() => setOpen(false)}
+            style={{
+              position: 'absolute',
+              left: 0,
+              right: 0,
+              top: 0,
+              bottom: 0,
+              backgroundColor: 'rgba(0,0,0,0.55)',
+              zIndex: 80,
+              justifyContent: 'center',
+              padding: 16,
+            }}
+          >
+            <Pressable accessibilityRole="none" onPress={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 420, alignSelf: 'center' }}>
+              <MakeCard style={{ borderRadius: 16 }}>
+                <View style={{ padding: 16, gap: 10 }}>
+                  <MakeText weight="bold" style={{ fontSize: 16 }}>
+                    Help
+                  </MakeText>
+                  <MakeText tone="secondary" style={{ fontSize: 13, lineHeight: 18 }}>
+                    {text}
+                  </MakeText>
+                  <MakeButton title="Got it" accessibilityLabel="Got it" onPress={() => setOpen(false)} elevation="flat" contentStyle={{ height: 40 }} />
+                </View>
+              </MakeCard>
+            </Pressable>
+          </Pressable>
+        ) : null}
+      </>
+    );
+  }
+
   function SwitchRow({
     label,
+    labelRight,
     icon,
     value,
     onToggle,
     disabled,
+    right,
   }: {
     label: string;
+    labelRight?: React.ReactNode;
     icon?: React.ComponentType<{ width?: number; height?: number; color?: string }>;
     value: boolean;
     onToggle: () => void;
     disabled?: boolean;
+    right?: React.ReactNode;
   }) {
     const Icon = icon;
     return (
@@ -307,11 +554,7 @@ export function UltimateGameScreen({
                 paddingHorizontal: 6,
                 marginHorizontal: -6,
                 borderRadius: 10,
-                backgroundColor: state.pressed
-                  ? 'rgba(255,255,255,0.08)'
-                  : Platform.OS === 'web' && hovered
-                    ? 'rgba(255,255,255,0.05)'
-                    : 'transparent',
+                backgroundColor: state.pressed ? menuHoverBg : Platform.OS === 'web' && hovered ? menuHoverBgSoft : 'transparent',
                 ...(Platform.OS === 'web' ? ({ transition: 'background-color 150ms ease, opacity 150ms ease' } as unknown as object) : null),
                 opacity: disabled ? 0.55 : state.pressed ? 0.92 : 1,
               };
@@ -323,26 +566,30 @@ export function UltimateGameScreen({
             <MakeText weight="semibold" tone="secondary">
               {label}
             </MakeText>
+            {labelRight}
           </View>
-          <View
-            style={{
-              width: 40,
-              height: 22,
-              borderRadius: 999,
-              backgroundColor: value ? makeTheme.accent : makeTheme.card.border,
-              justifyContent: 'center',
-              paddingHorizontal: 2,
-            }}
-          >
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            {right}
             <View
               style={{
-                width: 18,
-                height: 18,
-                borderRadius: 9,
-                backgroundColor: '#ffffff',
-                alignSelf: value ? 'flex-end' : 'flex-start',
+                width: 40,
+                height: 22,
+                borderRadius: 999,
+                backgroundColor: value ? makeTheme.accent : makeTheme.card.border,
+                justifyContent: 'center',
+                paddingHorizontal: 2,
               }}
-            />
+            >
+              <View
+                style={{
+                  width: 18,
+                  height: 18,
+                  borderRadius: 9,
+                  backgroundColor: '#ffffff',
+                  alignSelf: value ? 'flex-end' : 'flex-start',
+                }}
+              />
+            </View>
           </View>
         </View>
       </Pressable>
@@ -351,6 +598,100 @@ export function UltimateGameScreen({
 
   return (
     <MakeScreen scroll={false} style={{ padding: 0 }}>
+      {/* Win / Lose modals (Make parity): show a blocking overlay when the run ends. */}
+      {isComplete || isFailed ? (
+        <Pressable
+          accessibilityRole="none"
+          style={{
+            position: 'absolute',
+            left: 0,
+            right: 0,
+            top: headerHeight,
+            bottom: 0,
+            zIndex: 90,
+            backgroundColor: 'rgba(0,0,0,0.78)',
+            justifyContent: 'center',
+            alignItems: 'center',
+            padding: 16,
+          }}
+        >
+          {Platform.OS !== 'web' ? <BlurView intensity={24} tint="dark" style={{ position: 'absolute', inset: 0 }} /> : null}
+          <View style={{ width: '100%', maxWidth: 520 }}>
+            <MakeCard style={{ borderRadius: 18, padding: isMd ? 20 : 16 }}>
+              <View style={{ alignItems: 'center', gap: 10 }}>
+                {isComplete ? (
+                  <CheckCircle2 width={isMd ? 48 : 40} height={isMd ? 48 : 40} color="#4ade80" />
+                ) : (
+                  <AlertTriangle width={isMd ? 48 : 40} height={isMd ? 48 : 40} color="#f87171" />
+                )}
+                <MakeText weight="bold" style={{ fontSize: isMd ? 24 : 20, textAlign: 'center' }}>
+                  {isComplete ? 'Puzzle Complete!' : 'Game Over'}
+                </MakeText>
+                {isFailed ? (
+                  <MakeText tone="secondary" style={{ fontSize: 13, textAlign: 'center' }}>
+                    You ran out of lives.
+                  </MakeText>
+                ) : null}
+                {zenModeEnabled ? null : (
+                  <MakeText tone="muted" style={{ fontSize: 12, textAlign: 'center' }}>
+                    Mistakes: {mistakes} • Hints: {hintsUsedCount} • Time: {timeLabel}
+                  </MakeText>
+                )}
+
+                <View style={{ width: '100%', gap: 10, marginTop: 8 }}>
+                  {gameType === 'classic' ? (
+                    <MakeButton
+                      title={isFailed ? 'Try Again' : 'New Puzzle'}
+                      accessibilityLabel={isFailed ? 'Try Again' : 'New Puzzle'}
+                      onPress={() => {
+                        setLockedDigit(null);
+                        setLockMode(false);
+                        setHintCandidates(null);
+                        setHintLogic(null);
+                        setEscalateStep(0);
+                        newPuzzle(difficulty);
+                      }}
+                      elevation="flat"
+                      radius={12}
+                      contentStyle={{ height: 44, paddingVertical: 0, paddingHorizontal: 18 }}
+                    />
+                  ) : (
+                    <MakeButton
+                      title="Restart"
+                      accessibilityLabel="Restart"
+                      variant="secondary"
+                      onPress={() => {
+                        setLockedDigit(null);
+                        setLockMode(false);
+                        setHintCandidates(null);
+                        setHintLogic(null);
+                        setEscalateStep(0);
+                        const key = usePlayerStore.getState().dailyDateKey;
+                        if (key) void usePlayerStore.getState().loadDaily(key);
+                        else void usePlayerStore.getState().loadTodayDaily();
+                      }}
+                      elevation="flat"
+                      radius={12}
+                      contentStyle={{ height: 44, paddingVertical: 0, paddingHorizontal: 18 }}
+                    />
+                  )}
+
+                  <MakeButton
+                    title="Exit to Menu"
+                    accessibilityLabel="Exit to Menu"
+                    variant="ghost"
+                    elevation="flat"
+                    radius={12}
+                    onPress={() => onExitToMenu()}
+                    contentStyle={{ height: 44, paddingVertical: 0, paddingHorizontal: 18 }}
+                  />
+                </View>
+              </View>
+            </MakeCard>
+          </View>
+        </Pressable>
+      ) : null}
+
       {/* Header (fixed) */}
       <View style={{ position: 'absolute', left: 0, right: 0, top: 0, zIndex: 40 }}>
         <View style={{ backgroundColor: makeTheme.card.background, borderBottomWidth: 1, borderBottomColor: makeTheme.card.border }}>
@@ -358,7 +699,7 @@ export function UltimateGameScreen({
           <View style={{ height: headerHeight, paddingHorizontal: isMd ? 24 : 12, justifyContent: 'center' }}>
             <View style={{ maxWidth: headerContentMaxWidth, alignSelf: 'center', width: '100%' }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: isMd ? 16 : 10 }}>
-                {/* Left: menu + difficulty */}
+                {/* Left: menu + difficulty (hidden in Zen Mode) */}
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: isMd ? 16 : 8 }}>
                   <Pressable
                     accessibilityRole="button"
@@ -392,7 +733,7 @@ export function UltimateGameScreen({
                     )}
                   </Pressable>
 
-                  {isSm ? (
+                  {zenModeEnabled ? null : isSm ? (
                     <View style={{ gap: 3 }}>
                       <MakeText tone="muted" style={{ fontSize: 12 }}>
                         {gameType === 'daily' ? 'Daily Challenge' : 'Classic'}
@@ -438,7 +779,8 @@ export function UltimateGameScreen({
                 </View>
 
                 {/* Center: mistakes/hints/time */}
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: isMd ? 24 : 12 }}>
+                {zenModeEnabled ? null : (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: isMd ? 24 : 12 }}>
                   {/* Mistakes */}
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                     <AlertTriangle width={isMd ? 20 : 16} height={isMd ? 20 : 16} color={mistakes > 3 ? '#f87171' : makeTheme.text.muted} />
@@ -484,6 +826,7 @@ export function UltimateGameScreen({
                     </View>
                   </View>
                 </View>
+                )}
 
                 {/* Right: profile */}
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
@@ -530,11 +873,22 @@ export function UltimateGameScreen({
             right: 0,
             top: headerHeight,
             bottom: 0,
-            backgroundColor: 'rgba(0,0,0,0.50)',
-            ...(Platform.OS === 'web' ? ({ backdropFilter: 'blur(12px)' } as unknown as object) : null),
             zIndex: 20,
           }}
-        />
+        >
+          {/* Make parity: strong dim + blur backdrop so the game doesn't bleed through menu gaps */}
+          <View style={{ position: 'absolute', inset: 0 }}>
+            {Platform.OS !== 'web' ? <BlurView intensity={32} tint="dark" style={{ position: 'absolute', inset: 0 }} /> : null}
+            <View
+              style={{
+                position: 'absolute',
+                inset: 0,
+                backgroundColor: 'rgba(0,0,0,0.78)',
+                ...(Platform.OS === 'web' ? ({ backdropFilter: 'blur(18px)' } as unknown as object) : null),
+              }}
+            />
+          </View>
+        </Pressable>
       ) : null}
 
       {/* Hint type picker (Make-inspired, superset-friendly) */}
@@ -606,6 +960,47 @@ export function UltimateGameScreen({
         </Pressable>
       ) : null}
 
+      {/* Logic hint overlay (Make: Logic) */}
+      {hintLogic ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Close logic hint"
+          onPress={() => setHintLogic(null)}
+          style={{
+            position: 'absolute',
+            left: 0,
+            right: 0,
+            top: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0,0,0,0.60)',
+            zIndex: 70,
+            justifyContent: 'center',
+            padding: 16,
+          }}
+        >
+          <Pressable accessibilityRole="none" onPress={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 420, alignSelf: 'center' }}>
+            <MakeCard style={{ borderRadius: 16 }}>
+              <View style={{ padding: 16, gap: 10 }}>
+                <MakeText weight="bold" style={{ fontSize: 18 }}>
+                  {hintLogic.title}
+                </MakeText>
+                <MakeText tone="secondary" style={{ fontSize: 13, lineHeight: 18 }}>
+                  {hintLogic.body}
+                </MakeText>
+                <MakeButton title="Got it" accessibilityLabel="Got it" onPress={() => setHintLogic(null)} elevation="flat" contentStyle={{ height: 40 }} />
+              </View>
+            </MakeCard>
+          </Pressable>
+        </Pressable>
+      ) : null}
+
+      <GridCustomizerModal
+        open={gridCustomizerOpen}
+        onClose={() => setGridCustomizerOpen(false)}
+        settings={settings ?? { schemaVersion: 1, kind: 'sudoku_settings', updatedAtMs: 0, updatedByDeviceId: deviceId, extra: {} }}
+        deviceId={deviceId}
+      />
+
       {/* Slide-down menu (simplified first pass) */}
       <Animated.View style={{ position: 'absolute', left: 0, right: 0, top: 0, zIndex: 30, transform: [{ translateY: menuTranslateY }] }}>
         {/* Important: keep this container transparent.
@@ -621,7 +1016,21 @@ export function UltimateGameScreen({
             style={{ maxHeight: maxMenuHeight }}
             contentContainerStyle={{ paddingHorizontal: isMd ? 24 : 16, paddingVertical: isMd ? 24 : 16 }}
           >
-            <View style={{ width: '100%', maxWidth: menuMaxWidth, alignSelf: 'center', gap: 12 }}>
+            <View style={{ width: '100%', maxWidth: menuMaxWidth, alignSelf: 'center' }}>
+              {/* Underlay fills the gaps between cards so the board doesn't show through the menu stack. */}
+              <View
+                pointerEvents="none"
+                style={{
+                  position: 'absolute',
+                  left: 0,
+                  right: 0,
+                  top: 0,
+                  bottom: 0,
+                  borderRadius: 18,
+                  backgroundColor: menuUnderlayBg,
+                }}
+              />
+              <View style={{ gap: 12 }}>
               {/* Action buttons */}
               <View style={{ flexDirection: 'row', gap: 8 }}>
                 <MakeButton
@@ -637,6 +1046,12 @@ export function UltimateGameScreen({
                   title={isMd ? 'Restart' : ''}
                   variant="secondary"
                   onPress={() => {
+                    // Make parity: restarting clears transient input modes / hint UI.
+                    setLockedDigit(null);
+                    setLockMode(false);
+                    setHintCandidates(null);
+                    setHintLogic(null);
+                    setEscalateStep(0);
                     if (gameType === 'daily') {
                       const key = usePlayerStore.getState().dailyDateKey;
                       if (key) void usePlayerStore.getState().loadDaily(key);
@@ -650,18 +1065,40 @@ export function UltimateGameScreen({
                   leftIcon={<RotateCcw width={18} height={18} color={makeTheme.text.primary} />}
                   contentStyle={{ height: 44 }}
                 />
-                <MakeButton
+                <Pressable
+                  accessibilityRole="button"
                   accessibilityLabel="Exit"
-                  title={isMd ? 'Exit' : ''}
-                  variant="secondary"
                   onPress={() => {
                     closeMenu();
                     onExitToMenu();
                   }}
-                  style={{ flex: 1 }}
-                  leftIcon={<LogOut width={18} height={18} color={makeTheme.text.primary} />}
-                  contentStyle={{ height: 44, backgroundColor: 'rgba(239,68,68,0.40)', borderColor: 'rgba(239,68,68,0.80)' }}
-                />
+                  style={(state) => ({
+                    flex: 1,
+                    height: 44,
+                    borderRadius: 16,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexDirection: 'row',
+                    gap: 10,
+                    backgroundColor: 'rgba(239,68,68,0.40)',
+                    borderWidth: 2,
+                    borderColor: 'rgba(239,68,68,0.85)',
+                    opacity: state.pressed ? 0.92 : 1,
+                    ...(Platform.OS === 'web'
+                      ? ({
+                          boxShadow: '0 14px 36px rgba(239,68,68,0.16)',
+                          transition: 'opacity 150ms ease, box-shadow 200ms ease',
+                        } as unknown as object)
+                      : null),
+                  })}
+                >
+                  <LogOut width={18} height={18} color="#fee2e2" />
+                  {isMd ? (
+                    <MakeText weight="semibold" style={{ color: '#fee2e2' }}>
+                      Exit
+                    </MakeText>
+                  ) : null}
+                </Pressable>
               </View>
 
               {/* Collapsible sections */}
@@ -677,9 +1114,7 @@ export function UltimateGameScreen({
                   alignItems: 'center',
                   justifyContent: 'space-between',
                           backgroundColor:
-                            Platform.OS === 'web' && 'hovered' in state && (state as unknown as { hovered?: boolean }).hovered
-                              ? 'rgba(255,255,255,0.08)'
-                              : 'transparent',
+                            Platform.OS === 'web' && 'hovered' in state && (state as unknown as { hovered?: boolean }).hovered ? menuHoverBg : 'transparent',
                 })}
               >
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
@@ -699,8 +1134,15 @@ export function UltimateGameScreen({
                     <View style={{ paddingTop: 12, gap: 10 }}>
                       <SwitchRow
                         label="Sound Effects"
-                        icon={toggles.soundEnabled ? Volume2 : VolumeX}
+                        icon={Volume2}
                         value={toggles.soundEnabled}
+                        right={
+                          toggles.soundEnabled ? (
+                            <MakeText tone="secondary" style={{ fontSize: 12 }}>
+                              {Math.round(audio.soundVolume)}%
+                            </MakeText>
+                          ) : null
+                        }
                         onToggle={() => {
                           const next = setSettingsToggles(settings, { soundEnabled: !toggles.soundEnabled }, { updatedAtMs: Date.now(), updatedByDeviceId: deviceId });
                           updateLocalSettings(next);
@@ -727,13 +1169,28 @@ export function UltimateGameScreen({
                               updateLocalSettings(next);
                             }}
                           />
+                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 }}>
+                            <MakeText tone="muted" style={{ fontSize: 11 }}>
+                              0%
+                            </MakeText>
+                            <MakeText tone="muted" style={{ fontSize: 11 }}>
+                              100%
+                            </MakeText>
+                          </View>
                         </View>
                       ) : null}
 
                       <SwitchRow
                         label="Music"
-                        icon={toggles.musicEnabled ? Music : VolumeX}
+                        icon={Music}
                         value={toggles.musicEnabled}
+                        right={
+                          toggles.musicEnabled ? (
+                            <MakeText tone="secondary" style={{ fontSize: 12 }}>
+                              {Math.round(audio.musicVolume)}%
+                            </MakeText>
+                          ) : null
+                        }
                         onToggle={() => {
                           const next = setSettingsToggles(settings, { musicEnabled: !toggles.musicEnabled }, { updatedAtMs: Date.now(), updatedByDeviceId: deviceId });
                           updateLocalSettings(next);
@@ -760,8 +1217,18 @@ export function UltimateGameScreen({
                               updateLocalSettings(next);
                             }}
                           />
+                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 }}>
+                            <MakeText tone="muted" style={{ fontSize: 11 }}>
+                              0%
+                            </MakeText>
+                            <MakeText tone="muted" style={{ fontSize: 11 }}>
+                              100%
+                            </MakeText>
+                          </View>
                         </View>
                       ) : null}
+
+                      <Divider color={makeTheme.card.border} />
 
                       <SwitchRow
                         label="Haptics"
@@ -790,9 +1257,7 @@ export function UltimateGameScreen({
                   alignItems: 'center',
                   justifyContent: 'space-between',
                           backgroundColor:
-                            Platform.OS === 'web' && 'hovered' in state && (state as unknown as { hovered?: boolean }).hovered
-                              ? 'rgba(255,255,255,0.08)'
-                              : 'transparent',
+                            Platform.OS === 'web' && 'hovered' in state && (state as unknown as { hovered?: boolean }).hovered ? menuHoverBg : 'transparent',
                 })}
               >
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
@@ -811,16 +1276,14 @@ export function UltimateGameScreen({
                   ) : (
                     <View style={{ paddingTop: 12, gap: 10 }}>
                       <SwitchRow
-                        label="Auto Candidates"
-                        value={toggles.autoCandidates}
-                        onToggle={() => {
-                          const next = setSettingsToggles(settings, { autoCandidates: !toggles.autoCandidates }, { updatedAtMs: Date.now(), updatedByDeviceId: deviceId });
-                          updateLocalSettings(next);
-                        }}
-                      />
-
-                      <SwitchRow
                         label="Auto-advance"
+                        icon={ArrowRight}
+                        labelRight={
+                          <MenuInfoHelp
+                            label="Auto-advance help"
+                            text="After you type a number, selection moves to the next cell. Hold Shift to move backward."
+                          />
+                        }
                         value={toggles.autoAdvance}
                         onToggle={() => {
                           const next = setSettingsToggles(settings, { autoAdvance: !toggles.autoAdvance }, { updatedAtMs: Date.now(), updatedByDeviceId: deviceId });
@@ -828,20 +1291,41 @@ export function UltimateGameScreen({
                         }}
                       />
 
-                      <Pressable
-                        accessibilityRole="button"
-                        accessibilityLabel="Change hint type"
-                        onPress={() => {
-                          // Superset-friendly: show an explicit picker (instead of cycling) for better discoverability.
-                          setHintPickerOpen(true);
-                        }}
-                        style={({ pressed }) => ({ paddingVertical: 10, opacity: pressed ? 0.92 : 1 })}
-                      >
-                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <MakeText weight="semibold">Hint Type</MakeText>
-                          <MakeText tone="secondary">{hintModeLabel(gameplay.hintMode)}</MakeText>
+                      <View style={{ gap: 8 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                            <Lightbulb width={14} height={14} color={makeTheme.accent} />
+                            <MakeText weight="semibold" tone="secondary">
+                              Hint Type
+                            </MakeText>
+                            <MenuInfoHelp
+                              label="Hint Type help"
+                              text="Choose how Hint helps: Direct places a correct digit. Logic highlights a solvable cell. Assist shows candidates and safe numbers. Escalate steps through help levels."
+                            />
+                          </View>
                         </View>
-                      </Pressable>
+
+                        <Pressable
+                          accessibilityRole="button"
+                          accessibilityLabel="Hint Type"
+                          onPress={() => setHintPickerOpen(true)}
+                          style={({ pressed }) => ({
+                            height: 40,
+                            borderRadius: 10,
+                            borderWidth: 1,
+                            borderColor: makeTheme.card.border,
+                            backgroundColor: makeTheme.card.background,
+                            paddingHorizontal: 12,
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            opacity: pressed ? 0.92 : 1,
+                          })}
+                        >
+                          <MakeText tone="secondary">{hintModeLabel(gameplay.hintMode)}</MakeText>
+                          <ChevronDown width={16} height={16} color={makeTheme.text.muted} />
+                        </Pressable>
+                      </View>
                     </View>
                   )}
                 </View>
@@ -849,98 +1333,25 @@ export function UltimateGameScreen({
             </MakeCard>
 
               <MakeCard style={{ borderRadius: 12 }}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Grid Sizing"
-                onPress={() => setGridExpanded((v) => !v)}
-                style={(state) => ({
-                  paddingHorizontal: 16,
-                  paddingVertical: 12,
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                          backgroundColor:
-                            Platform.OS === 'web' && 'hovered' in state && (state as unknown as { hovered?: boolean }).hovered
-                              ? 'rgba(255,255,255,0.08)'
-                              : 'transparent',
-                })}
-              >
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                  <Maximize2 width={20} height={20} color={makeTheme.accent} />
-                  <MakeText>Grid Sizing</MakeText>
+                <View style={{ paddingHorizontal: 16, paddingVertical: 12, gap: 10 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                    <Maximize2 width={20} height={20} color={makeTheme.accent} />
+                    <MakeText>Grid Customization</MakeText>
+                  </View>
+                  <MakeText tone="secondary" style={{ fontSize: 13 }}>
+                    Adjust grid size, digit size, note size, and highlight settings with a full-screen preview.
+                  </MakeText>
+                  <MakeButton
+                    accessibilityLabel="Customize Grid"
+                    title="Customize Grid"
+                    onPress={() => setGridCustomizerOpen(true)}
+                    elevation="flat"
+                    leftIcon={<Maximize2 width={18} height={18} color={makeTheme.button.textOnPrimary} />}
+                    contentStyle={{ height: 44 }}
+                  />
                 </View>
-                {gridExpanded ? <ChevronUp width={20} height={20} color={makeTheme.text.muted} /> : <ChevronDown width={20} height={20} color={makeTheme.text.muted} />}
-              </Pressable>
-              {gridExpanded ? (
-                <View style={{ paddingHorizontal: 16, paddingBottom: 14, gap: 10 }}>
-                  <Divider color={makeTheme.card.border} />
-                  {!settings || !sizing ? (
-                    <MakeText tone="muted" style={{ fontSize: 12 }}>
-                      Loading settings…
-                    </MakeText>
-                  ) : (
-                    <View style={{ paddingTop: 12, gap: 10 }}>
-                      <View>
-                        <MakeText tone="secondary" style={{ fontSize: 12, marginBottom: 8 }}>
-                          Preview
-                        </MakeText>
-                        <View style={{ borderRadius: 14, borderWidth: 1, borderColor: makeTheme.card.border, padding: 12 }}>
-                          <SudokuSizingPreview gridSizePct={sizing.gridSizePct} digitSizePct={sizing.digitSizePct} noteSizePct={sizing.noteSizePct} />
-                        </View>
-                      </View>
-                      <View>
-                        <MakeText tone="muted" style={{ fontSize: 12, marginBottom: 4 }}>
-                          Grid size: {sizing.gridSizePct === 85 ? 'S' : sizing.gridSizePct === 100 ? 'M' : 'L'}
-                        </MakeText>
-                        <Slider
-                          accessibilityLabel="Grid size"
-                          value={sizing.gridSizePct}
-                          min={UI_SIZING_LIMITS.gridSizePct.min}
-                          max={UI_SIZING_LIMITS.gridSizePct.max}
-                          step={UI_SIZING_LIMITS.gridSizePct.step}
-                          onChange={(gridSizePct) => {
-                            const next = setUiSizingSettings(settings, { gridSizePct }, { updatedAtMs: Date.now(), updatedByDeviceId: deviceId });
-                            updateLocalSettings(next);
-                          }}
-                        />
-                      </View>
-                      <View>
-                        <MakeText tone="muted" style={{ fontSize: 12, marginBottom: 4 }}>
-                          Digit size: {sizing.digitSizePct === 80 ? 'XS' : sizing.digitSizePct === 90 ? 'S' : sizing.digitSizePct === 100 ? 'M' : sizing.digitSizePct === 110 ? 'L' : 'XL'}
-                        </MakeText>
-                        <Slider
-                          accessibilityLabel="Digit size"
-                          value={sizing.digitSizePct}
-                          min={UI_SIZING_LIMITS.digitSizePct.min}
-                          max={UI_SIZING_LIMITS.digitSizePct.max}
-                          step={UI_SIZING_LIMITS.digitSizePct.step}
-                          onChange={(digitSizePct) => {
-                            const next = setUiSizingSettings(settings, { digitSizePct }, { updatedAtMs: Date.now(), updatedByDeviceId: deviceId });
-                            updateLocalSettings(next);
-                          }}
-                        />
-                      </View>
-                      <View>
-                        <MakeText tone="muted" style={{ fontSize: 12, marginBottom: 4 }}>
-                          Notes size: {sizing.noteSizePct === 100 ? 'XS' : sizing.noteSizePct === 150 ? 'S' : sizing.noteSizePct === 200 ? 'M' : sizing.noteSizePct === 250 ? 'L' : 'XL'}
-                        </MakeText>
-                        <Slider
-                          accessibilityLabel="Notes size"
-                          value={sizing.noteSizePct}
-                          min={UI_SIZING_LIMITS.noteSizePct.min}
-                          max={UI_SIZING_LIMITS.noteSizePct.max}
-                          step={UI_SIZING_LIMITS.noteSizePct.step}
-                          onChange={(noteSizePct) => {
-                            const next = setUiSizingSettings(settings, { noteSizePct }, { updatedAtMs: Date.now(), updatedByDeviceId: deviceId });
-                            updateLocalSettings(next);
-                          }}
-                        />
-                      </View>
-                    </View>
-                  )}
-                </View>
-              ) : null}
-            </MakeCard>
+              </MakeCard>
+              </View>
             </View>
           </ScrollView>
         </View>
@@ -1021,44 +1432,48 @@ export function UltimateGameScreen({
                           {gameType === 'daily' ? 'Daily Challenge' : 'Classic'}
                         </MakeText>
                       </View>
-                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <MakeText tone="secondary" style={{ fontSize: 13 }}>
-                          Difficulty
-                        </MakeText>
-                        <View
-                          style={{
-                            paddingHorizontal: 8,
-                            paddingVertical: 2,
-                            borderRadius: 999,
-                            backgroundColor: badge.bg,
-                            borderWidth: 1,
-                            borderColor: badge.border,
-                          }}
-                        >
-                          <MakeText style={{ fontSize: 12, color: badge.text, textTransform: 'capitalize' }} weight="semibold">
-                            {difficulty}
-                          </MakeText>
-                        </View>
-                      </View>
-                      <View style={{ height: 1, backgroundColor: makeTheme.card.border, opacity: 0.8 }} />
-                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <MakeText tone="secondary" style={{ fontSize: 13 }}>
-                          Time Elapsed
-                        </MakeText>
-                        <MakeText style={{ fontSize: 13, fontVariant: ['tabular-nums'] }}>{timeLabel}</MakeText>
-                      </View>
-                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <MakeText tone="secondary" style={{ fontSize: 13 }}>
-                          Mistakes
-                        </MakeText>
-                        <MakeText style={{ fontSize: 13, color: mistakes > 3 ? '#f87171' : makeTheme.text.primary }}>{mistakes}</MakeText>
-                      </View>
-                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <MakeText tone="secondary" style={{ fontSize: 13 }}>
-                          Hints Used
-                        </MakeText>
-                        <MakeText style={{ fontSize: 13 }}>{hintsUsedCount}</MakeText>
-                      </View>
+                      {zenModeEnabled ? null : (
+                        <>
+                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <MakeText tone="secondary" style={{ fontSize: 13 }}>
+                              Difficulty
+                            </MakeText>
+                            <View
+                              style={{
+                                paddingHorizontal: 8,
+                                paddingVertical: 2,
+                                borderRadius: 999,
+                                backgroundColor: badge.bg,
+                                borderWidth: 1,
+                                borderColor: badge.border,
+                              }}
+                            >
+                              <MakeText style={{ fontSize: 12, color: badge.text, textTransform: 'capitalize' }} weight="semibold">
+                                {difficulty}
+                              </MakeText>
+                            </View>
+                          </View>
+                          <View style={{ height: 1, backgroundColor: makeTheme.card.border, opacity: 0.8 }} />
+                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <MakeText tone="secondary" style={{ fontSize: 13 }}>
+                              Time Elapsed
+                            </MakeText>
+                            <MakeText style={{ fontSize: 13, fontVariant: ['tabular-nums'] }}>{timeLabel}</MakeText>
+                          </View>
+                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <MakeText tone="secondary" style={{ fontSize: 13 }}>
+                              Mistakes
+                            </MakeText>
+                            <MakeText style={{ fontSize: 13, color: mistakes > 3 ? '#f87171' : makeTheme.text.primary }}>{mistakes}</MakeText>
+                          </View>
+                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <MakeText tone="secondary" style={{ fontSize: 13 }}>
+                              Hints Used
+                            </MakeText>
+                            <MakeText style={{ fontSize: 13 }}>{hintsUsedCount}</MakeText>
+                          </View>
+                        </>
+                      )}
                     </View>
                   </MakeCard>
 
@@ -1107,6 +1522,8 @@ export function UltimateGameScreen({
           }}
         >
           <View style={{ width: '100%', maxWidth: containerMaxWidth, gap: isMd ? 16 : 12 }}>
+            {/* Victory message is now displayed as a modal overlay (see above) */}
+
             <View
               style={{
                 width: stackBaseWidth,
@@ -1126,8 +1543,14 @@ export function UltimateGameScreen({
                   uiSizing={sizing ?? undefined}
                   cellSizePx={baseCellFromViewport}
                   autoCandidatesEnabled={toggles?.autoCandidates ?? false}
+                  hintCandidates={
+                    hintCandidates && selectedIndex != null && hintCandidates.cell === selectedIndex ? { cell: hintCandidates.cell, candidates: hintCandidates.candidates } : null
+                  }
                   showConflicts={!(toggles?.zenMode ?? false)}
+                  highlightContrast={gridHighlights?.highlightContrast}
+                  highlightAssistance={gridHighlights?.highlightAssistance}
                   onSelectCell={(i) => {
+                    setHintCandidates(null);
                     // Lock mode (Make behavior):
                     // - tapping a filled cell locks to that digit
                     // - tapping any editable cell places/toggles the locked digit (notes mode respected)
@@ -1149,13 +1572,13 @@ export function UltimateGameScreen({
 
                     inputDigit(digitToUse);
                   }}
-                  onDigit={(d) => {
+                  onDigit={(d, meta) => {
                     if (lockMode) {
                       // In lock mode, digit input chooses the locked digit instead of editing the selected cell.
                       setLockedDigit((prev) => (prev === d ? null : d));
                       return;
                     }
-                    inputDigit(d);
+                    inputDigit(d, meta);
                   }}
                   onClear={clearCell}
                   onToggleNotesMode={toggleNotesMode}
@@ -1172,29 +1595,32 @@ export function UltimateGameScreen({
                   contentPaddingPx={stackPad}
                   lockMode={lockMode}
                   lockedDigit={lockedDigit}
+                  highlightDigits={hintCandidates?.candidates ?? null}
                   disabled={isComplete || (!lockMode && selectedIndex == null)}
                   onDigit={(d) => {
                     if (lockMode) {
                       setLockedDigit((prev) => (prev === d ? null : d));
                       return;
                     }
+                    setHintCandidates(null);
                     inputDigit(d);
                   }}
                 />
               </View>
 
               <View style={{ marginTop: isMd ? 16 : 12, paddingHorizontal: stackPad, gap: isMd ? 16 : 12 }}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 12 }}>
+                <View style={{ flexDirection: 'row', gap: 12 }}>
                   <MakeButton
                     title="Undo"
                     variant="secondary"
                     onPress={undo}
                     disabled={!canUndo || isComplete}
                     elevation="flat"
-                    radius={10}
+                    radius={12}
+                    contentGap={8}
                     leftIcon={<Undo2 width={20} height={20} color={makeTheme.text.primary} />}
                     titleStyle={{ fontSize: 14, lineHeight: 18 }}
-                    contentStyle={{ height: isMd ? 40 : 36, paddingVertical: 0, paddingHorizontal: 12 }}
+                    contentStyle={{ height: 44, paddingVertical: 0, paddingHorizontal: 12 }}
                     style={{ flex: 1 }}
                   />
                   <MakeButton
@@ -1203,12 +1629,13 @@ export function UltimateGameScreen({
                     onPress={toggleNotesMode}
                     disabled={isComplete}
                     elevation="flat"
-                    radius={10}
+                    radius={12}
+                    contentGap={8}
                     leftIcon={
                       <Edit3 width={20} height={20} color={notesMode ? makeTheme.button.textOnPrimary : makeTheme.text.primary} />
                     }
                     titleStyle={{ fontSize: 14, lineHeight: 18 }}
-                    contentStyle={{ height: isMd ? 40 : 36, paddingVertical: 0, paddingHorizontal: 12 }}
+                    contentStyle={{ height: 44, paddingVertical: 0, paddingHorizontal: 12 }}
                     style={{ flex: 1 }}
                   />
                   <MakeButton
@@ -1223,22 +1650,24 @@ export function UltimateGameScreen({
                       });
                     }}
                     elevation="flat"
-                    radius={10}
+                    radius={12}
+                    contentGap={8}
                     leftIcon={<Lock width={20} height={20} color={lockMode ? makeTheme.button.textOnPrimary : makeTheme.text.primary} />}
                     titleStyle={{ fontSize: 14, lineHeight: 18 }}
-                    contentStyle={{ height: isMd ? 40 : 36, paddingVertical: 0, paddingHorizontal: 12 }}
+                    contentStyle={{ height: 44, paddingVertical: 0, paddingHorizontal: 12 }}
                     style={{ flex: 1 }}
                   />
                   <MakeButton
                     title="Hint"
                     variant="secondary"
-                    onPress={hintRevealCellValue}
+                    onPress={onHintPress}
                     disabled={isComplete || selectedIndex == null}
                     elevation="flat"
-                    radius={10}
+                    radius={12}
+                    contentGap={8}
                     leftIcon={<Lightbulb width={20} height={20} color={makeTheme.text.primary} />}
                     titleStyle={{ fontSize: 14, lineHeight: 18 }}
-                    contentStyle={{ height: isMd ? 40 : 36, paddingVertical: 0, paddingHorizontal: 12 }}
+                    contentStyle={{ height: 44, paddingVertical: 0, paddingHorizontal: 12 }}
                     style={{ flex: 1 }}
                   />
                 </View>

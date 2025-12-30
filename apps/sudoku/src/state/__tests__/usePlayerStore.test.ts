@@ -2,6 +2,15 @@ jest.mock('../../services/telemetry', () => ({
   trackEvent: jest.fn(async () => {}),
 }));
 
+jest.mock('../../services/stats', () => ({
+  recordRunStarted: jest.fn(async () => {}),
+  recordRunCompleted: jest.fn(async () => {}),
+  recordRunAbandoned: jest.fn(async () => {}),
+  recordDailySubmissionResult: jest.fn(async () => {}),
+  syncStatsOnce: jest.fn(async () => {}),
+  loadLocalStats: jest.fn(async () => ({})),
+}));
+
 import { usePlayerStore } from '../usePlayerStore';
 import { trackEvent } from '../../services/telemetry';
 import { useSettingsStore } from '../../state/useSettingsStore';
@@ -100,6 +109,140 @@ describe('usePlayerStore: auto-advance', () => {
     s.inputDigit(5);
 
     expect(usePlayerStore.getState().selectedIndex).toBe(2);
+  });
+
+  it('advances backward when enabled and autoAdvanceDirection is backward (Shift parity)', () => {
+    // Enable auto-advance
+    useSettingsStore.setState({
+      settings: {
+        schemaVersion: 1,
+        kind: 'sudoku_settings',
+        updatedAtMs: 0,
+        updatedByDeviceId: 'device_test',
+        toggles: { autoAdvance: true },
+        extra: {},
+      },
+    } as never);
+
+    // Mark cell 1 as given, so from cell 2 the previous empty editable should be cell 0.
+    usePlayerStore.setState({ givensMask: [false, true, false, ...Array.from({ length: 78 }, () => false)] } as never);
+
+    const s = usePlayerStore.getState();
+    s.selectCell(2);
+    s.inputDigit(5, { autoAdvanceDirection: 'backward' });
+
+    expect(usePlayerStore.getState().selectedIndex).toBe(0);
+  });
+});
+
+describe('usePlayerStore: hint types (Make)', () => {
+  beforeEach(() => {
+    resetStoreForTest();
+  });
+
+  function makeSingleCandidatePuzzle(): number[] {
+    // Row 0 has digits 1..8 filled at cols 1..8. Cell (0,0) must be 9.
+    const g = makeGrid(0);
+    g[1] = 1;
+    g[2] = 2;
+    g[3] = 3;
+    g[4] = 4;
+    g[5] = 5;
+    g[6] = 6;
+    g[7] = 7;
+    g[8] = 8;
+    return g;
+  }
+
+  it('show_candidates records a hint and returns candidates without mutating the puzzle', () => {
+    usePlayerStore.setState({
+      puzzle: makeSingleCandidatePuzzle() as unknown as never,
+      selectedIndex: 0,
+      givensMask: Array.from({ length: 81 }, () => false),
+    } as never);
+
+    const before = usePlayerStore.getState().puzzle.slice();
+    const candidates = usePlayerStore.getState().hintShowCandidates();
+
+    expect(candidates).not.toBeNull();
+    expect(candidates && candidates.has(9)).toBe(true);
+    expect(usePlayerStore.getState().puzzle).toEqual(before);
+    expect(usePlayerStore.getState().hintsUsedCount).toBe(1);
+    expect(usePlayerStore.getState().hintBreakdown.show_candidates).toBe(1);
+  });
+
+  it('explain_technique records a hint and selects a suggested cell', () => {
+    usePlayerStore.setState({
+      puzzle: makeSingleCandidatePuzzle() as unknown as never,
+      selectedIndex: 0,
+      givensMask: Array.from({ length: 81 }, () => false),
+    } as never);
+
+    const res = usePlayerStore.getState().hintExplainTechnique();
+
+    expect(res).not.toBeNull();
+    expect(res?.cell).toBe(0);
+    expect(res?.candidates.has(9)).toBe(true);
+    expect(usePlayerStore.getState().selectedIndex).toBe(0);
+    expect(usePlayerStore.getState().hintsUsedCount).toBe(1);
+    expect(usePlayerStore.getState().hintBreakdown.explain_technique).toBe(1);
+  });
+});
+
+describe('usePlayerStore: Zen mode', () => {
+  beforeEach(() => {
+    resetStoreForTest();
+  });
+
+  it('does not increment mistakes or log mistake moves when zenMode is enabled', () => {
+    useSettingsStore.setState({
+      settings: {
+        schemaVersion: 1,
+        kind: 'sudoku_settings',
+        updatedAtMs: 0,
+        updatedByDeviceId: 'device_test',
+        toggles: { zenMode: true },
+        extra: {},
+      },
+    } as never);
+
+    const s = usePlayerStore.getState();
+    s.selectCell(0);
+    // resetStoreForTest sets solution to all 1s, so 2 is wrong.
+    s.inputDigit(2);
+
+    const after = usePlayerStore.getState();
+    expect(after.mistakes).toBe(0);
+    expect(after.moves.some((m) => m.kind === 'mistake')).toBe(false);
+    // Only the set move should be recorded (deviceId present).
+    expect(after.revision).toBe(1);
+  });
+});
+
+describe('usePlayerStore: lives limit (loss)', () => {
+  beforeEach(() => {
+    resetStoreForTest();
+  });
+
+  it('sets runStatus=failed and pauses timer when a wrong entry hits the lives limit', () => {
+    useSettingsStore.setState({
+      settings: {
+        schemaVersion: 1,
+        kind: 'sudoku_settings',
+        updatedAtMs: 0,
+        updatedByDeviceId: 'device_test',
+        extra: { gameplay: { livesLimit: 1 } },
+      },
+    } as never);
+
+    const s = usePlayerStore.getState();
+    s.selectCell(0);
+    // resetStoreForTest sets solution to all 1s, so 2 is wrong.
+    s.inputDigit(2);
+
+    const after = usePlayerStore.getState();
+    expect(after.runStatus).toBe('failed');
+    expect(after.runTimer.pausedAtMs).not.toBeNull();
   });
 });
 

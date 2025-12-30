@@ -1,12 +1,12 @@
 import React from 'react';
 import { Platform, Pressable, useWindowDimensions, View } from 'react-native';
-import { Calendar, CalendarDays, CheckCircle, Clock, Flame } from 'lucide-react-native';
+import { Calendar, CalendarDays, CheckCircle, Clock, Flame, Play } from 'lucide-react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 
 import { msUntilNextUtcMidnight } from '@cynnix-studios/sudoku-core';
 
 import { MakeCard } from '../make/MakeCard';
 import { MakeText } from '../make/MakeText';
-import { MakeButton } from '../make/MakeButton';
 import { useMakeTheme } from '../make/MakeThemeProvider';
 
 function formatCountdown(nowMs: number): string {
@@ -15,6 +15,22 @@ function formatCountdown(nowMs: number): string {
   const hh = Math.floor(totalMin / 60);
   const mm = totalMin % 60;
   return `${hh}h ${mm}m`;
+}
+
+function rgbaFromHex(hex: string, alpha: number): string {
+  const h = hex.startsWith('#') ? hex.slice(1) : hex;
+  const expanded =
+    h.length === 3
+      ? `${h[0]}${h[0]}${h[1]}${h[1]}${h[2]}${h[2]}`
+      : h.length === 6
+        ? h
+        : null;
+  if (!expanded) return `rgba(0,0,0,${alpha})`;
+  const r = Number.parseInt(expanded.slice(0, 2), 16);
+  const g = Number.parseInt(expanded.slice(2, 4), 16);
+  const b = Number.parseInt(expanded.slice(4, 6), 16);
+  if (!Number.isFinite(r) || !Number.isFinite(g) || !Number.isFinite(b)) return `rgba(0,0,0,${alpha})`;
+  return `rgba(${r},${g},${b},${alpha})`;
 }
 
 export function DailyChallengeCard({
@@ -41,11 +57,11 @@ export function DailyChallengeCard({
   const isCompleted = status === 'completed';
   const isResume = status === 'resume';
 
-  function buttonLabel() {
-    if (isCompleted) return 'Completed';
-    if (isResume) return 'Resume';
-    return 'Play';
-  }
+  const actionIcon = isCompleted ? (
+    <CheckCircle width={16} height={16} color={makeTheme.text.primary} />
+  ) : (
+    <Play width={16} height={16} color={makeTheme.button.textOnPrimary} fill={isResume ? makeTheme.button.textOnPrimary : 'transparent'} />
+  );
 
   return (
     <MakeCard style={{ borderRadius: 12 }}>
@@ -119,15 +135,68 @@ export function DailyChallengeCard({
               </Pressable>
             ) : null}
 
-            <MakeButton
+            <Pressable
+              accessibilityRole="button"
               accessibilityLabel="Daily play"
-              title={buttonLabel()}
-              onPress={onPlay}
               disabled={cardDisabled || isCompleted}
-              variant={isCompleted ? 'secondary' : 'primary'}
-              leftIcon={isCompleted ? <CheckCircle width={16} height={16} color={makeTheme.text.primary} /> : undefined}
-              contentStyle={{ paddingVertical: isMd ? 10 : 8, paddingHorizontal: isMd ? 14 : 12 }}
-            />
+              onPress={(e) => {
+                // Stop bubbling to any parent pressables (web).
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                (e as any)?.stopPropagation?.();
+                onPlay();
+              }}
+              style={({ pressed }) => ({
+                width: 36,
+                height: 36,
+                borderRadius: 10,
+                overflow: 'hidden',
+                opacity: cardDisabled || isCompleted ? 0.6 : pressed ? 0.92 : 1,
+              })}
+            >
+              {isCompleted ? (
+                <View
+                  style={{
+                    flex: 1,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    backgroundColor: makeTheme.button.secondaryBackground,
+                    borderWidth: 1,
+                    borderColor: makeTheme.button.border,
+                  }}
+                >
+                  {actionIcon}
+                </View>
+              ) : (
+                <LinearGradient
+                  colors={makeTheme.button.primaryGradient}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={{
+                    flex: 1,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 4,
+                    borderWidth: 1,
+                    borderColor: makeTheme.button.border,
+                  }}
+                >
+                  {actionIcon}
+                  {isResume ? (
+                    <View
+                      style={{
+                        width: 32,
+                        height: 2,
+                        borderRadius: 999,
+                        overflow: 'hidden',
+                        backgroundColor: rgbaFromHex(makeTheme.button.textOnPrimary, 0.2),
+                      }}
+                    >
+                      <View style={{ width: '66%', height: '100%', backgroundColor: makeTheme.button.textOnPrimary, opacity: 0.8 }} />
+                    </View>
+                  ) : null}
+                </LinearGradient>
+              )}
+            </Pressable>
           </View>
         </View>
       </View>

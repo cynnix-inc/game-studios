@@ -30,7 +30,7 @@ export type MakeTheme = {
   accent: string;
 };
 
-export type MakeThemeType = 'default' | 'light' | 'dark' | 'grayscale' | 'vibrant' | 'device';
+export type MakeThemeType = 'default' | 'light' | 'dark' | 'grayscale' | 'device';
 
 /**
  * Figma Make “current” theme (glassmorphism) port.
@@ -183,49 +183,11 @@ const makeThemeGrayscale: MakeTheme = {
   accent: '#d1d5db',
 };
 
-const makeThemeVibrant: MakeTheme = {
-  // Vibrant (Make docs): bg-gradient-to-br from-fuchsia-600 via-purple-600 to-indigo-600
-  backgroundGradient: ['#c026d3', '#9333ea', '#4f46e5'],
-  // Particles: Yellow, cyan, pink (30% opacity)
-  particles: {
-    primary: 'rgba(250, 204, 21, 0.30)', // yellow-400/30
-    secondary: 'rgba(34, 211, 238, 0.30)', // cyan-400/30
-    tertiary: 'rgba(236, 72, 153, 0.30)', // pink-500/30
-  },
-  // Cards: white/15 with blur
-  card: {
-    background: 'rgba(255, 255, 255, 0.15)',
-    border: 'rgba(255, 255, 255, 0.20)',
-  },
-  input: {
-    background: 'rgba(255, 255, 255, 0.15)',
-    border: 'rgba(255, 255, 255, 0.20)',
-    text: '#ffffff',
-    placeholder: 'rgba(255, 255, 255, 0.70)',
-  },
-  text: {
-    primary: '#ffffff',
-    secondary: 'rgba(255, 255, 255, 0.85)',
-    muted: 'rgba(255, 255, 255, 0.70)',
-  },
-  button: {
-    // Primary button: yellow-to-orange gradient, dark text (Make docs)
-    primaryGradient: ['#facc15', '#f97316'], // yellow-400 -> orange-500
-    secondaryBackground: 'rgba(255, 255, 255, 0.12)',
-    border: 'rgba(255, 255, 255, 0.20)',
-    textOnPrimary: '#111827', // gray-900-ish
-    textOnSecondary: '#ffffff',
-  },
-  // Accent: yellow-300
-  accent: '#fde047',
-};
-
 export const makeThemes: Record<Exclude<MakeThemeType, 'device'>, MakeTheme> = {
   default: makeThemeDefault,
   light: makeThemeLight,
   dark: makeThemeDark,
   grayscale: makeThemeGrayscale,
-  vibrant: makeThemeVibrant,
 };
 
 // Back-compat alias (existing imports). Prefer `useMakeTheme()` moving forward.

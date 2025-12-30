@@ -6,9 +6,11 @@ export type UltimateScreen =
   | 'profile'
   | 'game'
   | 'dailyChallenges'
+  | 'variantSelect'
   | 'difficulty';
 
 import type { Difficulty } from '@cynnix-studios/sudoku-core';
+import type { UltimateVariant } from '../variants';
 
 export type UltimateDifficulty = Difficulty;
 
@@ -18,11 +20,13 @@ export type UltimateNavState = {
   isAuthenticated: boolean;
   username: string;
   selectedDifficulty: UltimateDifficulty;
+  selectedVariant: UltimateVariant;
   gameType: 'classic' | 'daily';
 };
 
 export type UltimateNavAction =
   | { type: 'NAVIGATE'; screen: UltimateScreen }
+  | { type: 'SELECT_VARIANT'; variant: UltimateVariant }
   | { type: 'SELECT_DIFFICULTY'; difficulty: UltimateDifficulty }
   | { type: 'SET_AUTH_MODAL_OPEN'; open: boolean }
   | { type: 'AUTH_SUCCESS'; username: string }
@@ -36,15 +40,20 @@ export const initialUltimateNavState: UltimateNavState = {
   isAuthenticated: false,
   username: '',
   selectedDifficulty: 'skilled',
+  selectedVariant: 'classic',
   gameType: 'classic',
 };
 
 export function ultimateNavReducer(state: UltimateNavState, action: UltimateNavAction): UltimateNavState {
   switch (action.type) {
     case 'NAVIGATE': {
-      // Make behavior: navigating to "game" actually routes to a difficulty picker first.
-      if (action.screen === 'game') return { ...state, screen: 'difficulty', gameType: 'classic' };
+      // Make behavior: navigating to "game" routes to the setup flow first.
+      if (action.screen === 'game') return { ...state, screen: 'variantSelect', gameType: 'classic' };
       return { ...state, screen: action.screen };
+    }
+
+    case 'SELECT_VARIANT': {
+      return { ...state, selectedVariant: action.variant, screen: 'difficulty', gameType: 'classic' };
     }
 
     case 'SELECT_DIFFICULTY': {

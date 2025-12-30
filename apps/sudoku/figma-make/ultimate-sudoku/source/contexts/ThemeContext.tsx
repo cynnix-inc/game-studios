@@ -43,6 +43,7 @@ export interface Theme {
     rowColumn: string;
     box: string;
     sameNumber: string;
+    userFilled: string; // Color for user-filled numbers (distinct from pre-filled)
   };
   accent: string;
 }
@@ -89,6 +90,7 @@ const themes: Record<Exclude<ThemeType, 'device'>, Theme> = {
       rowColumn: 'bg-white/10',
       box: 'bg-white/5',
       sameNumber: 'bg-white/15',
+      userFilled: 'text-cyan-300', // Brighter cyan for better contrast on dark purple background
     },
     accent: 'text-purple-400',
   },
@@ -133,6 +135,7 @@ const themes: Record<Exclude<ThemeType, 'device'>, Theme> = {
       rowColumn: 'bg-slate-900/10',
       box: 'bg-slate-900/5',
       sameNumber: 'bg-slate-900/15',
+      userFilled: 'text-purple-600', // Color for user-filled numbers (distinct from pre-filled)
     },
     accent: 'text-purple-600',
   },
@@ -177,6 +180,7 @@ const themes: Record<Exclude<ThemeType, 'device'>, Theme> = {
       rowColumn: 'bg-white/10',
       box: 'bg-white/5',
       sameNumber: 'bg-white/15',
+      userFilled: 'text-cyan-400', // Color for user-filled numbers (distinct from pre-filled)
     },
     accent: 'text-slate-300',
   },
@@ -221,6 +225,7 @@ const themes: Record<Exclude<ThemeType, 'device'>, Theme> = {
       rowColumn: 'bg-white/10',
       box: 'bg-white/5',
       sameNumber: 'bg-white/15',
+      userFilled: 'text-gray-300', // Color for user-filled numbers (subtle in grayscale)
     },
     accent: 'text-gray-300',
   },
@@ -255,7 +260,15 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const saved = localStorage.getItem('gameTheme') as ThemeType | null;
     if (saved) {
-      setThemeTypeState(saved);
+      // Validate the saved theme - if it's invalid, reset to default
+      const validThemes: ThemeType[] = ['default', 'light', 'dark', 'grayscale', 'device'];
+      if (validThemes.includes(saved)) {
+        setThemeTypeState(saved);
+      } else {
+        // Invalid theme saved (e.g., 'vibrant' which was removed)
+        setThemeTypeState('default');
+        localStorage.setItem('gameTheme', 'default');
+      }
     }
   }, []);
 
@@ -269,7 +282,8 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     if (themeType === 'device') {
       return themes[systemTheme];
     }
-    return themes[themeType];
+    // Fallback to default if theme type is somehow invalid
+    return themes[themeType] || themes.default;
   };
 
   return (

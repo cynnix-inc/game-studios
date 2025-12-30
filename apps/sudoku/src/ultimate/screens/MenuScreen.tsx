@@ -4,7 +4,7 @@ import { BarChart3, LogIn, Settings, Trophy, User } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
 import { theme } from '@cynnix-studios/ui';
-import { nowUtcDateKey } from '@cynnix-studios/sudoku-core';
+import { getRunTimerElapsedMs, nowUtcDateKey, parseGrid } from '@cynnix-studios/sudoku-core';
 
 import { DailyChallengeCard } from '../../components/homeHub/DailyChallengeCard';
 import { FreePlayCard } from '../../components/homeHub/FreePlayCard';
@@ -15,10 +15,12 @@ import { MakeText } from '../../components/make/MakeText';
 import { useMakeTheme } from '../../components/make/MakeThemeProvider';
 import type { PlayerProfile } from '@cynnix-studios/game-foundation';
 import { readDailyCompletionIndex } from '../../services/dailyCompletion';
-import { loadLocalSave, readLocalInProgressSave } from '../../services/saves';
+import { clearLocalInProgressSave, loadLocalSave, readLocalInProgressSave } from '../../services/saves';
+import { recordRunAbandoned } from '../../services/stats';
 import { usePlayerStore } from '../../state/usePlayerStore';
 import type { UltimateScreen } from '../navigation/UltimateNavState';
 import { SudokuLogoMark } from '../components/SudokuLogoMark';
+import { formatElapsedSecondsMMSS } from './game/formatTime';
 
 function capitalizeDifficulty(d: string): string {
   const lower = d.toLowerCase();
@@ -122,6 +124,11 @@ export function UltimateMenuScreen({
   const [freeLastDifficulty, setFreeLastDifficulty] = React.useState('Medium');
   const [freeLastMode, setFreeLastMode] = React.useState('Classic');
   const [freeHasInProgress, setFreeHasInProgress] = React.useState(false);
+  const [freeProgressPct, setFreeProgressPct] = React.useState(0);
+  const [freeMistakes, setFreeMistakes] = React.useState(0);
+  const [freeHintsUsedCount, setFreeHintsUsedCount] = React.useState(0);
+  const [freeElapsedLabel, setFreeElapsedLabel] = React.useState('0:00');
+  const [saveCheckNonce, setSaveCheckNonce] = React.useState(0);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -142,10 +149,21 @@ export function UltimateMenuScreen({
           setFreeHasInProgress(true);
           setFreeLastDifficulty(capitalizeDifficulty(saved.difficulty));
           setFreeLastMode('Classic');
+          setFreeMistakes(saved.mistakes);
+          setFreeHintsUsedCount(saved.hintsUsedCount);
+          const parsed = parseGrid(saved.serializedPuzzle);
+          const filled = parsed.reduce<number>((n, v) => n + (v !== 0 ? 1 : 0), 0);
+          setFreeProgressPct(Math.round((filled / 81) * 100));
+          const elapsedSeconds = Math.floor(getRunTimerElapsedMs(saved.runTimer, nowMs) / 1000);
+          setFreeElapsedLabel(formatElapsedSecondsMMSS(elapsedSeconds));
         } else {
           setFreeHasInProgress(false);
           setFreeLastDifficulty('Medium');
           setFreeLastMode('Classic');
+          setFreeMistakes(0);
+          setFreeHintsUsedCount(0);
+          setFreeProgressPct(0);
+          setFreeElapsedLabel('0:00');
         }
       } catch {
         // Best-effort; never crash home.
@@ -154,7 +172,7 @@ export function UltimateMenuScreen({
     return () => {
       cancelled = true;
     };
-  }, [nowMs]);
+  }, [nowMs, saveCheckNonce]);
 
   const shimmer = React.useRef(new Animated.Value(0)).current;
   React.useEffect(() => {
@@ -259,18 +277,58 @@ export function UltimateMenuScreen({
             lastDifficultyLabel={freeLastDifficulty}
             lastModeLabel={freeLastMode}
             hasGameInProgress={freeHasInProgress}
-            onSetup={() => onNavigate('difficulty')}
+            progressPct={freeProgressPct}
+            mistakes={freeMistakes}
+            hintsUsedCount={freeHintsUsedCount}
+            elapsedLabel={freeElapsedLabel}
+            onSetup={() => onNavigate('variantSelect')}
+            onAbandonAndSetup={async () => {
+              const saved = await readLocalInProgressSave();
+              if (saved && saved.statsStartedCounted) {
+                const moves = saved.moves ?? [];
+                let setCount = 0;
+                let clearCount = 0;
+                let noteAddCount = 0;
+                let noteRemoveCount = 0;
+                for (const m of moves) {
+                  if (m.kind === 'set') setCount += 1;
+                  if (m.kind === 'clear') clearCount += 1;
+                  if (m.kind === 'note_add') noteAddCount += 1;
+                  if (m.kind === 'note_remove') noteRemoveCount += 1;
+                }
+
+                await recordRunAbandoned({
+                  mode: saved.mode,
+                  variantId: saved.variantId ?? 'classic',
+                  subVariantId: saved.subVariantId ?? 'classic:9x9',
+                  difficulty: saved.mode === 'daily' ? saved.difficulty ?? 'unknown' : saved.difficulty,
+                  zen: saved.zenModeAtStart ?? false,
+                  playTimeMs: getRunTimerElapsedMs(saved.runTimer, Date.now()),
+                  setCount,
+                  clearCount,
+                  noteAddCount,
+                  noteRemoveCount,
+                  mistakesCount: saved.mistakes,
+                  hintsUsedCount: saved.hintsUsedCount,
+                  hintBreakdown: saved.hintBreakdown ?? {},
+                });
+              }
+              await clearLocalInProgressSave();
+              setSaveCheckNonce((n) => n + 1);
+              onNavigate('variantSelect');
+            }}
             onPrimary={() => {
               if (freeHasInProgress) {
                 void (async () => {
                   await loadLocalSave();
-                  // Saves are hydrated as paused; "Resume" should immediately resume the run.
-                  usePlayerStore.getState().resumeRun();
+                  // Resume only if the run isn't in a terminal state (failed/completed).
+                  const status = usePlayerStore.getState().runStatus;
+                  if (status === 'paused') usePlayerStore.getState().resumeRun();
                   onResumeFreePlay();
                 })();
                 return;
               }
-              onNavigate('difficulty');
+              onNavigate('variantSelect');
             }}
           />
 
@@ -318,13 +376,13 @@ export function UltimateMenuScreen({
             <TileButton
               label="Stats"
               icon={BarChart3}
-              iconColor="#22d3ee"
+              iconColor={makeTheme.accent}
               isMd={isMd}
               disabled={!statsEnabled}
               onPress={statsEnabled ? () => onNavigate('stats') : undefined}
             />
-            <TileButton label="Leaderboard" icon={Trophy} iconColor="#fbbf24" isMd={isMd} onPress={() => onNavigate('leaderboard')} />
-            <TileButton label="Settings" icon={Settings} isMd={isMd} onPress={() => onNavigate('settings')} />
+            <TileButton label="Leaderboard" icon={Trophy} iconColor={makeTheme.accent} isMd={isMd} onPress={() => onNavigate('leaderboard')} />
+            <TileButton label="Settings" icon={Settings} iconColor={makeTheme.accent} isMd={isMd} onPress={() => onNavigate('settings')} />
           </View>
         </View>
 
