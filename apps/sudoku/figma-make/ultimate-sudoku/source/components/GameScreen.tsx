@@ -30,7 +30,6 @@ export function GameScreen({ onExit, username, difficulty = 'skilled', gameType 
   const [showGridCustomizer, setShowGridCustomizer] = useState(false);
   const [gameWon, setGameWon] = useState(false);
   const [gameLost, setGameLost] = useState(false);
-  const [isCracking, setIsCracking] = useState(false);
 
   // Auto-pause on visibility change (tab switch, backgrounding)
   useEffect(() => {
@@ -169,7 +168,7 @@ export function GameScreen({ onExit, username, difficulty = 'skilled', gameType 
             <div className="flex items-center justify-between gap-2 md:gap-4">
             
               {/* Left: Menu + Game Type + Difficulty */}
-              <div className="flex items-center gap-2 md:gap-4">
+              <div className="flex items-center gap-2 md:gap-3">
                 <Button
                   onClick={handlePause}
                   variant="ghost"
@@ -202,51 +201,41 @@ export function GameScreen({ onExit, username, difficulty = 'skilled', gameType 
                 </div>
               </div>
 
-              {/* Center: Game Stats */}
-              <div className="flex items-center gap-3 md:gap-6">
+              {/* Center: Game Stats - Icons and Values Only */}
+              <div className="flex items-center gap-4 md:gap-6">
                 {/* Mistakes */}
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1.5 md:gap-2">
                   <AlertTriangle className={`w-4 h-4 md:w-5 md:h-5 ${mistakes > 3 ? 'text-red-400' : theme.text.muted}`} />
-                  <div>
-                    <p className={`text-xs hidden md:block ${theme.text.muted}`}>Mistakes</p>
-                    <p className={`text-sm md:text-base ${mistakes > 3 ? 'text-red-400' : theme.text.primary}`}>
-                      {mistakes}
-                    </p>
-                  </div>
+                  <p className={`text-sm md:text-base ${mistakes > 3 ? 'text-red-400' : theme.text.primary}`}>
+                    {mistakes}
+                  </p>
                 </div>
 
                 {/* Hints */}
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1.5 md:gap-2">
                   <Lightbulb className={`w-4 h-4 md:w-5 md:h-5 ${theme.text.muted}`} />
-                  <div>
-                    <p className={`text-xs hidden md:block ${theme.text.muted}`}>Hints</p>
-                    <p className={`text-sm md:text-base ${theme.text.primary}`}>
-                      {hintsUsed}
-                    </p>
-                  </div>
+                  <p className={`text-sm md:text-base ${theme.text.primary}`}>
+                    {hintsUsed}
+                  </p>
                 </div>
 
                 {/* Timer */}
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1.5 md:gap-2">
                   <Clock className={`w-4 h-4 md:w-5 md:h-5 ${theme.text.muted}`} />
-                  <div>
-                    <p className={`text-xs hidden md:block ${theme.text.muted}`}>Time</p>
-                    <p className={`text-sm md:text-base ${theme.text.primary} font-mono`}>
-                      {formatTime(timeElapsed)}
-                    </p>
-                  </div>
+                  <p className={`text-sm md:text-base ${theme.text.primary} font-mono`}>
+                    {formatTime(timeElapsed)}
+                  </p>
                 </div>
               </div>
 
-              {/* Right: Profile */}
+              {/* Right: Profile - Avatar and Username */}
               <div className="flex items-center gap-2">
-                <div className="hidden md:block text-right">
-                  <p className={`text-xs ${theme.text.muted}`}>Player</p>
-                  <p className={`text-sm ${theme.text.primary}`}>{username || 'Guest'}</p>
-                </div>
                 <div className={`w-9 h-9 md:w-10 md:h-10 rounded-full ${theme.button.secondary.background} ${theme.card.border} border flex items-center justify-center shrink-0`}>
                   <User className={`w-5 h-5 md:w-6 md:h-6 ${theme.text.primary}`} />
                 </div>
+                <span className={`hidden sm:block text-sm md:text-base ${theme.text.primary}`}>
+                  {username || 'Guest'}
+                </span>
               </div>
             </div>
           </div>

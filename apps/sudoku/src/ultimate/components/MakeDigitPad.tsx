@@ -19,6 +19,7 @@ export function MakeDigitPad({
   lockMode,
   lockedDigit,
   highlightDigits,
+  digitCounts,
   disabled,
   onDigit,
 }: {
@@ -30,6 +31,11 @@ export function MakeDigitPad({
    * Optional hint affordance (Make: Assist). When present and not in lockMode, digits not in the set are visually deemphasized.
    */
   highlightDigits?: ReadonlySet<number> | null;
+  /**
+   * Optional counts of digits currently present on the puzzle (index = digit).
+   * When present, digits with count >= 9 are disabled and visually deemphasized (Make parity).
+   */
+  digitCounts?: ReadonlyArray<number> | null;
   disabled: boolean;
   onDigit: (d: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9) => void;
 }) {
@@ -47,6 +53,12 @@ export function MakeDigitPad({
   const baseDigitSize = isMd ? 32 : 16;
   const digitFontSize = clamp(Math.round(baseDigitSize * digitScale), 14, isMd ? 36 : 26);
 
+  // Make parity: disable digits that are already complete (9 occurrences).
+  const isNumberComplete = (d: number) => {
+    const c = digitCounts?.[d];
+    return typeof c === 'number' && Number.isFinite(c) && c >= 9;
+  };
+
   return (
     <View
       style={{
@@ -56,81 +68,74 @@ export function MakeDigitPad({
         alignSelf: 'center',
       }}
     >
-      {/* Make parity: "grid-cols-9 gap-px" feel (single-pixel separators, no double borders) */}
-      <View
-        style={{
-          backgroundColor: makeTheme.card.border,
-          borderRadius: theme.radius.md,
-          overflow: 'hidden',
-          padding: 1,
-        }}
-      >
-        <View style={{ flexDirection: 'row', gap: 1 }}>
-          {digits.map((d) => (
+      {/* Make parity: 9-column keypad with gap-2 (separate square buttons) */}
+      <View style={{ flexDirection: 'row', gap: 8 }}>
+        {digits.map((d) => {
+          const complete = isNumberComplete(d);
+          const isLocked = !!lockMode && lockedDigit === d;
+          const isHintHighlighted = !lockMode && highlightDigits && highlightDigits.has(d);
+          const isHintDimmed = !lockMode && highlightDigits && !highlightDigits.has(d);
+
+          return (
             <Pressable
               key={d}
               accessibilityRole="button"
               accessibilityLabel={`Digit ${d}`}
-              disabled={disabled}
+              disabled={disabled || complete}
               onPress={() => onDigit(d)}
               style={(state) => {
                 const hovered =
                   Platform.OS === 'web' && 'hovered' in state ? Boolean((state as unknown as { hovered?: boolean }).hovered) : false;
-                const isHintHighlighted = !lockMode && highlightDigits && highlightDigits.has(d);
-                const isHintDimmed = !lockMode && highlightDigits && !highlightDigits.has(d);
+
                 return {
                   flex: 1,
                   aspectRatio: 1,
                   minHeight: isMd ? 64 : 48,
-                  borderRadius: 0,
-                  borderWidth: 0,
-                  backgroundColor: lockMode && lockedDigit === d ? 'transparent' : makeTheme.button.secondaryBackground,
+                  // Make `Button` uses rounded-md.
+                  borderRadius: 6,
+                  overflow: 'hidden',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  opacity: disabled ? 0.5 : state.pressed ? 0.9 : isHintDimmed ? 0.35 : 1,
-                  ...(isHintHighlighted
-                    ? ({
-                        borderWidth: 2,
-                        borderColor: makeTheme.accent,
-                        margin: 1,
-                      } as const)
-                    : null),
-                  // Make parity: keypad buttons are flat (no heavy hover shadows).
+                  backgroundColor: isLocked ? 'transparent' : makeTheme.button.secondaryBackground,
+                  borderWidth: isLocked || isHintHighlighted ? 1 : 0,
+                  // Make keypad uses card.border for the lock border.
+                  borderColor: isLocked ? makeTheme.card.border : isHintHighlighted ? makeTheme.accent : 'transparent',
+                  opacity: disabled ? 0.5 : complete ? 0.3 : state.pressed ? 0.9 : isHintDimmed ? 0.35 : 1,
                   ...(Platform.OS === 'web'
                     ? ({
-                        backgroundColor:
-                          hovered && !(lockMode && lockedDigit === d) ? makeTheme.button.secondaryBackground : makeTheme.button.secondaryBackground,
-                        transition: 'opacity 150ms ease',
+                        cursor: disabled || complete ? 'not-allowed' : 'pointer',
+                        // Make keypad hover is subtle; keep it flat.
+                        transform: hovered && !state.pressed ? 'scale(1.005)' : 'scale(1)',
+                        transition: 'transform 140ms ease, opacity 150ms ease',
                       } as unknown as object)
                     : null),
                 };
               }}
             >
-            {lockMode && lockedDigit === d ? (
-              <LinearGradient
-                colors={makeTheme.button.primaryGradient}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={{
-                  position: 'absolute',
-                  inset: 0,
-                  borderRadius: 0,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <MakeText weight="bold" style={{ fontSize: digitFontSize, color: makeTheme.button.textOnPrimary }}>
+              {isLocked ? (
+                <LinearGradient
+                  colors={makeTheme.button.primaryGradient}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={{
+                    position: 'absolute',
+                    inset: 0,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <MakeText weight="bold" style={{ fontSize: digitFontSize, color: makeTheme.button.textOnPrimary }}>
+                    {d}
+                  </MakeText>
+                </LinearGradient>
+              ) : (
+                <MakeText weight="bold" style={{ fontSize: digitFontSize }}>
                   {d}
                 </MakeText>
-              </LinearGradient>
-            ) : (
-              <MakeText weight="bold" style={{ fontSize: digitFontSize }}>
-                {d}
-              </MakeText>
-            )}
+              )}
             </Pressable>
-          ))}
-        </View>
+          );
+        })}
       </View>
     </View>
   );

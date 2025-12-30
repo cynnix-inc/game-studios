@@ -270,10 +270,32 @@ export function SudokuGrid({
   const { theme: makeTheme, resolvedThemeType } = useMakeTheme();
   const highlights = React.useMemo(() => computeGridHighlights({ puzzle, selectedIndex }), [puzzle, selectedIndex]);
 
+  // Make uses `backgroundColor: var(--border-color)` for the “gutters” (outer inset + 3×3 gaps).
+  // We cannot locate a definition for `--border-color` in the exported Make source; in practice this often
+  // means it resolves to transparent and the gaps simply show the board card’s glass surface.
+  // Runtime evidence: any non-transparent gutter tends to read as an “extra frosted frame” on web.
+  // So on web we intentionally keep the gutter transparent (Make parity).
+  // On native we keep a subtle gutter derived from card.border to preserve separation without relying on CSS vars.
+  function softenBorderForGutter(border: string): string {
+    const m = border.match(/^rgba?\(\s*([0-9.]+)\s*,\s*([0-9.]+)\s*,\s*([0-9.]+)(?:\s*,\s*([0-9.]+))?\s*\)$/i);
+    if (!m) return border;
+    const r = Number(m[1]);
+    const g = Number(m[2]);
+    const b = Number(m[3]);
+    const a = m[4] != null ? Number(m[4]) : 1;
+    if (![r, g, b, a].every((n) => Number.isFinite(n))) return border;
+    const nextA = Math.max(0, Math.min(1, a * 0.6));
+    return `rgba(${Math.round(r)}, ${Math.round(g)}, ${Math.round(b)}, ${nextA.toFixed(3)})`;
+  }
+
+  const gutterColor = Platform.OS === 'web' ? 'transparent' : softenBorderForGutter(makeTheme.card.border);
+
   // Board sizing (Make semantics):
   // - cellSizePx is the rendered cell size for a single cell
   // - fixed Tailwind spacing: p-1.5 and gap-1.5 (≈ 6px), which scale with the overall container transform
-  const cellSize = Math.max(20, Math.min(56, Math.round(cellSizePx ?? 36)));
+  // NOTE: Make desktop can exceed 56px/cell; allow larger so the grid can truly fill the board card.
+  // Important: don't round; fractional px keeps the board perfectly “flush” inside its card like Make (no extra inner panel).
+  const cellSize = Math.max(20, Math.min(96, cellSizePx ?? 36));
   const gap = 6;
   const outerPad = gap; // Make: p-1.5 around the board
   const majorGap = gap; // Make: gap-1.5 between 3×3 blocks
@@ -429,7 +451,7 @@ export function SudokuGrid({
         style={{
           width: boardSize,
           height: boardSize,
-          backgroundColor: makeTheme.card.border,
+          backgroundColor: gutterColor,
           // Make: rounded-lg
           borderRadius: 8,
           overflow: 'hidden',
@@ -450,9 +472,20 @@ export function SudokuGrid({
                     height: blockSize,
                     marginRight: isLastMajorCol ? 0 : majorGap,
                     marginBottom: isLastMajorRow ? 0 : majorGap,
-                    // This is the “grid surface” in Make (each 3×3 block sits on the card background).
-                    // Keeping the outer wrapper transparent avoids the extra “middle panel” look.
+                    // Important for Make parity: avoid introducing a second “surface” inside the board card.
+                    // The board card itself is the glass surface; the grid should sit directly on it.
+                    // Using an additional translucent background (or nested backdrop-blur) here reads like an
+                    // extra frosted layer between the card and the cells (and makes 3×3 gutters look heavier).
+                    // Make parity: each 3×3 block is a slightly tinted “panel” sitting on the gutter frame.
+                    // The gutter (outer wrapper) provides the visible separation between blocks.
                     backgroundColor: makeTheme.card.background,
+                    // Make web uses `backdrop-blur-xl` for the same `theme.card.background` class used here.
+                    ...(Platform.OS === 'web'
+                      ? ({
+                          backdropFilter: 'blur(24px)',
+                          WebkitBackdropFilter: 'blur(24px)',
+                        } as unknown as object)
+                      : null),
                   }}
                 >
                   {/* 3×3 minor grid of cells */}

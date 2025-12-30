@@ -397,16 +397,20 @@ export function UltimateGameScreen({
   // - keypad matches the grid's overall width
   const contentMaxWidth = Math.min(containerMaxWidth, Math.max(0, Math.floor(width - horizontalPadding * 2)));
   // Make parity sizing:
-  // - board card padding: p-3 (12) / md:p-6 (24)
+  // - board card padding: p-2 (8) / md:p-3 (12)
+  // - controls padding: px-3 (12) / md:px-6 (24)
   // - major 3×3 gap: gap-1.5 (6)
   // - outer board inset: p-1.5 (6)
-  const stackPad = isMd ? 24 : 12;
+  const boardCardPad = isMd ? 12 : 8;
   const gridGap = 6;
   // Compute a base cell size that fits the viewport at scale=1.0, then apply Make-style scaling.
   // Board outer size = 9*cell + 4*gap (outer inset + 2 block gaps).
-  // Card outer size = board outer size + 2*stackPad.
-  const baseCellFromViewport = Math.max(20, Math.min(56, Math.floor((contentMaxWidth - 2 * stackPad - 4 * gridGap) / 9)));
-  const stackBaseWidth = 9 * baseCellFromViewport + 4 * gridGap + 2 * stackPad;
+  // Card outer size = board outer size + 2*boardCardPad.
+  // NOTE: allow desktop sizes similar to Make (cell ~80px) by using a higher cap than 56.
+  // Important: avoid `floor()` so the board can fill the available width exactly (prevents a “frosted ring” gap around the grid).
+  const rawCellFromViewport = (contentMaxWidth - 2 * boardCardPad - 4 * gridGap) / 9;
+  const baseCellFromViewport = Math.max(20, Math.min(96, rawCellFromViewport));
+  const stackBaseWidth = 9 * baseCellFromViewport + 4 * gridGap + 2 * boardCardPad;
   const desiredScale = (sizing?.gridSizePct ?? UI_SIZING_LIMITS.gridSizePct.default) / 100;
   const maxScaleToFit = stackBaseWidth > 0 ? contentMaxWidth / stackBaseWidth : 1;
   const effectiveScale = Math.min(desiredScale, maxScaleToFit);
@@ -1532,8 +1536,17 @@ export function UltimateGameScreen({
                 ...(Platform.OS === 'web' ? ({ transformOrigin: 'top center' } as unknown as object) : null),
               }}
             >
-              {/* Sudoku Board Card (Make parity: rounded-3xl, p-3 md:p-6, shadow-xl, backdrop-blur) */}
-              <MakeCard style={{ borderRadius: 24, padding: stackPad }}>
+              {/* Sudoku Board Card (Make parity): rounded-xl, p-2 (mobile) / p-3 (desktop), shadow-xl */}
+              <MakeCard
+                style={[
+                  { borderRadius: 12, padding: isMd ? 12 : 8 },
+                  Platform.select({
+                    web: { boxShadow: '0 14px 36px rgba(0,0,0,0.20)' } as unknown as object,
+                    ios: { shadowColor: '#000', shadowOpacity: 0.18, shadowRadius: 14, shadowOffset: { width: 0, height: 8 } },
+                    android: { elevation: 8 },
+                  }),
+                ]}
+              >
                 <SudokuGrid
                   puzzle={puzzle}
                   givensMask={givensMask}
@@ -1592,10 +1605,17 @@ export function UltimateGameScreen({
               <View style={{ marginTop: isMd ? 16 : 12 }}>
                 <MakeDigitPad
                   widthPx={stackBaseWidth}
-                  contentPaddingPx={stackPad}
+                  contentPaddingPx={isMd ? 24 : 12}
                   lockMode={lockMode}
                   lockedDigit={lockedDigit}
                   highlightDigits={hintCandidates?.candidates ?? null}
+                  digitCounts={React.useMemo(() => {
+                    const counts = Array.from({ length: 10 }, () => 0);
+                    for (const v of puzzle) {
+                      if (v >= 1 && v <= 9) counts[v] = (counts[v] ?? 0) + 1;
+                    }
+                    return counts;
+                  }, [puzzle])}
                   disabled={isComplete || (!lockMode && selectedIndex == null)}
                   onDigit={(d) => {
                     if (lockMode) {
@@ -1608,39 +1628,73 @@ export function UltimateGameScreen({
                 />
               </View>
 
-              <View style={{ marginTop: isMd ? 16 : 12, paddingHorizontal: stackPad, gap: isMd ? 16 : 12 }}>
-                <View style={{ flexDirection: 'row', gap: 12 }}>
+              {/* Toolbar (Make parity): 4 icon-only square controls (Hint, Undo, Notes, Lock) */}
+              <View style={{ marginTop: isMd ? 12 : 8, paddingHorizontal: isMd ? 24 : 12, gap: isMd ? 12 : 8 }}>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
                   <MakeButton
-                    title="Undo"
+                    title=""
+                    accessibilityLabel="Hint"
                     variant="secondary"
+                    elevation="flat"
+                    radius={6}
+                    onPress={onHintPress}
+                    disabled={isComplete || selectedIndex == null}
+                    leftIcon={<Lightbulb width={isMd ? 24 : 20} height={isMd ? 24 : 20} color={makeTheme.text.primary} />}
+                    style={{ flex: 1, aspectRatio: 1 }}
+                    contentStyle={{
+                      minHeight: isMd ? 64 : 48,
+                      paddingVertical: 0,
+                      paddingHorizontal: 0,
+                      borderColor: makeTheme.card.border,
+                    }}
+                  />
+                  <MakeButton
+                    title=""
+                    accessibilityLabel="Undo"
+                    variant="secondary"
+                    elevation="flat"
+                    radius={6}
                     onPress={undo}
                     disabled={!canUndo || isComplete}
-                    elevation="flat"
-                    radius={12}
-                    contentGap={8}
-                    leftIcon={<Undo2 width={20} height={20} color={makeTheme.text.primary} />}
-                    titleStyle={{ fontSize: 14, lineHeight: 18 }}
-                    contentStyle={{ height: 44, paddingVertical: 0, paddingHorizontal: 12 }}
-                    style={{ flex: 1 }}
+                    leftIcon={<Undo2 width={isMd ? 24 : 20} height={isMd ? 24 : 20} color={makeTheme.text.primary} />}
+                    style={{ flex: 1, aspectRatio: 1 }}
+                    contentStyle={{
+                      minHeight: isMd ? 64 : 48,
+                      paddingVertical: 0,
+                      paddingHorizontal: 0,
+                      borderColor: makeTheme.card.border,
+                    }}
                   />
                   <MakeButton
-                    title="Notes"
-                    variant={notesMode ? 'primary' : 'secondary'}
+                    title=""
+                    accessibilityLabel={notesMode ? 'Notes on' : 'Notes off'}
+                    variant="secondary"
+                    elevation="flat"
+                    radius={6}
                     onPress={toggleNotesMode}
                     disabled={isComplete}
-                    elevation="flat"
-                    radius={12}
-                    contentGap={8}
                     leftIcon={
-                      <Edit3 width={20} height={20} color={notesMode ? makeTheme.button.textOnPrimary : makeTheme.text.primary} />
+                      <Edit3
+                        width={isMd ? 24 : 20}
+                        height={isMd ? 24 : 20}
+                        color={notesMode ? '#60a5fa' : makeTheme.text.primary}
+                      />
                     }
-                    titleStyle={{ fontSize: 14, lineHeight: 18 }}
-                    contentStyle={{ height: 44, paddingVertical: 0, paddingHorizontal: 12 }}
-                    style={{ flex: 1 }}
+                    style={{ flex: 1, aspectRatio: 1 }}
+                    contentStyle={{
+                      minHeight: isMd ? 64 : 48,
+                      paddingVertical: 0,
+                      paddingHorizontal: 0,
+                      borderColor: makeTheme.card.border,
+                      ...(notesMode ? ({ backgroundColor: 'rgba(59,130,246,0.20)' } as const) : null),
+                    }}
                   />
                   <MakeButton
-                    title="Lock"
-                    variant={lockMode ? 'primary' : 'secondary'}
+                    title=""
+                    accessibilityLabel={lockMode ? 'Lock mode on' : 'Lock mode off'}
+                    variant="secondary"
+                    elevation="flat"
+                    radius={6}
                     disabled={isComplete}
                     onPress={() => {
                       setLockMode((v) => {
@@ -1649,26 +1703,21 @@ export function UltimateGameScreen({
                         return next;
                       });
                     }}
-                    elevation="flat"
-                    radius={12}
-                    contentGap={8}
-                    leftIcon={<Lock width={20} height={20} color={lockMode ? makeTheme.button.textOnPrimary : makeTheme.text.primary} />}
-                    titleStyle={{ fontSize: 14, lineHeight: 18 }}
-                    contentStyle={{ height: 44, paddingVertical: 0, paddingHorizontal: 12 }}
-                    style={{ flex: 1 }}
-                  />
-                  <MakeButton
-                    title="Hint"
-                    variant="secondary"
-                    onPress={onHintPress}
-                    disabled={isComplete || selectedIndex == null}
-                    elevation="flat"
-                    radius={12}
-                    contentGap={8}
-                    leftIcon={<Lightbulb width={20} height={20} color={makeTheme.text.primary} />}
-                    titleStyle={{ fontSize: 14, lineHeight: 18 }}
-                    contentStyle={{ height: 44, paddingVertical: 0, paddingHorizontal: 12 }}
-                    style={{ flex: 1 }}
+                    leftIcon={
+                      <Lock
+                        width={isMd ? 24 : 20}
+                        height={isMd ? 24 : 20}
+                        color={lockMode ? '#c084fc' : makeTheme.text.primary}
+                      />
+                    }
+                    style={{ flex: 1, aspectRatio: 1 }}
+                    contentStyle={{
+                      minHeight: isMd ? 64 : 48,
+                      paddingVertical: 0,
+                      paddingHorizontal: 0,
+                      borderColor: makeTheme.card.border,
+                      ...(lockMode ? ({ backgroundColor: 'rgba(168,85,247,0.20)' } as const) : null),
+                    }}
                   />
                 </View>
 
