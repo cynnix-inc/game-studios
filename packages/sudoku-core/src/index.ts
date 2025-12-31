@@ -12,6 +12,7 @@ export * from './engine/puzzleKeys';
 export * from './engine/dailyValidation';
 export * from './engine/dailyCachePolicy';
 export * from './engine/freePlayPacksValidation';
+export * from './engine/puzzleContract';
 export * from './engine/uniqueness';
 export * from './engine/techniqueSolver/subset';
 

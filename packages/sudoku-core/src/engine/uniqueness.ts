@@ -22,6 +22,40 @@ function findEmpty(grid: Grid): number {
   return -1;
 }
 
+function candidatesForCell(grid: Grid, i: number): CellValue[] {
+  const out: CellValue[] = [];
+  for (const v of [1, 2, 3, 4, 5, 6, 7, 8, 9] as const) {
+    if (allowed(grid, i, v)) out.push(v);
+  }
+  return out;
+}
+
+/**
+ * Picks the next empty cell using a “minimum remaining values” heuristic.
+ * Returns:
+ * - { idx: -1 } when the grid is complete (no empties)
+ * - { idx: -2 } when an empty cell has zero candidates (dead end)
+ * - otherwise, { idx, candidates } where candidates.length >= 1
+ */
+function pickNextCell(grid: Grid): { idx: number; candidates?: CellValue[] } {
+  let bestIdx = -1;
+  let bestCandidates: CellValue[] | undefined;
+
+  for (let i = 0; i < 81; i++) {
+    if (grid[i]! !== 0) continue;
+    const cands = candidatesForCell(grid, i);
+    if (cands.length === 0) return { idx: -2 };
+    if (bestCandidates == null || cands.length < bestCandidates.length) {
+      bestIdx = i;
+      bestCandidates = cands;
+      if (bestCandidates.length === 1) break;
+    }
+  }
+
+  if (bestIdx === -1) return { idx: -1 };
+  return { idx: bestIdx, candidates: bestCandidates };
+}
+
 /**
  * Counts solutions up to 2 (0, 1, or 2 meaning "2 or more").
  * Deterministic and intended for uniqueness enforcement / gating.
@@ -39,18 +73,19 @@ export function countSolutionsUpTo2(gridIn: ReadonlyArray<number>): 0 | 1 | 2 {
 
   // Use a number internally to avoid TypeScript narrowing pitfalls, then clamp to 0|1|2 on return.
   let count = 0;
-  const digits: CellValue[] = [1, 2, 3, 4, 5, 6, 7, 8, 9];
 
   const backtrack = (): void => {
     if (count >= 2) return;
-    const i = findEmpty(grid as unknown as Grid);
-    if (i === -1) {
+    const next = pickNextCell(grid as unknown as Grid);
+    if (next.idx === -2) return;
+    if (next.idx === -1) {
       count = count === 0 ? 1 : 2;
       return;
     }
 
-    for (const v of digits) {
-      if (!allowed(grid as unknown as Grid, i, v)) continue;
+    const i = next.idx;
+    const candidates = next.candidates ?? candidatesForCell(grid as unknown as Grid, i);
+    for (const v of candidates) {
       (grid as CellValue[])[i] = v;
       backtrack();
       (grid as CellValue[])[i] = 0;

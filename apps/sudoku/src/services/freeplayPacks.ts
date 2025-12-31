@@ -3,8 +3,9 @@ import { fetchJsonWithEtagCache, type EtagJsonCache } from '@cynnix-studios/game
 import {
   assertFreePlayManifest,
   assertFreePlayPack,
-  generate,
+  assertPuzzleSolutionContract,
   generateContractGated,
+  generateUnique,
   type Difficulty,
   type FreePlayManifestV1,
   type FreePlayPackV1,
@@ -143,6 +144,13 @@ export function createFreePlayPacksService(
       const idx = (startIdx + offset) % pack.puzzles.length;
       const p = pack.puzzles[idx]!;
       if (isStarted(difficulty, p.puzzle_id)) continue;
+      try {
+        assertPuzzleSolutionContract(p.puzzle, p.solution);
+      } catch {
+        // Avoid repeatedly selecting invalid content.
+        markStarted(difficulty, p.puzzle_id);
+        continue;
+      }
       markStarted(difficulty, p.puzzle_id);
       return { ok: true, source: args.source, difficulty, puzzle_id: p.puzzle_id, puzzle: p.puzzle, solution: p.solution };
     }
@@ -155,9 +163,18 @@ export function createFreePlayPacksService(
   ): FreePlayPuzzleSelection | null => {
     const { difficulty, pack } = args;
     if (!pack.puzzles.length) return null;
-    const idx = pickIndex(difficulty, pack.puzzles.length);
-    const p = pack.puzzles[idx]!;
-    return { ok: true, source: args.source, difficulty, puzzle_id: p.puzzle_id, puzzle: p.puzzle, solution: p.solution };
+    const startIdx = pickIndex(difficulty, pack.puzzles.length);
+    for (let offset = 0; offset < pack.puzzles.length; offset++) {
+      const idx = (startIdx + offset) % pack.puzzles.length;
+      const p = pack.puzzles[idx]!;
+      try {
+        assertPuzzleSolutionContract(p.puzzle, p.solution);
+      } catch {
+        continue;
+      }
+      return { ok: true, source: args.source, difficulty, puzzle_id: p.puzzle_id, puzzle: p.puzzle, solution: p.solution };
+    }
+    return null;
   };
 
   const readCachedPack = async (difficulty: Difficulty): Promise<FreePlayPackV1 | null> => {
@@ -281,8 +298,8 @@ export function createFreePlayPacksService(
           if (repeat) return repeat;
         }
 
-        // Absolute last resort: return an ungated generated puzzle (still solvable, may not be unique).
-        const gen = generate(difficulty);
+        // Absolute last resort: generate a unique puzzle (never return non-unique content).
+        const gen = generateUnique(difficulty, { maxAttempts: 50 });
         const puzzleId = `gen:${difficulty}:${Date.now()}`;
         markStarted(difficulty, puzzleId);
         return {

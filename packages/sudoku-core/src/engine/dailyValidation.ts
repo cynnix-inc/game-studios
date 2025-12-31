@@ -1,4 +1,5 @@
 import { DIFFICULTIES, type Difficulty } from './difficulty';
+import { assertPuzzleSolutionContract } from './puzzleContract';
 
 export type DailyManifestEntry = {
   date_key: string; // YYYY-MM-DD (UTC)
@@ -39,6 +40,15 @@ function assertCellValues(name: string, v: unknown[]): asserts v is number[] {
   for (let i = 0; i < v.length; i++) {
     const n = v[i];
     if (typeof n !== 'number' || !Number.isFinite(n) || n < 0 || n > 9 || Math.floor(n) !== n) {
+      throw new Error(`${name} has invalid cell value at index ${i}`);
+    }
+  }
+}
+
+function assertSolutionValues(name: string, v: unknown[]): asserts v is number[] {
+  for (let i = 0; i < v.length; i++) {
+    const n = v[i];
+    if (typeof n !== 'number' || !Number.isFinite(n) || n < 1 || n > 9 || Math.floor(n) !== n) {
       throw new Error(`${name} has invalid cell value at index ${i}`);
     }
   }
@@ -92,7 +102,10 @@ export function assertDailyPayload(input: unknown): DailyPayloadV1 {
   assertArrayLen('payload.puzzle', puzzle, 81);
   assertArrayLen('payload.solution', solution, 81);
   assertCellValues('payload.puzzle', puzzle);
-  assertCellValues('payload.solution', solution);
+  assertSolutionValues('payload.solution', solution);
+
+  // Enforce quality: puzzle must match solution and have a unique solution.
+  assertPuzzleSolutionContract(puzzle as number[], solution as number[]);
 
   return {
     schema_version: 1,

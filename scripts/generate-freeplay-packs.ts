@@ -75,7 +75,10 @@ function allDifficulties(): Difficulty[] {
 }
 
 function puzzleId(prefix: string, difficulty: Difficulty, seed: number): string {
-  return `${prefix}:${difficulty}:${String(seed)}`;
+  // Keep bundled ids short and stable for storage/telemetry/debugging.
+  // Note: padding does not change larger seed values (e.g. 20250101).
+  const seedPart = String(seed).padStart(4, '0');
+  return `${prefix}:${difficulty}:${seedPart}`;
 }
 
 async function writePackFile(args: { outDirAbs: string; pack: FreePlayPackV1 }) {
