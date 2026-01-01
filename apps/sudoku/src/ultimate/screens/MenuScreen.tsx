@@ -48,7 +48,7 @@ function TileButton({
   disabled?: boolean;
   isMd: boolean;
 }) {
-  const { theme: makeTheme } = useMakeTheme();
+  const { theme: makeTheme, reducedMotion } = useMakeTheme();
   const size = isMd ? 56 : 48;
   return (
     <Pressable
@@ -59,27 +59,50 @@ function TileButton({
       style={(state) => {
         const hovered =
           Platform.OS === 'web' && 'hovered' in state ? Boolean((state as unknown as { hovered?: boolean }).hovered) : false;
+        const focused =
+          Platform.OS === 'web' && 'focused' in state ? Boolean((state as unknown as { focused?: boolean }).focused) : false;
+        const showHover = Platform.OS === 'web' && hovered && !disabled && !state.pressed;
         return {
           width: size,
           height: size,
           borderRadius: theme.radius.md,
           borderWidth: 1,
           borderColor: makeTheme.card.border,
-          backgroundColor: makeTheme.card.background,
+          // Make: uses secondary button background + hover background.
+          backgroundColor: showHover ? makeTheme.button.secondaryBackgroundHover : makeTheme.button.secondaryBackground,
           alignItems: 'center',
           justifyContent: 'center',
           opacity: disabled ? 0.5 : state.pressed ? 0.85 : 1,
           ...(Platform.OS === 'web'
             ? ({
-                boxShadow: hovered ? '0 18px 44px rgba(0,0,0,0.25)' : '0 12px 32px rgba(0,0,0,0.20)',
+                boxShadow: `${hovered ? '0 18px 44px rgba(0,0,0,0.25)' : '0 12px 32px rgba(0,0,0,0.20)'}${
+                  focused ? `, 0 0 0 3px rgba(192,132,252,0.35)` : ''
+                }`,
                 transform: hovered ? 'scale(1.02)' : 'scale(1)',
-                transition: 'transform 200ms ease, box-shadow 200ms ease, opacity 150ms ease',
+                transition: reducedMotion
+                  ? 'none'
+                  : 'transform 300ms ease, box-shadow 300ms ease, opacity 150ms ease, background-color 300ms ease',
               } as unknown as object)
             : null),
         };
       }}
     >
-      <Icon width={isMd ? 24 : 22} height={isMd ? 24 : 22} color={iconColor ?? makeTheme.text.primary} />
+      {(state) => {
+        const hovered =
+          Platform.OS === 'web' && 'hovered' in state ? Boolean((state as unknown as { hovered?: boolean }).hovered) : false;
+        const showHover = Platform.OS === 'web' && hovered && !disabled && !state.pressed;
+        return (
+          <View
+            style={
+              Platform.OS === 'web'
+                ? ({ transform: showHover ? 'scale(1.1)' : 'scale(1)', transition: reducedMotion ? 'none' : 'transform 200ms ease' } as unknown as object)
+                : null
+            }
+          >
+            <Icon width={isMd ? 24 : 22} height={isMd ? 24 : 22} color={iconColor ?? makeTheme.text.primary} />
+          </View>
+        );
+      }}
     </Pressable>
   );
 }
@@ -206,36 +229,17 @@ export function UltimateMenuScreen({
       {/* Profile button - Top Right (only when authenticated) */}
       {signedIn ? (
         <View style={{ position: 'absolute', top: isMd ? 24 : 16, right: isMd ? 24 : 16, zIndex: 10 }}>
-          <Pressable
-            accessibilityRole="button"
+          <MakeButton
             accessibilityLabel={username}
+            title={isMd ? username : ''}
+            variant="secondary"
+            elevation="elevated"
+            radius={theme.radius.md}
             disabled={!profileEnabled}
             onPress={profileEnabled ? () => onNavigate('profile') : undefined}
-            style={(state) => {
-              const hovered =
-                Platform.OS === 'web' && 'hovered' in state ? Boolean((state as unknown as { hovered?: boolean }).hovered) : false;
-              return {
-                borderWidth: 1,
-                borderColor: makeTheme.card.border,
-                backgroundColor: makeTheme.card.background,
-                paddingHorizontal: theme.spacing.md,
-                paddingVertical: theme.spacing.sm,
-                borderRadius: theme.radius.md,
-                opacity: !profileEnabled ? 0.5 : state.pressed ? 0.85 : 1,
-                ...(Platform.OS === 'web'
-                  ? ({
-                      boxShadow: hovered ? '0 18px 44px rgba(0,0,0,0.25)' : '0 12px 32px rgba(0,0,0,0.20)',
-                      transition: 'box-shadow 200ms ease, opacity 150ms ease',
-                    } as unknown as object)
-                  : null),
-              };
-            }}
-          >
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.spacing.xs }}>
-              <User width={18} height={18} color={makeTheme.text.primary} />
-              {isMd ? <MakeText weight="semibold">{username}</MakeText> : null}
-            </View>
-          </Pressable>
+            leftIcon={<User width={18} height={18} color={makeTheme.text.primary} />}
+            contentStyle={{ paddingVertical: theme.spacing.sm, paddingHorizontal: theme.spacing.md }}
+          />
         </View>
       ) : null}
 

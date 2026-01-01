@@ -1,13 +1,14 @@
 import { useState, useEffect, useRef } from 'react';
-import { X, Code, Trash2, Eye, Shuffle, Settings, Database, Trophy, AlertCircle, Pause } from 'lucide-react';
+import { X, Code, Trash2, Eye, Shuffle, Settings, Database, Trophy, AlertCircle, Pause, FlaskConical } from 'lucide-react';
 import { Button } from './ui/button';
 import { useTheme } from '../contexts/ThemeContext';
 
 interface DeveloperMenuProps {
   onClose: () => void;
+  onNavigateToLab?: () => void;
 }
 
-export function DeveloperMenu({ onClose }: DeveloperMenuProps) {
+export function DeveloperMenu({ onClose, onNavigateToLab }: DeveloperMenuProps) {
   const { theme, themeType, setThemeType } = useTheme();
   const [position, setPosition] = useState({ x: 100, y: 100 });
   const [isDragging, setIsDragging] = useState(false);
@@ -120,6 +121,28 @@ export function DeveloperMenu({ onClose }: DeveloperMenuProps) {
 
       {/* Content */}
       <div className="p-4 space-y-6">
+        {/* Lab Navigation */}
+        {onNavigateToLab && (
+          <div className="space-y-2">
+            <h3 className={`text-sm ${theme.text.secondary} flex items-center gap-2`}>
+              <FlaskConical className="w-4 h-4" />
+              Design Lab
+            </h3>
+            <Button
+              onClick={onNavigateToLab}
+              className={`
+                ${theme.button.primary.background}
+                ${theme.button.primary.hover}
+                ${theme.button.primary.text}
+                w-full transition-all duration-300 text-sm
+              `}
+            >
+              <FlaskConical className="w-4 h-4 mr-2" />
+              Open Daily Challenge Lab
+            </Button>
+          </div>
+        )}
+
         {/* Theme Switcher */}
         <div className="space-y-2">
           <h3 className={`text-sm ${theme.text.secondary} flex items-center gap-2`}>

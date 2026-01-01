@@ -139,11 +139,11 @@ export function FreePlayCard({ onPlay, onResume, onPlayAgain }: FreePlayCardProp
                 <TooltipTrigger asChild>
                   <Button 
                     onClick={onResume}
-                    className={`${theme.button.primary.background} ${theme.button.primary.hover} ${theme.button.primary.text} transition-all duration-300 w-9 h-9 p-0 flex flex-col items-center justify-center gap-0.5`}
+                    className={`${theme.button.primary.background} ${theme.button.primary.hover} ${theme.button.primary.text} transition-all duration-300 w-9 h-9 md:w-10 md:h-10 p-0 flex flex-col items-center justify-center gap-1`}
                   >
-                    <Play className="w-4 h-4" fill="currentColor" />
+                    <Play className="w-3 h-3 md:w-4 md:h-4" fill="currentColor" />
                     {/* Progress bar - always show at least 10% width for visibility */}
-                    <div className="w-6 h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: 'rgba(0, 0, 0, 0.6)' }}>
+                    <div className="w-6 md:w-7 h-0.5 md:h-1 rounded-full overflow-hidden" style={{ backgroundColor: 'rgba(0, 0, 0, 0.6)' }}>
                       <div 
                         className="h-full" 
                         style={{ 

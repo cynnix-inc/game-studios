@@ -132,6 +132,18 @@ async function expectIconsVisible(page: import('@playwright/test').Page) {
   expect(resumeVisible || playVisible).toBeTruthy();
   if (resumeVisible) {
     await expect(freeResume.locator('svg')).toHaveCount(1);
+
+    // Hover tooltip (Make parity): should appear above the resume button and not be clipped.
+    await freeResume.hover();
+    const tipTitle = page.getByText('Game in Progress');
+    await expect(tipTitle).toBeVisible();
+
+    const btnBox = await freeResume.boundingBox();
+    const tipBox = await tipTitle.boundingBox();
+    if (btnBox && tipBox) {
+      // Tooltip should render above the button (allow a tiny tolerance).
+      expect(tipBox.y + tipBox.height).toBeLessThanOrEqual(btnBox.y + 2);
+    }
   }
   if (playVisible) await expect(freePlay).toBeVisible();
 

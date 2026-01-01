@@ -7,6 +7,7 @@ import { MakeButton } from '../make/MakeButton';
 import { MakeCard } from '../make/MakeCard';
 import { MakeText } from '../make/MakeText';
 import { useMakeTheme } from '../make/MakeThemeProvider';
+import { MakePrimaryIconProgressButton } from '../make/MakePrimaryIconProgressButton';
 
 export function FreePlayCard({
   isMd,
@@ -36,15 +37,49 @@ export function FreePlayCard({
   const { theme: makeTheme } = useMakeTheme();
   const [abandonOpen, setAbandonOpen] = React.useState(false);
   const [hovered, setHovered] = React.useState(false);
+  const anchorRef = React.useRef<View>(null);
+  const [anchorRect, setAnchorRect] = React.useState<{ x: number; y: number; width: number; height: number } | null>(null);
 
   const progressClamped = Math.max(0, Math.min(100, Math.round(progressPct ?? 0)));
   const showTooltip = Platform.OS === 'web' && hasGameInProgress && hovered;
-  const detailLine = `${progressClamped}% Complete · ${mistakes ?? 0} Mistake${(mistakes ?? 0) === 1 ? '' : 's'} · ${
-    hintsUsedCount ?? 0
-  } Hint${(hintsUsedCount ?? 0) === 1 ? '' : 's'} · ${elapsedLabel ?? '0:00'}`;
+  const mistakesLabel = `${mistakes ?? 0} Mistake${(mistakes ?? 0) === 1 ? '' : 's'}`;
+  const hintsLabel = `${hintsUsedCount ?? 0} Hint${(hintsUsedCount ?? 0) === 1 ? '' : 's'} Used`;
+  const elapsed = elapsedLabel ?? '0:00';
+  const buttonSize = 36;
+  // Make (Radix): TooltipContent is w-fit with modest padding and sideOffset=0.
+  // Our tooltip arrow is rendered slightly outside the box; keep the overall gap effectively ~0.
+  const tooltipBottomOffset = buttonSize + 5;
+
+  const Portal = React.useMemo(() => {
+    if (Platform.OS !== 'web') return null;
+    try {
+      // Keep this require web-only to avoid pulling react-dom into native bundles.
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const rd = require('react-dom') as { createPortal?: (children: React.ReactNode, container: Element) => React.ReactPortal };
+      return typeof rd?.createPortal === 'function' ? rd.createPortal : null;
+    } catch {
+      return null;
+    }
+  }, []);
+
+  const measureAnchor = React.useCallback(() => {
+    if (Platform.OS !== 'web') return;
+    const node = anchorRef.current as unknown as { measureInWindow?: (cb: (x: number, y: number, w: number, h: number) => void) => void };
+    if (!node?.measureInWindow) return;
+    node.measureInWindow((x, y, width, height) => {
+      setAnchorRect({ x, y, width, height });
+    });
+  }, []);
+
+  React.useEffect(() => {
+    if (!showTooltip) return;
+    // Measure after hover renders to ensure layout is stable.
+    requestAnimationFrame(() => measureAnchor());
+  }, [showTooltip, measureAnchor]);
 
   return (
-    <MakeCard style={{ borderRadius: 12 }}>
+    // Allow overflow so hover tooltip can escape the card bounds (Make parity).
+    <MakeCard style={{ borderRadius: 12, overflow: 'visible' }}>
       <View style={{ padding: isMd ? 16 : 12 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
@@ -92,76 +127,180 @@ export function FreePlayCard({
             />
 
             {hasGameInProgress ? (
-              <View style={{ position: 'relative' }}>
-                <Pressable
-                  accessibilityRole="button"
+              <View ref={anchorRef} collapsable={false} style={{ position: 'relative' }}>
+                <MakePrimaryIconProgressButton
                   accessibilityLabel="Free Play resume"
                   onPress={onPrimary}
-                  onHoverIn={() => setHovered(true)}
+                  onHoverIn={() => {
+                    setHovered(true);
+                    requestAnimationFrame(() => measureAnchor());
+                  }}
                   onHoverOut={() => setHovered(false)}
-                  style={({ pressed }) => ({
-                    width: 36,
-                    height: 36,
-                    borderRadius: 10,
-                    overflow: 'hidden',
-                    opacity: pressed ? 0.92 : 1,
-                  })}
                 >
-                  <LinearGradient
-                    colors={makeTheme.button.primaryGradient}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                    style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 4 }}
-                  >
-                    <Play width={16} height={16} color={makeTheme.button.textOnPrimary} fill={makeTheme.button.textOnPrimary} />
-                    <View
-                      style={{
-                        width: 24,
-                        height: 6,
-                        borderRadius: 999,
-                        overflow: 'hidden',
-                        backgroundColor: 'rgba(0,0,0,0.55)',
-                      }}
-                    >
-                      <View
-                        style={{
-                          width: `${Math.max(10, progressClamped)}%`,
-                          height: '100%',
-                          minWidth: 6,
-                          backgroundColor: '#facc15',
-                        }}
-                      />
-                    </View>
-                  </LinearGradient>
-                </Pressable>
-
-                {showTooltip ? (
+                  <Play width={16} height={16} color={makeTheme.button.textOnPrimary} fill={makeTheme.button.textOnPrimary} />
                   <View
                     style={{
-                      position: 'absolute',
-                      right: 0,
-                      top: 44,
-                      zIndex: 50,
-                      width: 220,
-                      borderRadius: 12,
-                      borderWidth: 1,
-                      borderColor: makeTheme.card.border,
-                      backgroundColor: makeTheme.card.background,
-                      padding: 10,
-                      ...(Platform.OS === 'web'
-                        ? ({ boxShadow: '0 12px 32px rgba(0,0,0,0.25)' } as unknown as object)
-                        : null),
+                      width: 24,
+                      height: 6,
+                      borderRadius: 999,
+                      overflow: 'hidden',
+                      backgroundColor: 'rgba(0,0,0,0.55)',
                     }}
                   >
-                    <MakeText weight="semibold">Game in Progress</MakeText>
-                    <MakeText tone="secondary" style={{ fontSize: 12 }}>
-                      {lastDifficultyLabel} • {lastModeLabel}
-                    </MakeText>
-                    <View style={{ height: 6 }} />
-                    <MakeText tone="muted" style={{ fontSize: 12 }}>
-                      {detailLine}
-                    </MakeText>
+                    <View
+                      style={{
+                        width: `${Math.max(10, progressClamped)}%`,
+                        height: '100%',
+                        minWidth: 6,
+                        backgroundColor: '#facc15',
+                      }}
+                    />
                   </View>
+                </MakePrimaryIconProgressButton>
+
+                {showTooltip ? (
+                  // Make uses Radix Tooltip Portal, so it never gets clipped and always layers above cards.
+                  Portal && typeof document !== 'undefined' && anchorRect
+                    ? Portal(
+                        <View
+                          pointerEvents="none"
+                          style={{
+                            position: 'fixed',
+                            left: anchorRect.x + anchorRect.width / 2,
+                            top: anchorRect.y - 2,
+                            zIndex: 2147483647,
+                            // Prevent crazy long lines while still feeling like w-fit.
+                            maxWidth: 320,
+                            borderRadius: 6,
+                            borderWidth: 1,
+                            borderColor: makeTheme.card.border,
+                            backgroundColor: makeTheme.card.background,
+                            paddingHorizontal: 12,
+                            paddingVertical: 6,
+                            ...(Platform.OS === 'web'
+                              ? ({
+                                  boxShadow: '0 12px 32px rgba(0,0,0,0.25)',
+                                  backdropFilter: 'blur(24px)',
+                                  WebkitBackdropFilter: 'blur(24px)',
+                                  transform: 'translate(-50%, -100%)',
+                                  // Make tooltip is w-fit (web-only)
+                                  width: 'fit-content',
+                                } as unknown as object)
+                              : null),
+                          }}
+                        >
+                          <View
+                            style={{
+                              position: 'absolute',
+                              bottom: -5,
+                              width: 10,
+                              height: 10,
+                              backgroundColor: makeTheme.card.background,
+                              borderRightWidth: 1,
+                              borderBottomWidth: 1,
+                              borderColor: makeTheme.card.border,
+                              ...(Platform.OS === 'web'
+                                ? ({
+                                    backdropFilter: 'blur(24px)',
+                                    WebkitBackdropFilter: 'blur(24px)',
+                                    left: '50%',
+                                    transform: 'translateX(-50%) rotate(45deg)',
+                                  } as unknown as object)
+                                : null),
+                            }}
+                          />
+
+                          <MakeText style={{ fontSize: 14, lineHeight: 18 }}>Game in Progress</MakeText>
+                          <View style={{ height: 4 }} />
+                          <View style={{ gap: 2 }}>
+                            <MakeText tone="secondary" style={{ fontSize: 12, lineHeight: 16 }}>
+                              {lastDifficultyLabel} • {lastModeLabel}
+                            </MakeText>
+                            <MakeText tone="secondary" style={{ fontSize: 12, lineHeight: 16 }}>
+                              {progressClamped}% Complete
+                            </MakeText>
+                            <MakeText tone="secondary" style={{ fontSize: 12, lineHeight: 16 }}>
+                              {mistakesLabel}
+                            </MakeText>
+                            <MakeText tone="secondary" style={{ fontSize: 12, lineHeight: 16 }}>
+                              {hintsLabel}
+                            </MakeText>
+                            <MakeText tone="secondary" style={{ fontSize: 12, lineHeight: 16 }}>
+                              Time Elapsed: {elapsed}
+                            </MakeText>
+                          </View>
+                        </View>,
+                        document.body,
+                      )
+                    : // Fallback (no portal): still render above button inside card; may clip in some stacking contexts.
+                      (
+                        <View
+                          pointerEvents="none"
+                          style={{
+                            position: 'absolute',
+                            bottom: tooltipBottomOffset,
+                            zIndex: 9999,
+                            borderRadius: 6,
+                            borderWidth: 1,
+                            borderColor: makeTheme.card.border,
+                            backgroundColor: makeTheme.card.background,
+                            paddingHorizontal: 12,
+                            paddingVertical: 6,
+                            ...(Platform.OS === 'web'
+                              ? ({
+                                  boxShadow: '0 12px 32px rgba(0,0,0,0.25)',
+                                  backdropFilter: 'blur(24px)',
+                                  WebkitBackdropFilter: 'blur(24px)',
+                                  left: '50%',
+                                  transform: 'translateX(-50%)',
+                                  // Make tooltip is w-fit (web-only)
+                                  width: 'fit-content',
+                                  maxWidth: 320,
+                                } as unknown as object)
+                              : null),
+                          }}
+                        >
+                          <View
+                            style={{
+                              position: 'absolute',
+                              bottom: -5,
+                              width: 10,
+                              height: 10,
+                              backgroundColor: makeTheme.card.background,
+                              borderRightWidth: 1,
+                              borderBottomWidth: 1,
+                              borderColor: makeTheme.card.border,
+                              ...(Platform.OS === 'web'
+                                ? ({
+                                    backdropFilter: 'blur(24px)',
+                                    WebkitBackdropFilter: 'blur(24px)',
+                                    left: '50%',
+                                    transform: 'translateX(-50%) rotate(45deg)',
+                                  } as unknown as object)
+                                : null),
+                            }}
+                          />
+                          <MakeText style={{ fontSize: 14, lineHeight: 18 }}>Game in Progress</MakeText>
+                          <View style={{ height: 4 }} />
+                          <View style={{ gap: 2 }}>
+                            <MakeText tone="secondary" style={{ fontSize: 12, lineHeight: 16 }}>
+                              {lastDifficultyLabel} • {lastModeLabel}
+                            </MakeText>
+                            <MakeText tone="secondary" style={{ fontSize: 12, lineHeight: 16 }}>
+                              {progressClamped}% Complete
+                            </MakeText>
+                            <MakeText tone="secondary" style={{ fontSize: 12, lineHeight: 16 }}>
+                              {mistakesLabel}
+                            </MakeText>
+                            <MakeText tone="secondary" style={{ fontSize: 12, lineHeight: 16 }}>
+                              {hintsLabel}
+                            </MakeText>
+                            <MakeText tone="secondary" style={{ fontSize: 12, lineHeight: 16 }}>
+                              Time Elapsed: {elapsed}
+                            </MakeText>
+                          </View>
+                        </View>
+                      )
                 ) : null}
               </View>
             ) : (

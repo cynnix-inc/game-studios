@@ -90,7 +90,7 @@ export function DailyChallenge({ onNavigate, onNavigateToCalendar }: DailyChalle
           )}
           
           <Button 
-            className={`${status === 'completed' ? theme.button.secondary.background + ' ' + theme.button.secondary.hover + ' ' + theme.button.secondary.text + ' ' + theme.card.border + ' border' : theme.button.primary.background + ' ' + theme.button.primary.hover + ' ' + theme.button.primary.text} transition-all duration-300 text-xs md:text-sm px-2 py-1.5 md:px-3 md:py-2 ${status === 'completed' ? 'cursor-default' : ''} flex flex-col items-center gap-0.5`}
+            className={`${status === 'completed' ? theme.button.secondary.background + ' ' + theme.button.secondary.hover + ' ' + theme.button.secondary.text + ' ' + theme.card.border + ' border' : theme.button.primary.background + ' ' + theme.button.primary.hover + ' ' + theme.button.primary.text} transition-all duration-300 ${status === 'resume' ? 'w-9 h-9 md:w-10 md:h-10 p-0' : 'text-xs md:text-sm px-2 py-1.5 md:px-3 md:py-2'} ${status === 'completed' ? 'cursor-default' : ''} flex flex-col items-center ${status === 'resume' ? 'justify-center gap-1' : 'gap-0.5'}`}
             onClick={(e) => {
               e.stopPropagation();
               if (status !== 'completed') {
@@ -99,14 +99,14 @@ export function DailyChallenge({ onNavigate, onNavigateToCalendar }: DailyChalle
             }}
             disabled={status === 'completed'}
           >
-            <div className="w-4 h-4 flex items-center justify-center">
+            <div className={`${status === 'resume' ? 'w-3 h-3 md:w-4 md:h-4' : 'w-4 h-4'} flex items-center justify-center`}>
               {status === 'completed' && <CheckCircle className="w-3 h-3 md:w-4 md:h-4" />}
               {status === 'play' && <Play className="w-3 h-3 md:w-4 md:h-4" />}
               {status === 'resume' && <Play className="w-3 h-3 md:w-4 md:h-4" fill="currentColor" />}
             </div>
             {status === 'resume' && (
-              <div className={`w-8 h-0.5 ${theme.button.primary.text} opacity-20 rounded-full overflow-hidden`}>
-                <div className={`h-full w-2/3 ${theme.button.primary.text} opacity-80`}></div>
+              <div className="w-6 md:w-7 h-0.5 md:h-1 rounded-full overflow-hidden" style={{ backgroundColor: 'rgba(0, 0, 0, 0.6)' }}>
+                <div className={`h-full w-2/3`} style={{ backgroundColor: '#facc15' }}></div>
               </div>
             )}
           </Button>

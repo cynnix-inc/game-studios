@@ -56,6 +56,7 @@ export function MakeThemeProvider({ children }: { children: React.ReactNode }) {
 
   React.useEffect(() => {
     let cancelled = false;
+    let cleanupWebMotion: (() => void) | null = null;
 
     // Reduced motion
     void (async () => {
@@ -67,6 +68,21 @@ export function MakeThemeProvider({ children }: { children: React.ReactNode }) {
       }
     })();
 
+    // Web fallback for reduced motion: rely on prefers-reduced-motion media query.
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      try {
+        const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+        const sync = () => {
+          if (!cancelled) setReducedMotion(Boolean(mq.matches));
+        };
+        sync();
+        mq.addEventListener?.('change', sync);
+        cleanupWebMotion = () => mq.removeEventListener?.('change', sync);
+      } catch {
+        // ignore; keep best-effort reducedMotion state
+      }
+    }
+
     // Theme persistence (web only; native persistence is a design gap for now)
     if (Platform.OS === 'web' && typeof window !== 'undefined') {
       const stored = readStoredThemeTypeWeb();
@@ -75,6 +91,7 @@ export function MakeThemeProvider({ children }: { children: React.ReactNode }) {
 
     return () => {
       cancelled = true;
+      cleanupWebMotion?.();
     };
   }, []);
 

@@ -35,7 +35,7 @@ export function MakeButton({
   style,
   ...rest
 }: MakeButtonProps) {
-  const { theme } = useMakeTheme();
+  const { theme, reducedMotion } = useMakeTheme();
   return (
     <Pressable
       accessibilityRole="button"
@@ -45,7 +45,9 @@ export function MakeButton({
         const extra = typeof style === 'function' ? style(state) : style;
         const hovered =
           Platform.OS === 'web' && 'hovered' in state ? Boolean((state as unknown as { hovered?: boolean }).hovered) : false;
+        const showHover = Platform.OS === 'web' && hovered && !disabled && !state.pressed;
         const showShadow = variant !== 'ghost' && elevation === 'elevated';
+        const webTransition = reducedMotion ? 'none' : 'transform 300ms ease, box-shadow 300ms ease, opacity 150ms ease';
         return [
           {
             borderRadius: radius,
@@ -53,7 +55,7 @@ export function MakeButton({
             opacity: disabled ? 0.6 : state.pressed ? 0.92 : 1,
             ...(variant === 'ghost'
               ? ({
-                  backgroundColor: hovered ? theme.card.background : 'transparent',
+                  backgroundColor: showHover ? theme.card.hoverBackground : 'transparent',
                 } as const)
               : null),
             // Approximate Make: shadow-xl + hover:shadow-2xl + subtle hover scale (web only).
@@ -61,15 +63,15 @@ export function MakeButton({
               ? (Platform.select({
                   ios: {
                     shadowColor: '#000',
-                    shadowOpacity: hovered ? 0.24 : 0.18,
-                    shadowRadius: hovered ? 18 : 14,
-                    shadowOffset: { width: 0, height: hovered ? 10 : 8 },
+                    shadowOpacity: showHover ? 0.24 : 0.18,
+                    shadowRadius: showHover ? 18 : 14,
+                    shadowOffset: { width: 0, height: showHover ? 10 : 8 },
                   },
-                  android: { elevation: hovered ? 10 : 8 },
+                  android: { elevation: showHover ? 10 : 8 },
                   web: {
-                    boxShadow: hovered ? '0 20px 50px rgba(0,0,0,0.25)' : '0 14px 36px rgba(0,0,0,0.20)',
-                    transform: hovered ? 'scale(1.01)' : 'scale(1)',
-                    transition: 'transform 200ms ease, box-shadow 200ms ease, opacity 150ms ease',
+                    boxShadow: showHover ? '0 20px 50px rgba(0,0,0,0.25)' : '0 14px 36px rgba(0,0,0,0.20)',
+                    transform: showHover ? 'scale(1.01)' : 'scale(1)',
+                    transition: webTransition,
                   },
                 }) as unknown as object)
               : null),
@@ -78,22 +80,12 @@ export function MakeButton({
         ];
       }}
     >
-      {variant === 'primary' ? (
-        <LinearGradient
-          testID="make-button-primary-bg"
-          colors={theme.button.primaryGradient}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-          style={{
-            borderWidth: 1,
-            borderColor: theme.button.border,
-            paddingVertical: 14,
-            paddingHorizontal: 18,
-            alignItems: 'center',
-            justifyContent: 'center',
-            ...(contentStyle ?? {}),
-          }}
-        >
+      {(state) => {
+        const hovered =
+          Platform.OS === 'web' && 'hovered' in state ? Boolean((state as unknown as { hovered?: boolean }).hovered) : false;
+        const showHover = Platform.OS === 'web' && hovered && !disabled && !state.pressed;
+
+        const content = (
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: contentGap }}>
             {leftIcon}
             {title ? (
@@ -102,52 +94,71 @@ export function MakeButton({
               </MakeText>
             ) : null}
           </View>
-        </LinearGradient>
-      ) : variant === 'secondary' ? (
-        <View
-          testID="make-button-secondary-bg"
-          style={{
-            backgroundColor: theme.button.secondaryBackground,
-            borderWidth: 1,
-            borderColor: theme.button.border,
-            paddingVertical: 14,
-            paddingHorizontal: 18,
-            alignItems: 'center',
-            justifyContent: 'center',
-            ...(contentStyle ?? {}),
-          }}
-        >
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: contentGap }}>
-            {leftIcon}
-            {title ? (
-              <MakeText weight="semibold" style={titleStyle}>
-                {title}
-              </MakeText>
-            ) : null}
+        );
+
+        if (variant === 'primary') {
+          return (
+            <LinearGradient
+              testID="make-button-primary-bg"
+              colors={showHover ? theme.button.primaryGradientHover : theme.button.primaryGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={{
+                borderWidth: 1,
+                borderColor: theme.button.border,
+                paddingVertical: 14,
+                paddingHorizontal: 18,
+                alignItems: 'center',
+                justifyContent: 'center',
+                ...(contentStyle ?? {}),
+              }}
+            >
+              {content}
+            </LinearGradient>
+          );
+        }
+
+        if (variant === 'secondary') {
+          return (
+            <View
+              testID="make-button-secondary-bg"
+              style={{
+                backgroundColor: showHover ? theme.button.secondaryBackgroundHover : theme.button.secondaryBackground,
+                borderWidth: 1,
+                borderColor: theme.button.border,
+                paddingVertical: 14,
+                paddingHorizontal: 18,
+                alignItems: 'center',
+                justifyContent: 'center',
+                ...(Platform.OS === 'web'
+                  ? ({
+                      transition: reducedMotion ? 'none' : 'background-color 300ms ease, border-color 300ms ease',
+                    } as unknown as object)
+                  : null),
+                ...(contentStyle ?? {}),
+              }}
+            >
+              {content}
+            </View>
+          );
+        }
+
+        return (
+          <View
+            testID="make-button-ghost-bg"
+            style={{
+              backgroundColor: 'transparent',
+              paddingVertical: 10,
+              paddingHorizontal: 12,
+              alignItems: 'center',
+              justifyContent: 'center',
+              ...(contentStyle ?? {}),
+            }}
+          >
+            {content}
           </View>
-        </View>
-      ) : (
-        <View
-          testID="make-button-ghost-bg"
-          style={{
-            backgroundColor: 'transparent',
-            paddingVertical: 10,
-            paddingHorizontal: 12,
-            alignItems: 'center',
-            justifyContent: 'center',
-            ...(contentStyle ?? {}),
-          }}
-        >
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: contentGap }}>
-            {leftIcon}
-            {title ? (
-              <MakeText weight="semibold" style={titleStyle}>
-                {title}
-              </MakeText>
-            ) : null}
-          </View>
-        </View>
-      )}
+        );
+      }}
     </Pressable>
   );
 }

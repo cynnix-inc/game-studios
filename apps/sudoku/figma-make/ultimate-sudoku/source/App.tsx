@@ -6,6 +6,7 @@ import { Stats } from './components/Stats';
 import { Leaderboard } from './components/Leaderboard';
 import { Profile } from './components/Profile';
 import { DailyChallenges } from './components/DailyChallenges';
+import { DailyChallengesLab } from './components/DailyChallengesLab';
 import { VariantSelect } from './components/VariantSelect';
 import { GameSetup } from './components/GameSetup';
 import { AuthModal } from './components/AuthModal';
@@ -15,7 +16,7 @@ import { SettingsProvider } from './contexts/SettingsContext';
 import type { Difficulty } from './types/difficulty';
 import type { Variant } from './types/variant';
 
-type Screen = 'menu' | 'settings' | 'stats' | 'leaderboard' | 'profile' | 'game' | 'dailyChallenges' | 'variantSelect' | 'gameSetup';
+type Screen = 'menu' | 'settings' | 'stats' | 'leaderboard' | 'profile' | 'game' | 'dailyChallenges' | 'dailyChallengesLab' | 'variantSelect' | 'gameSetup';
 
 function AppContent() {
   const { theme } = useTheme();
@@ -150,6 +151,21 @@ function AppContent() {
           <DailyChallenges
             onBack={() => setCurrentScreen('menu')}
             username={username}
+            onPlayToday={() => {
+              setGameType('daily');
+              setCurrentScreen('game');
+            }}
+            onPlayArchive={(date) => {
+              // Play archive challenge - set game type to daily but mark as archive
+              setGameType('daily');
+              setCurrentScreen('game');
+              // In production, you'd pass the date to load that specific puzzle
+            }}
+          />
+        )}
+        {currentScreen === 'dailyChallengesLab' && (
+          <DailyChallengesLab
+            onBack={() => setCurrentScreen('menu')}
           />
         )}
         {currentScreen === 'developerMenu' && (
@@ -170,7 +186,13 @@ function AppContent() {
 
       {/* Developer Menu - Floating overlay */}
       {showDevMenu && (
-        <DeveloperMenu onClose={() => setShowDevMenu(false)} />
+        <DeveloperMenu 
+          onClose={() => setShowDevMenu(false)} 
+          onNavigateToLab={() => {
+            setShowDevMenu(false);
+            setCurrentScreen('dailyChallengesLab');
+          }}
+        />
       )}
     </div>
   );

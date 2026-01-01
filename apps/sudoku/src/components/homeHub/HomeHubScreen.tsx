@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable, useWindowDimensions, View } from 'react-native';
+import { Platform, Pressable, useWindowDimensions, View } from 'react-native';
 import { BarChart3, Grid3X3, LogIn, Play, Settings, Trophy, User } from 'lucide-react-native';
 
 import { theme } from '@cynnix-studios/ui';
@@ -51,19 +51,52 @@ function TileButton({
       accessibilityLabel={label}
       disabled={disabled}
       onPress={onPress}
-      style={({ pressed }) => ({
-        width: 56,
-        height: 56,
-        borderRadius: theme.radius.md,
-        borderWidth: 1,
-        borderColor: theme.colors.border,
-        backgroundColor: theme.colors.surface,
-        alignItems: 'center',
-        justifyContent: 'center',
-        opacity: disabled ? 0.5 : pressed ? 0.85 : 1,
-      })}
+      style={(state) => {
+        const hovered =
+          Platform.OS === 'web' && 'hovered' in state ? Boolean((state as unknown as { hovered?: boolean }).hovered) : false;
+        const showHover = Platform.OS === 'web' && hovered && !disabled && !state.pressed;
+
+        return [
+          {
+            width: 56,
+            height: 56,
+            borderRadius: theme.radius.md,
+            borderWidth: 1,
+            borderColor: theme.colors.border,
+            backgroundColor: theme.colors.surface,
+            alignItems: 'center',
+            justifyContent: 'center',
+            opacity: disabled ? 0.5 : state.pressed ? 0.88 : 1,
+            // Match Make icon tiles: shadow-xl + hover:shadow-2xl + subtle hover scale (web).
+            ...(Platform.select({
+              ios: {
+                shadowColor: '#000',
+                shadowOpacity: showHover ? 0.24 : 0.18,
+                shadowRadius: showHover ? 18 : 14,
+                shadowOffset: { width: 0, height: showHover ? 10 : 8 },
+              },
+              android: { elevation: showHover ? 10 : 8 },
+              web: {
+                boxShadow: showHover ? '0 20px 50px rgba(0,0,0,0.25)' : '0 14px 36px rgba(0,0,0,0.20)',
+                transform: showHover ? 'scale(1.01)' : 'scale(1)',
+                transition: 'transform 200ms ease, box-shadow 200ms ease, opacity 150ms ease',
+              },
+            }) as unknown as object),
+          },
+        ];
+      }}
     >
-      <Icon width={22} height={22} color={theme.colors.text} />
+      {(state) => {
+        const hovered =
+          Platform.OS === 'web' && 'hovered' in state ? Boolean((state as unknown as { hovered?: boolean }).hovered) : false;
+        const showHover = Platform.OS === 'web' && hovered && !disabled && !state.pressed;
+
+        return (
+          <View style={Platform.OS === 'web' ? ({ transform: showHover ? 'scale(1.1)' : 'scale(1)', transition: 'transform 200ms ease' } as unknown as object) : null}>
+            <Icon width={22} height={22} color={theme.colors.text} />
+          </View>
+        );
+      }}
     </Pressable>
   );
 }

@@ -1,11 +1,12 @@
 import React from 'react';
-import { Platform, Pressable, useWindowDimensions, View } from 'react-native';
+import { Platform, useWindowDimensions, View } from 'react-native';
 import { Calendar, CalendarDays, CheckCircle, Clock, Flame, Play } from 'lucide-react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 
 import { msUntilNextUtcMidnight } from '@cynnix-studios/sudoku-core';
 
 import { MakeCard } from '../make/MakeCard';
+import { MakeButton } from '../make/MakeButton';
+import { MakePrimaryIconProgressButton } from '../make/MakePrimaryIconProgressButton';
 import { MakeText } from '../make/MakeText';
 import { useMakeTheme } from '../make/MakeThemeProvider';
 
@@ -109,9 +110,12 @@ export function DailyChallengeCard({
 
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             {onOpenCalendar ? (
-              <Pressable
-                accessibilityRole="button"
+              <MakeButton
                 accessibilityLabel="Daily calendar"
+                title=""
+                variant="secondary"
+                elevation="flat"
+                radius={10}
                 disabled={cardDisabled}
                 onPress={(e) => {
                   // Stop bubbling to any parent pressables (web).
@@ -119,84 +123,50 @@ export function DailyChallengeCard({
                   (e as any)?.stopPropagation?.();
                   onOpenCalendar();
                 }}
-                style={({ pressed }) => ({
-                  width: 36,
-                  height: 36,
-                  borderRadius: 10,
-                  borderWidth: 1,
-                  borderColor: makeTheme.card.border,
-                  backgroundColor: makeTheme.card.background,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  opacity: cardDisabled ? 0.5 : pressed ? 0.9 : 1,
-                })}
-              >
-                <CalendarDays width={16} height={16} color={makeTheme.text.primary} />
-              </Pressable>
+                leftIcon={<CalendarDays width={16} height={16} color={makeTheme.text.primary} />}
+                contentStyle={{ width: 36, height: 36, paddingVertical: 0, paddingHorizontal: 0 }}
+              />
             ) : null}
 
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Daily play"
-              disabled={cardDisabled || isCompleted}
-              onPress={(e) => {
-                // Stop bubbling to any parent pressables (web).
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                (e as any)?.stopPropagation?.();
-                onPlay();
-              }}
-              style={({ pressed }) => ({
-                width: 36,
-                height: 36,
-                borderRadius: 10,
-                overflow: 'hidden',
-                opacity: cardDisabled || isCompleted ? 0.6 : pressed ? 0.92 : 1,
-              })}
-            >
-              {isCompleted ? (
-                <View
-                  style={{
-                    flex: 1,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    backgroundColor: makeTheme.button.secondaryBackground,
-                    borderWidth: 1,
-                    borderColor: makeTheme.button.border,
-                  }}
-                >
-                  {actionIcon}
-                </View>
-              ) : (
-                <LinearGradient
-                  colors={makeTheme.button.primaryGradient}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={{
-                    flex: 1,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: 4,
-                    borderWidth: 1,
-                    borderColor: makeTheme.button.border,
-                  }}
-                >
-                  {actionIcon}
-                  {isResume ? (
-                    <View
-                      style={{
-                        width: 32,
-                        height: 2,
-                        borderRadius: 999,
-                        overflow: 'hidden',
-                        backgroundColor: rgbaFromHex(makeTheme.button.textOnPrimary, 0.2),
-                      }}
-                    >
-                      <View style={{ width: '66%', height: '100%', backgroundColor: makeTheme.button.textOnPrimary, opacity: 0.8 }} />
-                    </View>
-                  ) : null}
-                </LinearGradient>
-              )}
-            </Pressable>
+            {isCompleted ? (
+              <MakeButton
+                accessibilityLabel="Daily completed"
+                title=""
+                variant="secondary"
+                elevation="flat"
+                radius={10}
+                disabled
+                onPress={() => {}}
+                leftIcon={actionIcon}
+                contentStyle={{ width: 36, height: 36, paddingVertical: 0, paddingHorizontal: 0 }}
+              />
+            ) : (
+              <MakePrimaryIconProgressButton
+                accessibilityLabel={isResume ? 'Daily resume' : 'Daily play'}
+                disabled={cardDisabled}
+                onPress={(e) => {
+                  // Stop bubbling to any parent pressables (web).
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  (e as any)?.stopPropagation?.();
+                  onPlay();
+                }}
+              >
+                {actionIcon}
+                {isResume ? (
+                  <View
+                    style={{
+                      width: 32,
+                      height: 2,
+                      borderRadius: 999,
+                      overflow: 'hidden',
+                      backgroundColor: rgbaFromHex(makeTheme.button.textOnPrimary, 0.2),
+                    }}
+                  >
+                    <View style={{ width: '66%', height: '100%', backgroundColor: makeTheme.button.textOnPrimary, opacity: 0.8 }} />
+                  </View>
+                ) : null}
+              </MakePrimaryIconProgressButton>
+            )}
           </View>
         </View>
       </View>

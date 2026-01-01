@@ -8,6 +8,7 @@ export type MakeTheme = {
   card: {
     background: string;
     border: string;
+    hoverBackground: string;
   };
   input: {
     background: string;
@@ -22,7 +23,9 @@ export type MakeTheme = {
   };
   button: {
     primaryGradient: [string, string];
+    primaryGradientHover: [string, string];
     secondaryBackground: string;
+    secondaryBackgroundHover: string;
     border: string;
     textOnPrimary: string;
     textOnSecondary: string;
@@ -55,6 +58,7 @@ const makeThemeDefault: MakeTheme = {
   card: {
     background: 'rgba(255, 255, 255, 0.10)',
     border: 'rgba(255, 255, 255, 0.20)',
+    hoverBackground: 'rgba(255, 255, 255, 0.20)',
   },
 
   // Make: theme.input.*
@@ -74,7 +78,11 @@ const makeThemeDefault: MakeTheme = {
   button: {
     // bg-gradient-to-r from-purple-500 to-pink-500
     primaryGradient: ['#a855f7', '#ec4899'],
+    // hover:from-purple-600 hover:to-pink-600
+    primaryGradientHover: ['#9333ea', '#db2777'],
     secondaryBackground: 'rgba(255, 255, 255, 0.10)',
+    // hover:bg-white/20
+    secondaryBackgroundHover: 'rgba(255, 255, 255, 0.20)',
     border: 'rgba(255, 255, 255, 0.20)',
     textOnPrimary: '#ffffff',
     textOnSecondary: '#ffffff',
@@ -95,6 +103,8 @@ const makeThemeLight: MakeTheme = {
   card: {
     background: 'rgba(255, 255, 255, 0.80)',
     border: '#e2e8f0',
+    // hover:bg-white/90
+    hoverBackground: 'rgba(255, 255, 255, 0.90)',
   },
   input: {
     background: 'rgba(255, 255, 255, 0.60)',
@@ -109,7 +119,11 @@ const makeThemeLight: MakeTheme = {
   },
   button: {
     primaryGradient: ['#9333ea', '#db2777'], // purple-600 -> pink-600
+    // hover:from-purple-700 hover:to-pink-700
+    primaryGradientHover: ['#7e22ce', '#be185d'],
     secondaryBackground: '#e2e8f0',
+    // hover:bg-slate-300
+    secondaryBackgroundHover: '#cbd5e1',
     border: '#cbd5e1',
     textOnPrimary: '#ffffff',
     textOnSecondary: '#0f172a',
@@ -128,6 +142,8 @@ const makeThemeDark: MakeTheme = {
   card: {
     background: 'rgba(255, 255, 255, 0.05)',
     border: 'rgba(255, 255, 255, 0.10)',
+    // hover:bg-white/10
+    hoverBackground: 'rgba(255, 255, 255, 0.10)',
   },
   input: {
     background: 'rgba(255, 255, 255, 0.05)',
@@ -142,7 +158,11 @@ const makeThemeDark: MakeTheme = {
   },
   button: {
     primaryGradient: ['#ffffff', '#ffffff'],
+    // hover:bg-slate-100 (solid)
+    primaryGradientHover: ['#f1f5f9', '#f1f5f9'],
     secondaryBackground: 'rgba(255, 255, 255, 0.10)',
+    // hover:bg-white/20
+    secondaryBackgroundHover: 'rgba(255, 255, 255, 0.20)',
     border: 'rgba(255, 255, 255, 0.10)',
     textOnPrimary: '#020617',
     textOnSecondary: '#ffffff',
@@ -161,6 +181,8 @@ const makeThemeGrayscale: MakeTheme = {
   card: {
     background: 'rgba(255, 255, 255, 0.10)',
     border: 'rgba(255, 255, 255, 0.20)',
+    // hover:bg-white/15
+    hoverBackground: 'rgba(255, 255, 255, 0.15)',
   },
   input: {
     background: 'rgba(255, 255, 255, 0.10)',
@@ -175,7 +197,11 @@ const makeThemeGrayscale: MakeTheme = {
   },
   button: {
     primaryGradient: ['#ffffff', '#ffffff'],
+    // hover:bg-gray-200 (solid)
+    primaryGradientHover: ['#e5e7eb', '#e5e7eb'],
     secondaryBackground: 'rgba(255, 255, 255, 0.10)',
+    // hover:bg-white/20
+    secondaryBackgroundHover: 'rgba(255, 255, 255, 0.20)',
     border: 'rgba(255, 255, 255, 0.20)',
     textOnPrimary: '#111827',
     textOnSecondary: '#ffffff',

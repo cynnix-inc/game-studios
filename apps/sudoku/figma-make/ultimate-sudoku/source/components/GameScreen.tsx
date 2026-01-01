@@ -230,12 +230,12 @@ export function GameScreen({ onExit, username, difficulty = 'skilled', gameType 
 
               {/* Right: Profile - Avatar and Username */}
               <div className="flex items-center gap-2">
-                <div className={`w-9 h-9 md:w-10 md:h-10 rounded-full ${theme.button.secondary.background} ${theme.card.border} border flex items-center justify-center shrink-0`}>
-                  <User className={`w-5 h-5 md:w-6 md:h-6 ${theme.text.primary}`} />
-                </div>
                 <span className={`hidden sm:block text-sm md:text-base ${theme.text.primary}`}>
                   {username || 'Guest'}
                 </span>
+                <div className={`w-9 h-9 md:w-10 md:h-10 rounded-full ${theme.button.secondary.background} ${theme.card.border} border flex items-center justify-center shrink-0`}>
+                  <User className={`w-5 h-5 md:w-6 md:h-6 ${theme.text.primary}`} />
+                </div>
               </div>
             </div>
           </div>
