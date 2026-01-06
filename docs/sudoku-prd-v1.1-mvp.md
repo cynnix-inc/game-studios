@@ -45,7 +45,7 @@ Monetization is out of scope for MVP, but the data model and UX must not block f
 ## 4. Product scope
 ### 4.1 Modes included (MVP)
 #### A) Free Play
-- User chooses difficulty (Easy, Medium, Hard, Expert, Extreme)
+- User chooses difficulty (Novice, Skilled, Advanced, Expert, Fiendish, Ultimate)
 - Starts a new puzzle
 - Can pause, resume, and autosave
 - Stats tracked locally (guest) or in cloud (signed-in)
@@ -58,7 +58,7 @@ Monetization is out of scope for MVP, but the data model and UX must not block f
 - Replays are allowed after the first completion, but they are personal-only and never affect the leaderboard
 
 ### 4.2 Difficulty system (MVP)
-- Free Play difficulties: Easy, Medium, Hard, Expert, Extreme
+- Free Play difficulties: Novice, Skilled, Advanced, Expert, Fiendish, Ultimate
 - Daily difficulty: can vary by day (defined in Daily payload metadata), but rule set stays consistent
 
 ## 5. Core game rules (classic Sudoku)
@@ -94,7 +94,7 @@ MVP supports:
 ### 6.3 Offline behavior
 - If offline, user can still play:
   - Free Play using cached/built-in packs
-  - Daily only if already cached for that day (and archive cached)
+- Daily requires an internet connection (no offline play, even if previously cached)
 - Submitting ranked Daily results requires online connectivity at submission time
 - If offline at completion, store a pending submission and prompt to submit when back online
 
@@ -122,6 +122,9 @@ On mobile web, UI should behave like mobile native.
 - Autosave on meaningful changes (debounced)
 - Autosave on background/tab hidden
 - Resume returns the player to the last in-progress puzzle
+- On app close / background (best effort):
+  - flush local in-progress save immediately
+  - if signed in, attempt a best-effort cloud sync so another device can resume (no realtime guarantee)
 
 ### 7.4 UI sizing (required)
 Settings must allow resizing:
@@ -217,6 +220,11 @@ For each in-progress puzzle, store:
 - No conflict dialogs for MVP
 - The board always resolves to the merged latest state
 - Show a subtle sync indicator and last sync time (settings or pause menu)
+
+### 10.4 Sync cadence (MVP)
+- **Not realtime**: cross-device continuation is best-effort and event-driven.
+- **Signed-in users**: sync occurs on app start/auth events and on lifecycle flush events (background/close).
+- **Guests**: local-only until conversion.
 
 ## 11. Performance targets (MVP)
 - Grid input latency: less than 50ms perceived response (web and mobile)

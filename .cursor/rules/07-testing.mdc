@@ -44,8 +44,33 @@ If you take an exception, leave a brief comment in the PR description explaining
 - **Pure logic packages** (e.g., Sudoku engine): validation/solver/generator/serialization.
 - **Application services**: orchestration/use-cases (mock storage/supabase providers).
 - **Security-relevant logic**: payload validation and stable error shapes at boundaries (especially server-side).
+- **Supabase Edge Functions** (when changed):
+  - request validation (reject invalid payloads with the documented error shape)
+  - auth mapping (`auth.uid()` mapping, no trusting client-supplied user ids)
+  - response envelope stability (`{ ok, data|error, requestId }`) and status code mapping
+
+### Where tests should live
+
+- **Preferred**: extract validation/mapping/orchestration into a TypeScript module under `packages/**` (or `apps/**/src/**` for app-only orchestration) and test it with the existing Jest setup for that package/app.
+- Keep `supabase/functions/**/index.ts` as a thin wrapper (parse → validate → call service → map response).
+- If you choose to test inside `supabase/functions/**`, pin and document the chosen test runner (Deno test vs Node/Jest) before adding a lot of tests there.
 
 ## E2E
 
 E2E guidance is intentionally non-prescriptive in this repo for now. If/when we adopt a specific web/mobile E2E framework, codify it here and pin versions.
+
+## UI migration regression bar (Sudoku overhaul)
+
+When a change is primarily UI/UX (layout, styling, interaction patterns), add a lightweight regression layer:
+
+- **At least one Playwright test per primary flow affected** (e.g., Home → Game, Home → Daily).
+- **Responsive coverage**: run the key UI flows at **2–3 representative viewports** (phone/tablet/desktop) when breakpoints/layout behavior changes.
+- **Accessibility/keyboard**: keep/extend keyboard navigation coverage for the grid and core controls.
+
+### Persistence & resume (required when changing saves/resume/sync triggers)
+
+If you touch autosave, resume, or lifecycle sync behavior, add explicit regression coverage:
+
+- **Resume availability**: start a run, reload, and verify the Home screen shows a Resume affordance.
+- **Lifecycle flush**: verify saves are flushed on background/close (web `pagehide/beforeunload`, native app background). Cloud sync on flush is best-effort and should be validated via mocks/unit tests where practical.
 

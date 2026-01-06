@@ -1,7 +1,7 @@
 import React from 'react';
 import { SafeAreaView, ScrollView, type ViewProps } from 'react-native';
 
-import { theme } from '../theme';
+import { theme } from '../tokens';
 
 export type ScreenProps = ViewProps & {
   scroll?: boolean;
@@ -32,5 +32,6 @@ export function Screen({ scroll = true, style, children, ...rest }: ScreenProps)
     </ScrollView>
   );
 }
+
 
 

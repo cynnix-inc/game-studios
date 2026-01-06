@@ -27,11 +27,12 @@ describe('PRD scoring (score_ms)', () => {
     const score = computeScoreMs({
       raw_time_ms: 1,
       mistakes_count: 0,
-      // @ts-expect-error: deliberately invalid runtime shape
+      // Negative counts are type-valid but should be clamped at runtime.
       hint_breakdown: { reveal_cell_value: -2 },
     });
     expect(score).toBe(1);
   });
 });
+
 
 

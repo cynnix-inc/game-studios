@@ -1,3 +1,13 @@
+---
+description: Expo Router + web export conventions for the Sudoku app (Netlify dist, redirects, identifiers)
+globs:
+  - "apps/sudoku/**"
+  - "apps/sudoku/app/**"
+  - "apps/sudoku/public/**"
+  - "apps/sudoku/netlify.toml"
+alwaysApply: true
+---
+
 # Expo & Web (Expo Router + Netlify)
 
 ## Expo Router
@@ -7,7 +17,7 @@
 
 ## Web export
 - Netlify publishes `apps/sudoku/dist`.
-- Web export command is `pnpm -w export:web:sudoku` (calls `expo export -p web`).
+- Web export command is `pnpm export:web:sudoku` from the repo root (calls `expo export -p web`).
 - SPA redirects are required via `apps/sudoku/public/_redirects`.
 
 ## App identifiers

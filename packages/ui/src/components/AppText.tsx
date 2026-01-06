@@ -1,7 +1,7 @@
 import React from 'react';
 import { Text, type TextProps } from 'react-native';
 
-import { theme } from '../theme';
+import { theme } from '../tokens';
 
 export type AppTextProps = TextProps & {
   tone?: 'default' | 'muted' | 'danger';
@@ -14,5 +14,6 @@ export function AppText({ tone = 'default', weight = 'regular', style, ...rest }
   const fontWeight = weight === 'bold' ? '700' : weight === 'semibold' ? '600' : '400';
   return <Text {...rest} style={[{ color, fontWeight }, style]} />;
 }
+
 
 

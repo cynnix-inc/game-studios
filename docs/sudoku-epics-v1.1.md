@@ -55,7 +55,7 @@ Primary references:
 **Delivers:** A fast, clean classic Sudoku experience for Free Play.
 
 **Scope (high-level):**
-- Start a Free Play puzzle by difficulty (Easy, Medium, Hard, Expert, Extreme).
+- Start a Free Play puzzle by difficulty (Novice, Skilled, Advanced, Expert, Fiendish, Ultimate).
 - Core interactions: select cell, enter 1–9, clear/erase.
 - Notes mode: add/remove notes; notes displayed per cell.
 - Undo/redo with history persisting across pause/resume for in-progress puzzles.
@@ -75,7 +75,7 @@ Primary references:
 - Load today’s Daily (UTC-keyed; globally identical).
 - Show next UTC rollover countdown (or equivalent UX).
 - Access last 30 days (archive) and load the correct puzzle per date.
-- Offline behavior for Daily: playable only if the payload is already cached.
+- Offline behavior for Daily: **blocked when offline** (Daily requires an internet connection).
 
 **Primary references:**
 - PRD: 4.1B (Daily), 6.1 (server-published Daily), 6.3 (Offline behavior)
@@ -339,5 +339,6 @@ This section maps requirements sections to the epic(s) responsible for deliverin
 ## Notes / WBD flags (to clarify later)
 - **Hint UX scope**: PRD/brief defines penalty types (PRD 8.2) but does not fully specify hint UX/availability. WBD should explicitly define which hint types ship in MVP and how they are triggered.
 - **Daily offline completion**: PRD requires storing a pending ranked submission when offline and prompting to submit once online (PRD 6.3). Ensure WBD covers exact UX + retry rules.
+
 
 

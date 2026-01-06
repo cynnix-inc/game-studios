@@ -3,24 +3,46 @@ name: CI
 on:
   pull_request:
   push:
-    branches: [main]
+    branches:
+      - dev
+      - main
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  build:
+  ci:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
-          node-version: 22
-          cache: pnpm
+          node-version-file: .nvmrc
 
-      - uses: pnpm/action-setup@v4
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Activate pinned pnpm
+        run: corepack prepare pnpm@9.15.2 --activate
+
+      - name: Configure pnpm store
+        run: pnpm config set store-dir ~/.pnpm-store
+
+      - name: Restore pnpm store cache
+        uses: actions/cache@v4
         with:
-          version: 9
+          path: ~/.pnpm-store
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
 
-      - name: Install
+      - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
       - name: Lint
@@ -32,4 +54,11 @@ jobs:
       - name: Test
         run: pnpm test
 
+      - name: Web export smoke (Sudoku)
+        env:
+          # Safe dummy values for CI-only web export smoke. Real values are set in Netlify contexts.
+          EXPO_PUBLIC_SUPABASE_URL: https://example.supabase.co
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: example-anon-key
+          EXPO_PUBLIC_SUPABASE_FUNCTIONS_URL: https://example.supabase.co/functions/v1
+        run: pnpm -w export:web:sudoku
 

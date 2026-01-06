@@ -1,0 +1,97 @@
+import type { CellValue, Grid } from './grid';
+import { assertGrid, boxOf, colOf, rowOf } from './grid';
+
+function allowed(grid: Grid, i: number, v: CellValue): boolean {
+  const r = rowOf(i);
+  const c = colOf(i);
+  const b = boxOf(r, c);
+
+  for (let j = 0; j < 81; j++) {
+    const vv = grid[j]!;
+    if (vv === 0) continue;
+    if (j === i) continue;
+    if (rowOf(j) === r && vv === v) return false;
+    if (colOf(j) === c && vv === v) return false;
+    if (boxOf(rowOf(j), colOf(j)) === b && vv === v) return false;
+  }
+  return true;
+}
+
+function candidatesForCell(grid: Grid, i: number): CellValue[] {
+  const out: CellValue[] = [];
+  for (const v of [1, 2, 3, 4, 5, 6, 7, 8, 9] as const) {
+    if (allowed(grid, i, v)) out.push(v);
+  }
+  return out;
+}
+
+/**
+ * Picks the next empty cell using a “minimum remaining values” heuristic.
+ * Returns:
+ * - { idx: -1 } when the grid is complete (no empties)
+ * - { idx: -2 } when an empty cell has zero candidates (dead end)
+ * - otherwise, { idx, candidates } where candidates.length >= 1
+ */
+function pickNextCell(grid: Grid): { idx: number; candidates?: CellValue[] } {
+  let bestIdx = -1;
+  let bestCandidates: CellValue[] | undefined;
+
+  for (let i = 0; i < 81; i++) {
+    if (grid[i]! !== 0) continue;
+    const cands = candidatesForCell(grid, i);
+    if (cands.length === 0) return { idx: -2 };
+    if (bestCandidates == null || cands.length < bestCandidates.length) {
+      bestIdx = i;
+      bestCandidates = cands;
+      if (bestCandidates.length === 1) break;
+    }
+  }
+
+  if (bestIdx === -1) return { idx: -1 };
+  return { idx: bestIdx, candidates: bestCandidates };
+}
+
+/**
+ * Counts solutions up to 2 (0, 1, or 2 meaning "2 or more").
+ * Deterministic and intended for uniqueness enforcement / gating.
+ */
+export function countSolutionsUpTo2(gridIn: ReadonlyArray<number>): 0 | 1 | 2 {
+  assertGrid(gridIn);
+  const grid = gridIn.slice() as Grid as CellValue[];
+
+  // Validate given clues
+  for (let i = 0; i < 81; i++) {
+    const v = grid[i]!;
+    if (v === 0) continue;
+    if (!allowed(grid as unknown as Grid, i, v)) return 0;
+  }
+
+  // Use a number internally to avoid TypeScript narrowing pitfalls, then clamp to 0|1|2 on return.
+  let count = 0;
+
+  const backtrack = (): void => {
+    if (count >= 2) return;
+    const next = pickNextCell(grid as unknown as Grid);
+    if (next.idx === -2) return;
+    if (next.idx === -1) {
+      count = count === 0 ? 1 : 2;
+      return;
+    }
+
+    const i = next.idx;
+    const candidates = next.candidates ?? candidatesForCell(grid as unknown as Grid, i);
+    for (const v of candidates) {
+      (grid as CellValue[])[i] = v;
+      backtrack();
+      (grid as CellValue[])[i] = 0;
+      if (count >= 2) return;
+    }
+  };
+
+  backtrack();
+  if (count <= 0) return 0;
+  if (count === 1) return 1;
+  return 2;
+}
+
+

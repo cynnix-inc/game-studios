@@ -1,5 +1,7 @@
 import { createTypedSupabaseClient } from '@cynnix-studios/supabase';
 import {
+  getSession,
+  onAuthStateChange,
   signInWithApple,
   signInWithGoogle,
   signInWithOAuthRedirect,
@@ -46,7 +48,26 @@ export async function signOutAll() {
   return signOut(getSupabase());
 }
 
+export type SessionUserInfo = { id: string; email?: string | null };
+
+export async function getSessionUser(): Promise<SessionUserInfo | null> {
+  if (!isSupabaseConfigured()) return null;
+  const session = await getSession(getSupabase());
+  if (!session?.user?.id) return null;
+  return { id: session.user.id, email: session.user.email ?? null };
+}
+
+export function subscribeToAuthEvents(cb: (event: string) => void): () => void {
+  if (!isSupabaseConfigured()) return () => {};
+  return onAuthStateChange(getSupabase(), cb);
+}
+
 export async function getAccessToken(): Promise<string | null> {
+  // E2E test override (web export inlines EXPO_PUBLIC_* at build time).
+  // This allows deterministic Playwright smoke tests without real OAuth.
+  const e2e = process.env.EXPO_PUBLIC_E2E_ACCESS_TOKEN;
+  if (e2e && e2e.length > 0) return e2e;
+
   if (!isSupabaseConfigured()) return null;
   const supabase = getSupabase();
   const { data } = await supabase.auth.getSession();

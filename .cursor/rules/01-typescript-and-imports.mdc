@@ -1,3 +1,16 @@
+---
+description: TypeScript correctness and import hygiene (strictness, entrypoints, package boundaries)
+globs:
+  - "apps/**"
+  - "packages/**"
+  - "supabase/**"
+  - "**/*.ts"
+  - "**/*.tsx"
+  - "**/*.cts"
+  - "**/*.mts"
+alwaysApply: true
+---
+
 # TypeScript & Imports
 
 ## TypeScript
@@ -15,4 +28,9 @@
 ## Module boundaries
 - `packages/sudoku-core` must remain platform-agnostic and Node-compatible.
 - `packages/ui` must stay lightweight (RN styles only; avoid heavy deps).
+
+### Animation dependency boundary (clarification)
+
+If high-fidelity motion requires a heavier animation runtime, keep it **app-scoped** (e.g., under `apps/sudoku/**`) or in a dedicated package.
+Do not pull heavy animation dependencies into `packages/ui`.
 

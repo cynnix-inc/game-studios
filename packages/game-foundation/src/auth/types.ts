@@ -16,3 +16,4 @@ export type SupabaseProfile = {
 export type PlayerProfile = GuestProfile | SupabaseProfile;
 
 
+

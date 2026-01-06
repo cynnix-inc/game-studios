@@ -1,8 +1,18 @@
+---
+description: Supabase usage rules (client safety, RLS expectations, edge function boundaries)
+globs:
+  - "apps/**"
+  - "packages/supabase/**"
+  - "supabase/**"
+alwaysApply: true
+---
+
 # Supabase
 
 ## Client usage
 - Apps should use the typed client factory from `@cynnix-studios/supabase`.
 - Only use `EXPO_PUBLIC_*` env vars in apps.
+- Clients must use the **anon** key only. Never embed the Supabase **service role** key in apps or shared packages.
 
 ## RLS expectations
 - All tables must have RLS enabled.
@@ -13,5 +23,9 @@
 - Edge functions must validate input and map `auth.uid()` -> `players.id`.
 
 ## Types
-- `packages/supabase/src/types/database.types.ts` is a placeholder until generated with Supabase CLI.
+- `packages/supabase/src/types/database.types.ts` is a **generated file** and should be **committed**.
+- Update it whenever DB schema changes (migrations/RLS changes) so client + server code stays type-safe.
+- Do not hand-edit it; regenerate via Supabase CLI (examples):
+  - `supabase gen types typescript --local > packages/supabase/src/types/database.types.ts`
+  - or `supabase gen types typescript --project-id <id> > packages/supabase/src/types/database.types.ts` (if using a remote project)
 

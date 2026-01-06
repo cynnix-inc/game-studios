@@ -2,4 +2,10 @@
   command = "pnpm -w export:web:sudoku"
   publish = "apps/sudoku/dist"
 
+  [build.environment]
+    # Supabase anon key is client-side by design (public). Netlify secrets scanning can
+    # false-positive on it because it appears in the exported web bundle.
+    SECRETS_SCAN_OMIT_KEYS = "EXPO_PUBLIC_SUPABASE_ANON_KEY"
+
+
 

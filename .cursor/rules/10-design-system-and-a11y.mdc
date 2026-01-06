@@ -1,0 +1,86 @@
+---
+description: Sudoku design system and accessibility rules (tokens, UI consistency, web keyboard support)
+globs:
+  - "apps/sudoku/**"
+  - "apps/sudoku/**/*.ts"
+  - "apps/sudoku/**/*.tsx"
+  - "apps/sudoku/app.json"
+  - "apps/sudoku/app.config.*"
+  - "packages/ui/**"
+  - "packages/ui/**/*.ts"
+  - "packages/ui/**/*.tsx"
+alwaysApply: true
+---
+
+# Design System & Accessibility (Sudoku)
+
+This rule defines how we keep Sudoku UI consistent across iOS/Android/Web in this monorepo.
+
+## Sources of truth
+
+- Product/requirements: `docs/**` (e.g., `docs/sudoku-prd-v1.1-mvp.md`, `docs/sudoku-tech-spec-v1.1.md`)
+- UI design (overhaul): Figma Make file “Ultimate Sudoku” (React web design) via MCP
+- Architecture constraints: `04-architecture-boundaries.mdc`
+- Formatting/tooling: `05-formatting-and-repo-hygiene.mdc`
+
+### Policy: missing design elements
+
+If a required feature/screen exists in docs but a design decision is missing:
+
+- **Flag the gap** and treat it as a product/design decision.
+- Do not invent UI/UX beyond the docs without explicit approval.
+- If a stopgap UI is needed, keep it minimal and clearly temporary.
+
+### Policy: conflicts between docs and design
+
+If `docs/**` and the Figma Make design disagree on UI/UX behavior or visual specs:
+
+- **Flag the conflict** and treat it as a product/design decision.
+- Do not “split the difference” or invent intermediate behavior without explicit approval.
+
+## Tokens (single source of truth)
+
+Prefer a shared token module for reusable UI primitives:
+
+- **Preferred location**: `packages/ui/src/tokens.ts`
+- **App-specific tokens** (only if needed): `apps/sudoku/src/**/tokens.ts`
+
+Rules:
+
+- Prefer **semantic tokens** (e.g., `colors.grid.selectedBg`) over ad-hoc literals.
+- Avoid “one-off” colors/spacing/typography values in components; add tokens instead.
+
+## Component boundaries
+
+- **Shared UI primitives** belong in `packages/ui/**` and must remain game-agnostic.
+- **Route/screens** under `apps/**/app/**` should stay thin and focus on composition + accessibility.
+- Do not embed business rules in UI (see `04-architecture-boundaries.mdc`).
+
+## Accessibility (required)
+
+Web accessibility is a first-class requirement for Sudoku:
+
+- **Keyboard support**: the Sudoku grid must support keyboard input on web.
+- **Focus management**: ensure focus is visible and navigable (tab/shift-tab and arrow-key patterns where applicable).
+- **Color is not enough**: never rely on color alone for selection, conflicts, or same-number highlighting.
+- **Labels**: all interactive elements must have accessible labels (e.g., `accessibilityLabel` / roles/labels on web).
+- **Reduced motion**: animations and transitions must respect user preferences (web `prefers-reduced-motion`, native OS accessibility settings).
+- **Touch targets**: interactive elements must meet minimum touch target guidance across platforms.
+
+## Styling approach
+
+Use the existing project styling conventions. If a platform-specific workaround is needed:
+
+- Isolate it behind a small helper instead of scattering conditionals.
+- Keep token usage and component APIs consistent across platforms.
+
+## Responsive layout (required)
+
+The UI must remain usable and visually consistent across iOS/Android/Web.
+
+- **Size classes**: design and validate behavior for phone, tablet, and desktop form factors.
+- **Orientation**: handle portrait/landscape as applicable to each surface.
+- **Safe area**: account for notches and system UI insets; do not place critical controls in unsafe regions.
+- **Scalable tokens**: use tokens for spacing/typography so responsiveness does not devolve into one-off literals.
+- **Breakpoint verification**: validate key flows at multiple breakpoints (ties into Playwright coverage).
+

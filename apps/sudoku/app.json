@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Cynnix Studios Sudoku",
+    "name": "Ultimate Sudoku",
     "slug": "sudoku",
     "scheme": "sudoku",
     "version": "0.0.1",
@@ -24,5 +24,6 @@
     }
   }
 }
+
 
 

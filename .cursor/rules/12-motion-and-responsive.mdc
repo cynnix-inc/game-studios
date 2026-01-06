@@ -1,0 +1,57 @@
+---
+description: Motion and responsive UI rules for Sudoku overhaul (cross-platform fidelity, reduced-motion, performance, dependency boundaries)
+globs:
+  - "apps/sudoku/**"
+  - "apps/sudoku/**/*.ts"
+  - "apps/sudoku/**/*.tsx"
+  - "packages/ui/**"
+  - "packages/ui/**/*.ts"
+  - "packages/ui/**/*.tsx"
+alwaysApply: true
+---
+
+# Motion & Responsive UI (Sudoku)
+
+This rule codifies cross-platform responsive behavior and motion fidelity for the Sudoku UI overhaul.
+It complements (and does not replace) `10-design-system-and-a11y.mdc`.
+
+## Responsive behavior (required)
+
+- **Design for size classes**: phone, tablet, desktop.
+- **Avoid one-off breakpoints**: prefer reusable layout helpers and semantic tokens over ad-hoc viewport conditionals.
+- **Safe areas**: account for notches and system UI insets; avoid placing critical controls in unsafe regions.
+- **Orientation**: support portrait/landscape where applicable; do not rely on “web desktop only” assumptions.
+
+## Motion principles (required)
+
+- **Consistency**: use a small set of shared durations/easings; do not introduce random one-off timings per component.
+- **Purposeful motion**: animations should clarify state changes (navigation, selection, feedback) rather than distract.
+- **Bounded complexity**: prefer simple transitions over bespoke timelines unless the design explicitly requires it.
+
+### Motion tokens (recommended)
+
+If the redesign introduces standardized motion values, prefer defining them as tokens:
+
+- **Preferred location**: `packages/ui/src/tokens.ts` (e.g., `motion.duration.fast`, `motion.easing.standard`)
+- **App-specific only when needed**: `apps/sudoku/src/**/tokens.ts`
+
+## Reduced motion (required)
+
+Animations and transitions must respect user preferences:
+
+- **Web**: honor `prefers-reduced-motion`.
+- **Native**: honor the OS accessibility reduced-motion setting (or closest available signal on the platform).
+- **Behavior**: when reduced motion is enabled, either disable non-essential animations or replace them with minimal, non-distracting transitions.
+
+## Performance guidance (required)
+
+- **Web**: avoid layout-thrashing animations; prefer transform/opacity where possible.
+- **Keep render paths clean**: do not compute expensive animation state during render; isolate it in hooks/helpers.
+
+## Dependency boundary for animation runtimes (required)
+
+To keep `packages/ui` lightweight (see `01-typescript-and-imports.mdc`):
+
+- **Do not add heavy animation runtimes to `packages/ui`**.
+- If high-fidelity animation tooling is required, keep it **app-scoped** under `apps/sudoku/**` or introduce a **dedicated package** with clear boundaries (and keep `packages/ui` consumable without that dependency).
+

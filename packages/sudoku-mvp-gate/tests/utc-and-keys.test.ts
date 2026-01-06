@@ -1,4 +1,4 @@
-import { formatUtcDateKey, makeDailyPuzzleKey, makeFreePuzzleKey } from '@cynnix-studios/sudoku-core';
+import { computeDailyCacheKeysToEvict, formatUtcDateKey, getLastNUtcDateKeys, makeDailyPuzzleKey, makeFreePuzzleKey, msUntilNextUtcMidnight } from '@cynnix-studios/sudoku-core';
 
 describe('UTC date keying + puzzle key conventions', () => {
   test('formatUtcDateKey uses UTC date parts (YYYY-MM-DD)', () => {
@@ -14,6 +14,29 @@ describe('UTC date keying + puzzle key conventions', () => {
 
   test('free puzzle key format is free:<difficulty>:<puzzle_id>', () => {
     expect(makeFreePuzzleKey('easy', 'puz_123')).toBe('free:easy:puz_123');
+  });
+
+  test('Epic 2 gate: archive includes last 30 UTC days, most-recent first', () => {
+    const nowMs = Date.UTC(2025, 0, 2, 12, 0, 0, 0); // 2025-01-02
+    const keys = getLastNUtcDateKeys(nowMs, 30);
+    expect(keys).toHaveLength(30);
+    expect(keys[0]).toBe('2025-01-02');
+    expect(keys[1]).toBe('2025-01-01');
+  });
+
+  test('Epic 2 gate: rollover countdown is always within 24h', () => {
+    const nowMs = Date.UTC(2025, 0, 2, 12, 0, 0, 0);
+    const ms = msUntilNextUtcMidnight(nowMs);
+    expect(ms).toBeGreaterThan(0);
+    expect(ms).toBeLessThanOrEqual(24 * 60 * 60 * 1000);
+  });
+
+  test('Epic 2 gate: cache eviction removes keys not in keep set', () => {
+    const evict = computeDailyCacheKeysToEvict({
+      cachedKeys: ['2025-01-02', '2024-12-31'],
+      keepKeys: ['2025-01-02'],
+    });
+    expect(evict).toEqual(['2024-12-31']);
   });
 });
 

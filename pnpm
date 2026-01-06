@@ -1,5 +1,9 @@
-#!/usr/bin/env bash
-set -euo pipefail
-exec corepack pnpm "$@"
+#!/usr/bin/env node
+/* eslint-disable no-console */
+const { spawnSync } = require('node:child_process');
+
+const result = spawnSync('corepack', ['pnpm', ...process.argv.slice(2)], { stdio: 'inherit' });
+process.exit(result.status ?? 1);
+
 
 

@@ -99,6 +99,10 @@ Conflict resolution:
 - On background / tab hidden
 - On app close (best effort)
 
+Implementation notes (MVP):
+- The local “in-progress” slot is **local-first** and flushed on lifecycle events.
+- When signed in, lifecycle flush should also attempt a **best-effort cloud sync** of the main save slot so another device can resume (no realtime guarantee).
+
 ## 5. Supabase schema (MVP baseline)
 Tables (conceptual; migration can differ):
 - players

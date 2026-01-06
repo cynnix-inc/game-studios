@@ -1,7 +1,10 @@
-import { Redirect } from 'expo-router';
+import React from 'react';
+
+import { UltimateRoot } from '../src/ultimate/UltimateRoot';
 
 export default function Index() {
-  return <Redirect href="/game" />;
+  return <UltimateRoot />;
 }
+
 
 

@@ -1,7 +1,7 @@
 import React from 'react';
 import { Pressable, type PressableProps, Text } from 'react-native';
 
-import { theme } from '../theme';
+import { theme } from '../tokens';
 
 export type AppButtonProps = PressableProps & {
   title: string;
