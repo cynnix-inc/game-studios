@@ -17,10 +17,12 @@ import type { PlayerProfile } from '@cynnix-studios/game-foundation';
 import { readDailyCompletionIndex } from '../../services/dailyCompletion';
 import { clearLocalInProgressSave, loadLocalSave, readLocalInProgressSave } from '../../services/saves';
 import { recordRunAbandoned } from '../../services/stats';
+import { useSettingsStore } from '../../state/useSettingsStore';
 import { usePlayerStore } from '../../state/usePlayerStore';
 import type { UltimateScreen } from '../navigation/UltimateNavState';
 import { SudokuLogoMark } from '../components/SudokuLogoMark';
 import { formatElapsedSecondsMMSS } from './game/formatTime';
+import { getSettingsToggles } from '../../services/settingsModel';
 
 function capitalizeDifficulty(d: string): string {
   const lower = d.toLowerCase();
@@ -151,7 +153,12 @@ export function UltimateMenuScreen({
   const [freeMistakes, setFreeMistakes] = React.useState(0);
   const [freeHintsUsedCount, setFreeHintsUsedCount] = React.useState(0);
   const [freeElapsedLabel, setFreeElapsedLabel] = React.useState('0:00');
+  const [freeZenAtStart, setFreeZenAtStart] = React.useState(false);
   const [saveCheckNonce, setSaveCheckNonce] = React.useState(0);
+
+  const settings = useSettingsStore((s) => s.settings);
+  const toggles = settings ? getSettingsToggles(settings) : null;
+  const zenModeEnabled = !!toggles?.zenMode;
 
   React.useEffect(() => {
     let cancelled = false;
@@ -174,6 +181,7 @@ export function UltimateMenuScreen({
           setFreeLastMode('Classic');
           setFreeMistakes(saved.mistakes);
           setFreeHintsUsedCount(saved.hintsUsedCount);
+          setFreeZenAtStart(saved.zenModeAtStart ?? false);
           const parsed = parseGrid(saved.serializedPuzzle);
           const filled = parsed.reduce<number>((n, v) => n + (v !== 0 ? 1 : 0), 0);
           setFreeProgressPct(Math.round((filled / 81) * 100));
@@ -187,6 +195,7 @@ export function UltimateMenuScreen({
           setFreeHintsUsedCount(0);
           setFreeProgressPct(0);
           setFreeElapsedLabel('0:00');
+          setFreeZenAtStart(false);
         }
       } catch {
         // Best-effort; never crash home.
@@ -285,6 +294,7 @@ export function UltimateMenuScreen({
             mistakes={freeMistakes}
             hintsUsedCount={freeHintsUsedCount}
             elapsedLabel={freeElapsedLabel}
+            hideRunStats={zenModeEnabled || freeZenAtStart}
             onSetup={() => onNavigate('variantSelect')}
             onAbandonAndSetup={async () => {
               const saved = await readLocalInProgressSave();

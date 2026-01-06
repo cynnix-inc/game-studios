@@ -102,7 +102,7 @@ export async function readCachedDaily(dateKey: string): Promise<DailyPayloadV1 |
   const saved = await dailySaveService.local.read<Record<string, unknown>>(GAME_KEY, dailySlot(dateKey));
   if (!saved) return null;
   try {
-    return assertDailyPayload(saved.data);
+    return assertDailyPayload(normalizeDailyPayloadJson(saved.data));
   } catch {
     return null;
   }
@@ -115,6 +115,40 @@ export async function writeCachedDaily(payload: DailyPayloadV1): Promise<void> {
     data: payload,
   });
   await upsertDailyIndexForDateKey(dailySaveService, payload.date_key);
+}
+
+function normalizeDailyPayloadJson(input: unknown): unknown {
+  // Back-compat: older daily JSONs used legacy difficulties:
+  // `easy|medium|hard|expert|extreme`. Our engine contract uses:
+  // `novice|skilled|advanced|expert|fiendish|ultimate`.
+  //
+  // Make parity requires showing difficulty everywhere; normalize at the boundary
+  // so the rest of the app can stay typed against `Difficulty`.
+  if (typeof input !== 'object' || input === null) return input;
+  const obj = input as Record<string, unknown>;
+  const raw = obj.difficulty;
+  if (typeof raw !== 'string') return input;
+
+  // If it's already a contract difficulty, keep it.
+  if (raw === 'novice' || raw === 'skilled' || raw === 'advanced' || raw === 'expert' || raw === 'fiendish' || raw === 'ultimate') {
+    return input;
+  }
+
+  const mapped =
+    raw === 'easy'
+      ? 'novice'
+      : raw === 'medium'
+        ? 'skilled'
+        : raw === 'hard'
+          ? 'advanced'
+          : raw === 'expert'
+            ? 'expert'
+            : raw === 'extreme'
+              ? 'ultimate'
+              : null;
+
+  if (!mapped) return input;
+  return { ...obj, difficulty: mapped };
 }
 
 export async function fetchDailyManifest(): Promise<DailyManifestV1> {
@@ -145,7 +179,7 @@ export async function fetchDailyPayload(url: string): Promise<DailyPayloadV1> {
   );
   if (!res.ok) throw new Error(`payload_http_${res.status}`);
   const json = (await res.json()) as unknown;
-  return assertDailyPayload(json);
+  return assertDailyPayload(normalizeDailyPayloadJson(json));
 }
 
 export async function loadDailyByDateKey(dateKey: string): Promise<DailyLoadResult> {

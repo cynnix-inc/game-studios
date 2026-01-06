@@ -6,7 +6,8 @@ test.describe('visual: dailyChallenges (Ultimate Sudoku)', () => {
     await page.goto('/');
     await expect(page.getByRole('heading', { name: 'Ultimate Sudoku' })).toBeVisible();
     await page.getByRole('button', { name: 'Daily calendar' }).click();
-    await expect(page.getByText('Daily Challenges', { exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Back' })).toBeVisible();
+    await expect(page.getByText('This Week', { exact: true })).toBeVisible();
   }
 
   async function snap(page: Page, name: string) {
@@ -15,72 +16,43 @@ test.describe('visual: dailyChallenges (Ultimate Sudoku)', () => {
     await expect(page.getByTestId('make-screen')).toHaveScreenshot(name);
   }
 
-  test('mobile.calendar', async ({ page }) => {
+  test('mobile.main', async ({ page }) => {
     await prepareForVisualSnapshot(page, 'mobile');
     await gotoDailyChallenges(page);
-    await snap(page, 'daily.calendar.mobile.png');
+    await snap(page, 'daily.mobile.png');
   });
 
-  test('mobile.modal', async ({ page }) => {
+  test('mobile.fullCalendar', async ({ page }) => {
     await prepareForVisualSnapshot(page, 'mobile');
     await gotoDailyChallenges(page);
-    await page.getByRole('button', { name: 'Day 1, today' }).click();
-    await expect(page.getByLabel('Close day details')).toBeVisible();
-    await snap(page, 'daily.modal.mobile.png');
+    await page.getByRole('button', { name: 'Previous month' }).click();
+    await snap(page, 'daily.prevMonth.mobile.png');
   });
 
-  test('mobile.leaderboard', async ({ page }) => {
-    await prepareForVisualSnapshot(page, 'mobile');
-    await gotoDailyChallenges(page);
-    await page.getByLabel('Leaderboard tab').click();
-    await snap(page, 'daily.leaderboard.mobile.png');
-  });
-
-  test('mobile.stats', async ({ page }) => {
-    await prepareForVisualSnapshot(page, 'mobile');
-    await gotoDailyChallenges(page);
-    await page.getByLabel('Stats tab').click();
-    await snap(page, 'daily.stats.mobile.png');
-  });
-
-  test('tablet.calendar', async ({ page }) => {
+  test('tablet.main', async ({ page }) => {
     await prepareForVisualSnapshot(page, 'tablet');
     await gotoDailyChallenges(page);
-    await snap(page, 'daily.calendar.tablet.png');
+    await snap(page, 'daily.tablet.png');
   });
 
-  test('tablet.leaderboard', async ({ page }) => {
+  test('tablet.fullCalendar', async ({ page }) => {
     await prepareForVisualSnapshot(page, 'tablet');
     await gotoDailyChallenges(page);
-    await page.getByLabel('Leaderboard tab').click();
-    await snap(page, 'daily.leaderboard.tablet.png');
+    await page.getByRole('button', { name: 'Previous month' }).click();
+    await snap(page, 'daily.prevMonth.tablet.png');
   });
 
-  test('tablet.stats', async ({ page }) => {
-    await prepareForVisualSnapshot(page, 'tablet');
-    await gotoDailyChallenges(page);
-    await page.getByLabel('Stats tab').click();
-    await snap(page, 'daily.stats.tablet.png');
-  });
-
-  test('desktop.calendar', async ({ page }) => {
+  test('desktop.main', async ({ page }) => {
     await prepareForVisualSnapshot(page, 'desktop');
     await gotoDailyChallenges(page);
-    await snap(page, 'daily.calendar.desktop.png');
+    await snap(page, 'daily.desktop.png');
   });
 
-  test('desktop.leaderboard', async ({ page }) => {
+  test('desktop.fullCalendar', async ({ page }) => {
     await prepareForVisualSnapshot(page, 'desktop');
     await gotoDailyChallenges(page);
-    await page.getByLabel('Leaderboard tab').click();
-    await snap(page, 'daily.leaderboard.desktop.png');
-  });
-
-  test('desktop.stats', async ({ page }) => {
-    await prepareForVisualSnapshot(page, 'desktop');
-    await gotoDailyChallenges(page);
-    await page.getByLabel('Stats tab').click();
-    await snap(page, 'daily.stats.desktop.png');
+    await page.getByRole('button', { name: 'Previous month' }).click();
+    await snap(page, 'daily.prevMonth.desktop.png');
   });
 });
 

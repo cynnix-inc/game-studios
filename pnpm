@@ -6,3 +6,4 @@ const result = spawnSync('corepack', ['pnpm', ...process.argv.slice(2)], { stdio
 process.exit(result.status ?? 1);
 
 
+

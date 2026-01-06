@@ -25,7 +25,7 @@ import {
   Volume2,
 } from 'lucide-react-native';
 
-import { getRunTimerElapsedMs } from '@cynnix-studios/sudoku-core';
+import { computeScoreMs, getRunTimerElapsedMs } from '@cynnix-studios/sudoku-core';
 import { theme } from '@cynnix-studios/ui';
 
 import { MakeButton } from '../../components/make/MakeButton';
@@ -54,6 +54,7 @@ import {
 import { updateLocalSettings } from '../../services/settings';
 import { readLockModePreference, writeLockModePreference } from '../../services/lockModePreference';
 import { isDevToolsAllowed } from '../../services/runtimeEnv';
+import { markDailyCompleted } from '../../services/dailyCompletion';
 import { MakeDigitPad } from '../components/MakeDigitPad';
 
 type Digit = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
@@ -113,8 +114,11 @@ export function UltimateGameScreen({
   const selectedIndex = usePlayerStore((s) => s.selectedIndex);
   const mistakes = usePlayerStore((s) => s.mistakes);
   const hintsUsedCount = usePlayerStore((s) => s.hintsUsedCount);
+  const hintBreakdown = usePlayerStore((s) => s.hintBreakdown);
   const runTimer = usePlayerStore((s) => s.runTimer);
   const runStatus = usePlayerStore((s) => s.runStatus);
+  const completedAtMs = usePlayerStore((s) => s.completedAtMs);
+  const dailyDateKey = usePlayerStore((s) => s.dailyDateKey);
   const canUndo = usePlayerStore((s) => s.undoStack.length > 0);
 
   const selectCell = usePlayerStore((s) => s.selectCell);
@@ -238,6 +242,35 @@ export function UltimateGameScreen({
   const elapsedSeconds = Math.floor(getRunTimerElapsedMs(runTimer, nowMs) / 1000);
   const timeLabel = formatElapsedSecondsMMSS(elapsedSeconds);
   const badge = difficultyBadge(difficulty);
+
+  // Persist daily completion state for the redesigned Daily Challenges screen.
+  const wroteCompletionRef = React.useRef(false);
+  React.useEffect(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const g = typeof globalThis !== 'undefined' ? (globalThis as any) : null;
+    if (g?.__VISUAL_TEST__ === true) return;
+    if (gameType !== 'daily') return;
+    if (!isComplete) return;
+    if (!dailyDateKey) return;
+    if (wroteCompletionRef.current) return;
+    wroteCompletionRef.current = true;
+
+    const rawTimeMs = getRunTimerElapsedMs(runTimer, completedAtMs ?? nowMs);
+    const scoreMs = computeScoreMs({
+      raw_time_ms: rawTimeMs,
+      mistakes_count: mistakes,
+      hint_breakdown: hintBreakdown,
+    });
+
+    void markDailyCompleted({
+      dateKey: dailyDateKey,
+      completedAtMs: completedAtMs ?? nowMs,
+      rawTimeMs,
+      scoreMs,
+      mistakesCount: mistakes,
+      hintsUsedCount,
+    });
+  }, [completedAtMs, dailyDateKey, gameType, hintBreakdown, hintsUsedCount, isComplete, mistakes, nowMs, runTimer]);
 
   const openMenu = React.useCallback(() => {
     setMenuOpen(true);
@@ -1559,7 +1592,7 @@ export function UltimateGameScreen({
                   hintCandidates={
                     hintCandidates && selectedIndex != null && hintCandidates.cell === selectedIndex ? { cell: hintCandidates.cell, candidates: hintCandidates.candidates } : null
                   }
-                  showConflicts={!(toggles?.zenMode ?? false)}
+                  showConflicts
                   highlightContrast={gridHighlights?.highlightContrast}
                   highlightAssistance={gridHighlights?.highlightAssistance}
                   onSelectCell={(i) => {

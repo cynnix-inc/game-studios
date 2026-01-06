@@ -12,6 +12,8 @@ import { useMakeTheme } from '../../components/make/MakeThemeProvider';
 import type { PlayerProfile } from '@cynnix-studios/game-foundation';
 import { loadLocalStats } from '../../services/stats';
 import { computeScoreMs } from '@cynnix-studios/sudoku-core';
+import { getSettingsToggles } from '../../services/settingsModel';
+import { useSettingsStore } from '../../state/useSettingsStore';
 
 function usernameFromProfile(profile: PlayerProfile | null): string {
   if (!profile) return '';
@@ -41,6 +43,9 @@ function ProgressBar({ valuePct }: { valuePct: number }) {
 export function UltimateStatsScreen({ profile, onBack }: { profile: PlayerProfile | null; onBack: () => void }) {
   const { theme: makeTheme } = useMakeTheme();
   const username = usernameFromProfile(profile);
+  const settings = useSettingsStore((s) => s.settings);
+  const toggles = settings ? getSettingsToggles(settings) : null;
+  const zenModeEnabled = !!toggles?.zenMode;
 
   const [excludeZen, setExcludeZen] = React.useState(true);
   const [loading, setLoading] = React.useState(true);
@@ -107,8 +112,8 @@ export function UltimateStatsScreen({ profile, onBack }: { profile: PlayerProfil
 
   const stats = [
     { label: 'Puzzles Solved', value: loading ? '—' : String(summary.puzzlesSolved), icon: Target, color: '#60a5fa' },
-    { label: 'Total Score', value: loading ? '—' : formatScoreMs(summary.totalScoreMs), icon: Trophy, color: '#facc15' },
-    { label: 'Play Time', value: loading ? '—' : formatDuration(summary.playTimeMs), icon: Clock, color: '#a78bfa' },
+    ...(zenModeEnabled ? [] : [{ label: 'Total Score', value: loading ? '—' : formatScoreMs(summary.totalScoreMs), icon: Trophy, color: '#facc15' }]),
+    ...(zenModeEnabled ? [] : [{ label: 'Play Time', value: loading ? '—' : formatDuration(summary.playTimeMs), icon: Clock, color: '#a78bfa' }]),
     { label: 'Completion Rate', value: loading ? '—' : `${completionRatePct}%`, icon: TrendingUp, color: '#4ade80' },
   ] as const;
 
@@ -193,37 +198,39 @@ export function UltimateStatsScreen({ profile, onBack }: { profile: PlayerProfil
         </MakeCard>
 
         {/* Achievements */}
-        <MakeCard style={{ borderRadius: 18 }}>
-          <View style={{ padding: 16, gap: 14 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-              <Award width={20} height={20} color={makeTheme.accent} />
-              <MakeText weight="semibold" style={{ fontSize: 18 }}>
-                Achievements
-              </MakeText>
-            </View>
+        {zenModeEnabled ? null : (
+          <MakeCard style={{ borderRadius: 18 }}>
+            <View style={{ padding: 16, gap: 14 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                <Award width={20} height={20} color={makeTheme.accent} />
+                <MakeText weight="semibold" style={{ fontSize: 18 }}>
+                  Achievements
+                </MakeText>
+              </View>
 
-            {achievements.map((a) => (
-              <View key={a.name} style={{ gap: 6 }}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <View style={{ flex: 1 }}>
-                    <MakeText weight="semibold">{a.name}</MakeText>
-                    <MakeText tone="muted" style={{ fontSize: 12 }}>
-                      {a.description}
+              {achievements.map((a) => (
+                <View key={a.name} style={{ gap: 6 }}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <View style={{ flex: 1 }}>
+                      <MakeText weight="semibold">{a.name}</MakeText>
+                      <MakeText tone="muted" style={{ fontSize: 12 }}>
+                        {a.description}
+                      </MakeText>
+                    </View>
+                    <MakeText tone="secondary" style={{ marginLeft: 12 }}>
+                      {a.progress}%
                     </MakeText>
                   </View>
-                  <MakeText tone="secondary" style={{ marginLeft: 12 }}>
-                    {a.progress}%
-                  </MakeText>
+                  <ProgressBar valuePct={a.progress} />
                 </View>
-                <ProgressBar valuePct={a.progress} />
-              </View>
-            ))}
+              ))}
 
-            <MakeText tone="muted" style={{ fontSize: 12 }}>
-              Stats are local-first and sync when signed in; Zen runs are tracked but can be excluded.
-            </MakeText>
-          </View>
-        </MakeCard>
+              <MakeText tone="muted" style={{ fontSize: 12 }}>
+                Stats are local-first and sync when signed in; Zen runs are tracked but can be excluded.
+              </MakeText>
+            </View>
+          </MakeCard>
+        )}
 
         <View style={{ height: theme.spacing.lg }} />
       </View>

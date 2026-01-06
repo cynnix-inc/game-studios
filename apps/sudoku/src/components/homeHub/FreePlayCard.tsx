@@ -18,6 +18,7 @@ export function FreePlayCard({
   mistakes,
   hintsUsedCount,
   elapsedLabel,
+  hideRunStats,
   onSetup,
   onAbandonAndSetup,
   onPrimary,
@@ -30,6 +31,7 @@ export function FreePlayCard({
   mistakes?: number;
   hintsUsedCount?: number;
   elapsedLabel?: string;
+  hideRunStats?: boolean;
   onSetup: () => void;
   onAbandonAndSetup?: () => void | Promise<void>;
   onPrimary: () => void;
@@ -49,6 +51,20 @@ export function FreePlayCard({
   // Make (Radix): TooltipContent is w-fit with modest padding and sideOffset=0.
   // Our tooltip arrow is rendered slightly outside the box; keep the overall gap effectively ~0.
   const tooltipBottomOffset = buttonSize + 5;
+
+  const tooltipRunStats = hideRunStats ? null : (
+    <>
+      <MakeText tone="secondary" style={{ fontSize: 12, lineHeight: 16 }}>
+        {mistakesLabel}
+      </MakeText>
+      <MakeText tone="secondary" style={{ fontSize: 12, lineHeight: 16 }}>
+        {hintsLabel}
+      </MakeText>
+      <MakeText tone="secondary" style={{ fontSize: 12, lineHeight: 16 }}>
+        Time Elapsed: {elapsed}
+      </MakeText>
+    </>
+  );
 
   const Portal = React.useMemo(() => {
     if (Platform.OS !== 'web') return null;
@@ -219,15 +235,7 @@ export function FreePlayCard({
                             <MakeText tone="secondary" style={{ fontSize: 12, lineHeight: 16 }}>
                               {progressClamped}% Complete
                             </MakeText>
-                            <MakeText tone="secondary" style={{ fontSize: 12, lineHeight: 16 }}>
-                              {mistakesLabel}
-                            </MakeText>
-                            <MakeText tone="secondary" style={{ fontSize: 12, lineHeight: 16 }}>
-                              {hintsLabel}
-                            </MakeText>
-                            <MakeText tone="secondary" style={{ fontSize: 12, lineHeight: 16 }}>
-                              Time Elapsed: {elapsed}
-                            </MakeText>
+                            {tooltipRunStats}
                           </View>
                         </View>,
                         document.body,
@@ -289,15 +297,7 @@ export function FreePlayCard({
                             <MakeText tone="secondary" style={{ fontSize: 12, lineHeight: 16 }}>
                               {progressClamped}% Complete
                             </MakeText>
-                            <MakeText tone="secondary" style={{ fontSize: 12, lineHeight: 16 }}>
-                              {mistakesLabel}
-                            </MakeText>
-                            <MakeText tone="secondary" style={{ fontSize: 12, lineHeight: 16 }}>
-                              {hintsLabel}
-                            </MakeText>
-                            <MakeText tone="secondary" style={{ fontSize: 12, lineHeight: 16 }}>
-                              Time Elapsed: {elapsed}
-                            </MakeText>
+                            {tooltipRunStats}
                           </View>
                         </View>
                       )

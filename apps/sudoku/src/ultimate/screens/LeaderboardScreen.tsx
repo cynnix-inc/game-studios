@@ -11,6 +11,8 @@ import { MakeScreen } from '../../components/make/MakeScreen';
 import { MakeText } from '../../components/make/MakeText';
 import { useMakeTheme } from '../../components/make/MakeThemeProvider';
 import { getDailyTop100, type DailyLeaderboardRow } from '../../services/leaderboard';
+import { getSettingsToggles } from '../../services/settingsModel';
+import { useSettingsStore } from '../../state/useSettingsStore';
 
 function formatMs(ms: number): string {
   return `${Math.round(ms / 1000)}s`;
@@ -74,6 +76,9 @@ const MOCK_ROWS: DailyLeaderboardRow[] = [
 export function UltimateLeaderboardScreen({ onBack }: { onBack: () => void }) {
   const { theme: makeTheme } = useMakeTheme();
   const todayKey = nowUtcDateKey(Date.now());
+  const settings = useSettingsStore((s) => s.settings);
+  const toggles = settings ? getSettingsToggles(settings) : null;
+  const zenModeEnabled = !!toggles?.zenMode;
 
   const [rows, setRows] = React.useState<DailyLeaderboardRow[]>([]);
   const [status, setStatus] = React.useState<'idle' | 'loading' | 'error'>('idle');
@@ -183,16 +188,18 @@ export function UltimateLeaderboardScreen({ onBack }: { onBack: () => void }) {
                               {name}
                             </MakeText>
                             <MakeText tone="secondary" numberOfLines={1}>
-                              Score {formatMs(r.score_ms)} • Time {formatMs(r.raw_time_ms)}
+                              {zenModeEnabled ? `Score ${formatMs(r.score_ms)}` : `Score ${formatMs(r.score_ms)} • Time ${formatMs(r.raw_time_ms)}`}
                             </MakeText>
                           </View>
                         </View>
 
                         <View style={{ alignItems: 'flex-end' }}>
                           <MakeText weight="semibold">{formatMs(r.score_ms)}</MakeText>
-                          <MakeText tone="muted" style={{ fontSize: 12 }}>
-                            mistakes {r.mistakes_count} • hints {r.hints_used_count}
-                          </MakeText>
+                          {zenModeEnabled ? null : (
+                            <MakeText tone="muted" style={{ fontSize: 12 }}>
+                              mistakes {r.mistakes_count} • hints {r.hints_used_count}
+                            </MakeText>
+                          )}
                         </View>
                       </View>
                     </View>

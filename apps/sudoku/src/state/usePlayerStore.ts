@@ -529,8 +529,7 @@ export const usePlayerStore = create<SudokuState>((set, get) => {
     const settings = useSettingsStore.getState().settings;
     const toggles = settings ? getSettingsToggles(settings) : null;
     const autoAdvanceEnabled = !!toggles?.autoAdvance;
-    const zenModeEnabled = !!toggles?.zenMode;
-    const countsMistake = !correct && !zenModeEnabled;
+    const countsMistake = !correct;
     const livesLimit = getLivesLimit();
     const livesInfinite = livesLimit === 11;
     const nextMistakes = countsMistake ? mistakes + 1 : mistakes;

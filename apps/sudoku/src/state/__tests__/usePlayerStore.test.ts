@@ -194,7 +194,7 @@ describe('usePlayerStore: Zen mode', () => {
     resetStoreForTest();
   });
 
-  it('does not increment mistakes or log mistake moves when zenMode is enabled', () => {
+  it('increments mistakes and logs mistake moves when zenMode is enabled (but lives are unlimited)', () => {
     useSettingsStore.setState({
       settings: {
         schemaVersion: 1,
@@ -212,10 +212,12 @@ describe('usePlayerStore: Zen mode', () => {
     s.inputDigit(2);
 
     const after = usePlayerStore.getState();
-    expect(after.mistakes).toBe(0);
-    expect(after.moves.some((m) => m.kind === 'mistake')).toBe(false);
-    // Only the set move should be recorded (deviceId present).
-    expect(after.revision).toBe(1);
+    expect(after.mistakes).toBe(1);
+    expect(after.moves.some((m) => m.kind === 'mistake')).toBe(true);
+    // With deviceId present, a wrong entry records both `set` and `mistake` moves.
+    expect(after.revision).toBe(2);
+    // Zen implies unlimited lives; a single wrong entry should never fail the run.
+    expect(after.runStatus).toBe('running');
   });
 });
 

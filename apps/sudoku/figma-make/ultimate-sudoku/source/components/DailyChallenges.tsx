@@ -1,4 +1,4 @@
-import { ArrowLeft, Calendar, Flame, Trophy, Clock, Play, CheckCircle, Lock, ChevronDown, ChevronUp, Archive } from 'lucide-react';
+import { ArrowLeft, Calendar, Flame, Trophy, Clock, Play, CheckCircle, Lock, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from './ui/button';
 import { useTheme } from '../contexts/ThemeContext';
 import { useState, useEffect } from 'react';
@@ -50,8 +50,73 @@ const generateMockCalendarData = () => {
   return days;
 };
 
+// Generate calendar data for any month/year
+const generateCalendarDataForMonth = (year: number, month: number) => {
+  const today = new Date();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const firstDay = new Date(year, month, 1).getDay();
+  
+  const difficulties: Difficulty[] = ['novice', 'skilled', 'advanced', 'expert', 'fiendish', 'ultimate'];
+  
+  const days = [];
+  for (let i = 0; i < firstDay; i++) {
+    days.push({ date: 0, completed: false, score: 0 });
+  }
+  
+  for (let i = 1; i <= daysInMonth; i++) {
+    const date = new Date(year, month, i);
+    const isPast = date < today;
+    const isToday = date.toDateString() === today.toDateString();
+    const isFuture = date > today;
+    
+    const completed = isPast ? Math.random() > 0.35 : isToday ? false : false; // 65% completion rate for past days
+    const score = completed ? Math.floor(Math.random() * 2000) + 500 : 0;
+    const difficulty = difficulties[Math.floor(Math.random() * difficulties.length)];
+    const time = completed ? Math.floor(Math.random() * 600) + 120 : 0; // 2-12 minutes
+    const mistakes = completed ? Math.floor(Math.random() * 3) : 0;
+    
+    days.push({
+      date: i,
+      completed,
+      score,
+      isToday,
+      isFuture,
+      difficulty,
+      time,
+      mistakes
+    });
+  }
+  
+  return days;
+};
+
+// Get data for a specific date
+const getDataForDate = (date: Date) => {
+  const difficulties: Difficulty[] = ['novice', 'skilled', 'advanced', 'expert', 'fiendish', 'ultimate'];
+  const today = new Date();
+  
+  const isPast = date < today;
+  const isToday = date.toDateString() === today.toDateString();
+  const completed = isPast ? Math.random() > 0.35 : isToday ? false : false;
+  const score = completed ? Math.floor(Math.random() * 2000) + 500 : 0;
+  const difficulty = difficulties[Math.floor(Math.random() * difficulties.length)];
+  const time = completed ? Math.floor(Math.random() * 600) + 120 : 0;
+  const mistakes = completed ? Math.floor(Math.random() * 3) : 0;
+  
+  return {
+    date: date.getDate(),
+    completed,
+    score,
+    difficulty,
+    time,
+    mistakes,
+    isToday,
+    isFuture: date > today
+  };
+};
+
 // Generate rolling 7-day view (last 6 days + today)
-const generateRolling7Days = (calendarData: any[]) => {
+const generateRolling7Days = () => {
   const today = new Date();
   const rolling = [];
   
@@ -59,16 +124,17 @@ const generateRolling7Days = (calendarData: any[]) => {
     const date = new Date(today);
     date.setDate(today.getDate() - i);
     
-    const dayData = calendarData.find(d => d.date === date.getDate() && !d.isFuture);
+    // Get data for this specific date
+    const dayData = getDataForDate(date);
     
     rolling.push({
       date: date.getDate(),
       dayName: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][date.getDay()],
       isToday: i === 0,
-      completed: dayData?.completed || false,
-      difficulty: dayData?.difficulty,
-      time: dayData?.time,
-      score: dayData?.score,
+      completed: dayData.completed,
+      difficulty: dayData.difficulty,
+      time: dayData.time,
+      score: dayData.score,
       fullDate: date
     });
   }
@@ -154,13 +220,55 @@ function CountdownTimer() {
 
 export function DailyChallenges({ onBack, username, onPlayToday, onPlayArchive }: DailyChallengesProps) {
   const { theme } = useTheme();
-  const [showFullCalendar, setShowFullCalendar] = useState(false);
+  
+  // Calendar month navigation
+  const today = new Date();
+  const [selectedMonth, setSelectedMonth] = useState(today.getMonth());
+  const [selectedYear, setSelectedYear] = useState(today.getFullYear());
   
   const calendarData = generateMockCalendarData();
-  const rolling7Days = generateRolling7Days(calendarData);
+  const rolling7Days = generateRolling7Days();
   const currentStreak = calculateStreak(calendarData);
   const todayChallenge = calendarData.find(day => day.isToday);
   
+  // Generate data for the selected month in calendar view
+  const viewCalendarData = generateCalendarDataForMonth(selectedYear, selectedMonth);
+  
+  // Can go to previous month?
+  const canGoPrevious = () => {
+    const prevMonth = new Date(selectedYear, selectedMonth - 1, 1);
+    const thirtyDaysAgo = new Date(today);
+    thirtyDaysAgo.setDate(today.getDate() - 30);
+    return prevMonth >= new Date(thirtyDaysAgo.getFullYear(), thirtyDaysAgo.getMonth(), 1);
+  };
+  
+  // Can go to next month?
+  const canGoNext = () => {
+    return selectedYear < today.getFullYear() || (selectedYear === today.getFullYear() && selectedMonth < today.getMonth());
+  };
+  
+  const goToPreviousMonth = () => {
+    if (canGoPrevious()) {
+      if (selectedMonth === 0) {
+        setSelectedMonth(11);
+        setSelectedYear(selectedYear - 1);
+      } else {
+        setSelectedMonth(selectedMonth - 1);
+      }
+    }
+  };
+  
+  const goToNextMonth = () => {
+    if (canGoNext()) {
+      if (selectedMonth === 11) {
+        setSelectedMonth(0);
+        setSelectedYear(selectedYear + 1);
+      } else {
+        setSelectedMonth(selectedMonth + 1);
+      }
+    }
+  };
+
   // Calculate stats
   const completedDays = calendarData.filter(d => d.completed && d.date > 0);
   const stats = {
@@ -336,7 +444,7 @@ export function DailyChallenges({ onBack, username, onPlayToday, onPlayArchive }
                   {/* Difficulty dot - all past/present days */}
                   {day.difficulty && (
                     <>
-                      <div className={`w-1.5 h-1.5 md:w-2 md:h-2 rounded-full ${getDifficultyColor(day.difficulty).dot} absolute bottom-1 md:bottom-1.5`} />
+                      <div className={`w-1.5 h-1.5 md:w-2 md:h-2 rounded-full ${getDifficultyColor(day.difficulty).dot} absolute bottom-1 md:bottom-1.5 left-1/2 -translate-x-1/2`} />
                       {/* Tooltip on hover - positioned relative to button */}
                       <div className={`absolute -bottom-8 left-1/2 -translate-x-1/2 px-2 py-1 rounded text-[10px] whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-200 z-10`}
                         style={{
@@ -358,108 +466,108 @@ export function DailyChallenges({ onBack, username, onPlayToday, onPlayArchive }
           </div>
         </div>
 
-        {/* Expandable Full Calendar */}
+        {/* Full Calendar - Always Visible */}
         <div className={`${theme.card.background} ${theme.card.border} border rounded-2xl p-4 shadow-xl backdrop-blur-xl`}>
-          <button
-            onClick={() => setShowFullCalendar(!showFullCalendar)}
-            className={`w-full flex items-center justify-between ${theme.card.hover} rounded-lg p-3 transition-all duration-300`}
-          >
-            <span className={`${theme.text.primary}`}>View Full Calendar</span>
-            {showFullCalendar ? (
-              <ChevronUp className={`w-5 h-5 ${theme.text.secondary}`} />
-            ) : (
-              <ChevronDown className={`w-5 h-5 ${theme.text.secondary}`} />
-            )}
-          </button>
+          {/* Month header with navigation */}
+          <div className="flex items-center justify-between mb-4 px-2">
+            <Button
+              onClick={goToPreviousMonth}
+              className={`${theme.button.secondary.background} ${theme.button.secondary.hover} ${theme.button.secondary.text} ${theme.card.border} border transition-all duration-300 p-2`}
+              disabled={!canGoPrevious()}
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </Button>
+            
+            <h3 className={`${theme.text.primary}`}>
+              {monthNames[selectedMonth]} {selectedYear}
+            </h3>
+            
+            <Button
+              onClick={goToNextMonth}
+              className={`${theme.button.secondary.background} ${theme.button.secondary.hover} ${theme.button.secondary.text} ${theme.card.border} border transition-all duration-300 p-2`}
+              disabled={!canGoNext()}
+            >
+              <ChevronRight className="w-4 h-4" />
+            </Button>
+          </div>
 
-          {showFullCalendar && (
-            <div className="mt-4 pt-4 border-t border-white/10">
-              <div className="mb-4">
-                <h3 className={`${theme.text.primary} text-center`}>
-                  {monthNames[new Date().getMonth()]} {new Date().getFullYear()}
-                </h3>
+          {/* Day headers */}
+          <div className="grid grid-cols-7 gap-1 md:gap-1.5 mb-2">
+            {dayNames.map(day => (
+              <div key={day} className={`text-center py-1 ${theme.text.muted} text-[10px] md:text-xs`}>
+                {day}
               </div>
+            ))}
+          </div>
 
-              {/* Day headers */}
-              <div className="grid grid-cols-7 gap-1 md:gap-1.5 mb-2">
-                {dayNames.map(day => (
-                  <div key={day} className={`text-center py-1 ${theme.text.muted} text-[10px] md:text-xs`}>
-                    {day}
-                  </div>
-                ))}
-              </div>
-
-              {/* Calendar grid */}
-              <div className="grid grid-cols-7 gap-1 md:gap-1.5">
-                {calendarData.map((day, index) => (
-                  <button
-                    key={index}
-                    onClick={() => {
-                      if (day.isToday && onPlayToday) {
-                        onPlayToday();
-                      } else if (day.date > 0 && !day.isFuture && onPlayArchive) {
-                        const date = new Date();
-                        date.setDate(day.date);
-                        onPlayArchive(date);
-                      }
-                    }}
-                    disabled={day.date === 0 || day.isFuture}
-                    className={`aspect-square rounded-lg flex items-center justify-center transition-all duration-300 relative text-xs md:text-sm group ${
-                      day.date === 0
-                        ? 'invisible'
-                        : day.isFuture
-                        ? `${theme.card.background} ${theme.card.border} border opacity-30 cursor-not-allowed`
-                        : day.isToday
-                        ? `${theme.button.primary.background} ${theme.button.primary.text} shadow-lg ring-2 ring-white/20 hover:scale-110 hover:shadow-xl animate-pulse`
-                        : day.completed
-                        ? `${theme.card.background} ${theme.card.border} border ${theme.card.hover} ring-1 ring-green-500/30 hover:scale-110 hover:ring-2`
-                        : `${theme.card.background} ${theme.card.border} border ${theme.card.hover} hover:scale-110`
-                    }`}
-                    style={day.isToday ? { animationDuration: '3s' } : undefined}
-                  >
-                    {day.date > 0 && (
+          {/* Calendar grid */}
+          <div className="grid grid-cols-7 gap-1 md:gap-1.5">
+            {viewCalendarData.map((day, index) => (
+              <button
+                key={index}
+                onClick={() => {
+                  if (day.isToday && onPlayToday) {
+                    onPlayToday();
+                  } else if (day.date > 0 && !day.isFuture && onPlayArchive) {
+                    const date = new Date(selectedYear, selectedMonth, day.date);
+                    onPlayArchive(date);
+                  }
+                }}
+                disabled={day.date === 0 || day.isFuture}
+                className={`aspect-square rounded-lg flex items-center justify-center transition-all duration-300 relative text-xs md:text-sm group ${
+                  day.date === 0
+                    ? 'invisible'
+                    : day.isFuture
+                    ? `${theme.card.background} ${theme.card.border} border opacity-30 cursor-not-allowed`
+                    : day.isToday
+                    ? `${theme.button.primary.background} ${theme.button.primary.text} shadow-lg ring-2 ring-white/20 hover:scale-110 hover:shadow-xl animate-pulse`
+                    : day.completed
+                    ? `${theme.card.background} ${theme.card.border} border ${theme.card.hover} ring-1 ring-green-500/30 hover:scale-110 hover:ring-2`
+                    : `${theme.card.background} ${theme.card.border} border ${theme.card.hover} hover:scale-110`
+                }`}
+                style={day.isToday ? { animationDuration: '3s' } : undefined}
+              >
+                {day.date > 0 && (
+                  <>
+                    <span className={day.isToday ? theme.button.primary.text : theme.text.primary}>
+                      {day.date}
+                    </span>
+                    {/* Completed checkmark - larger, more prominent */}
+                    {day.completed && !day.isToday && (
+                      <CheckCircle className={`w-4 h-4 md:w-4.5 md:h-4.5 absolute top-0.5 right-0.5 text-green-500`} />
+                    )}
+                    {day.completed && day.isToday && (
+                      <CheckCircle className={`w-4 h-4 absolute top-0.5 right-0.5 ${theme.button.primary.text}`} />
+                    )}
+                    {/* Difficulty dot with tooltip - bottom center (for all past days) */}
+                    {!day.isToday && !day.isFuture && day.difficulty && (
                       <>
-                        <span className={day.isToday ? theme.button.primary.text : theme.text.primary}>
-                          {day.date}
-                        </span>
-                        {/* Completed checkmark - larger, more prominent */}
-                        {day.completed && !day.isToday && (
-                          <CheckCircle className={`w-4 h-4 md:w-4.5 md:h-4.5 absolute top-0.5 right-0.5 text-green-500`} />
-                        )}
-                        {day.completed && day.isToday && (
-                          <CheckCircle className={`w-4 h-4 absolute top-0.5 right-0.5 ${theme.button.primary.text}`} />
-                        )}
-                        {/* Difficulty dot with tooltip - bottom center (for all past days) */}
-                        {!day.isToday && !day.isFuture && day.difficulty && (
-                          <>
-                            <div className={`w-1.5 h-1.5 md:w-2 md:h-2 rounded-full ${getDifficultyColor(day.difficulty).dot} absolute bottom-0.5 md:bottom-1`} />
-                            {/* Tooltip on hover - positioned relative to button */}
-                            <div className={`absolute -bottom-8 left-1/2 -translate-x-1/2 px-2 py-1 rounded text-[10px] whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-200 z-10`}
-                              style={{
-                                backgroundColor: 'rgba(0, 0, 0, 0.9)',
-                                color: 'white',
-                                border: '1px solid rgba(255, 255, 255, 0.2)'
-                              }}
-                            >
-                              {getDifficultyLabel(day.difficulty)}
-                            </div>
-                          </>
-                        )}
-                        {/* Future lock icon */}
-                        {day.isFuture && (
-                          <Lock className={`w-3 h-3 absolute top-0.5 right-0.5 ${theme.text.muted} opacity-50`} />
-                        )}
+                        <div className={`w-1.5 h-1.5 md:w-2 md:h-2 rounded-full ${getDifficultyColor(day.difficulty).dot} absolute bottom-0.5 md:bottom-1 left-1/2 -translate-x-1/2`} />
+                        {/* Tooltip on hover - positioned relative to button */}
+                        <div className={`absolute -bottom-8 left-1/2 -translate-x-1/2 px-2 py-1 rounded text-[10px] whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-200 z-10`}
+                          style={{
+                            backgroundColor: 'rgba(0, 0, 0, 0.9)',
+                            color: 'white',
+                            border: '1px solid rgba(255, 255, 255, 0.2)'
+                          }}
+                        >
+                          {getDifficultyLabel(day.difficulty)}
+                        </div>
                       </>
                     )}
-                  </button>
-                ))}
-              </div>
+                    {/* Future lock icon */}
+                    {day.isFuture && (
+                      <Lock className={`w-3 h-3 absolute top-0.5 right-0.5 ${theme.text.muted} opacity-50`} />
+                    )}
+                  </>
+                )}
+              </button>
+            ))}
+          </div>
 
-              <p className={`text-xs ${theme.text.muted} text-center mt-3`}>
-                Tap past days to play as archive (won't affect streak)
-              </p>
-            </div>
-          )}
+          <p className={`text-xs ${theme.text.muted} text-center mt-3`}>
+            Tap past days to play as archive (won't affect streak)
+          </p>
         </div>
       </div>
     </div>

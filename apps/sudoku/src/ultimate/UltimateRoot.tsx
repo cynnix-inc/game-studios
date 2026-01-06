@@ -248,8 +248,44 @@ export function UltimateRoot() {
       <UltimateDailyChallengesScreen
         username={state.username}
         onBack={() => dispatch({ type: 'NAVIGATE', screen: 'menu' })}
-        onStartDaily={(dateKey) => {
-          void loadDaily(dateKey);
+        onPlayDaily={async (dateKey) => {
+          const saved = await readLocalInProgressSave();
+          const canResumeSaved =
+            Boolean(saved) &&
+            saved?.mode === 'daily' &&
+            saved?.dailyDateKey === dateKey &&
+            saved?.runStatus !== 'completed' &&
+            saved?.runStatus !== 'failed';
+
+          if (!saved || !canResumeSaved) {
+            await loadDaily(dateKey);
+            dispatch({ type: 'START_DAILY' });
+            return;
+          }
+
+          await loadDaily(saved.dailyDateKey);
+          restoreDailyProgressFromSave({
+            dailyDateKey: saved.dailyDateKey,
+            serializedPuzzle: saved.serializedPuzzle,
+            givensMask: saved.givensMask,
+            mistakes: saved.mistakes,
+            hintsUsedCount: saved.hintsUsedCount,
+            hintBreakdown: saved.hintBreakdown ?? {},
+            runTimer: saved.runTimer,
+            runStatus: saved.runStatus,
+            difficulty: saved.difficulty,
+            variantId: saved.variantId,
+            subVariantId: saved.subVariantId ?? null,
+            runId: saved.runId,
+            statsStartedCounted: saved.statsStartedCounted,
+            zenModeAtStart: saved.zenModeAtStart ?? null,
+            revision: saved.revision,
+            moves: saved.moves,
+            undoStack: saved.undoStack,
+            redoStack: saved.redoStack,
+          });
+          const status = usePlayerStore.getState().runStatus;
+          if (status === 'paused') usePlayerStore.getState().resumeRun();
           dispatch({ type: 'START_DAILY' });
         }}
       />

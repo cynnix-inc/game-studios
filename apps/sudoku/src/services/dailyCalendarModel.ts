@@ -102,7 +102,9 @@ export function buildDailyCalendarMonth(args: {
         ? 'missed'
         : 'none';
 
-    const difficulty = status === 'available' ? (args.difficultyByDateKey[dateKey] ?? null) : null;
+    // Make parity: difficulty can be shown for past/today/future days (even when locked),
+    // but never for out-of-window days (older than the visible archive window).
+    const difficulty = status === 'out_of_window' ? null : (args.difficultyByDateKey[dateKey] ?? null);
 
     cells.push({ kind: 'day', day, dateKey, status, selectable, completion, difficulty });
   }

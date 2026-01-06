@@ -29,8 +29,10 @@ test('home: renders Make menu and navigates within the new screen state machine'
 
   // Navigation: Free Play -> difficulty -> game
   await page.getByRole('button', { name: 'Free Play play' }).click();
+  await expect(page.getByText('Choose Your Puzzle')).toBeVisible();
+  await page.getByRole('button', { name: 'Classic Sudoku' }).click();
   await expect(page.getByText('Select Difficulty')).toBeVisible();
-  await page.getByRole('button', { name: 'Medium' }).click();
+  await page.getByRole('button', { name: 'Skilled' }).click();
   await expect(page.getByLabel('Sudoku grid')).toBeVisible();
 
   // Exit back to menu using in-game menu
@@ -40,7 +42,8 @@ test('home: renders Make menu and navigates within the new screen state machine'
 
   // Navigation: Daily Challenge -> daily challenges screen (calendar button)
   await page.getByRole('button', { name: 'Daily calendar' }).click();
-  await expect(page.getByText('Daily Challenges', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Back' })).toBeVisible();
+  await expect(page.getByText('This Week', { exact: true })).toBeVisible();
 
   // Navigation: Leaderboard and Settings
   await page.goto('/');
