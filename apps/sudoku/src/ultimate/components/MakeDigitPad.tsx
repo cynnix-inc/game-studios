@@ -2,8 +2,6 @@ import React from 'react';
 import { Platform, Pressable, useWindowDimensions, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
-import { theme } from '@cynnix-studios/ui';
-
 import { MakeText } from '../../components/make/MakeText';
 import { useMakeTheme } from '../../components/make/MakeThemeProvider';
 import { useSettingsStore } from '../../state/useSettingsStore';

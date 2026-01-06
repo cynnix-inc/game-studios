@@ -17,7 +17,6 @@ import { getSettingsToggles } from '../../services/settingsModel';
 import { useSettingsStore } from '../../state/useSettingsStore';
 
 export function UltimateDailyChallengesScreen({
-  username: _username,
   onBack,
   onPlayDaily,
 }: {
@@ -36,7 +35,7 @@ export function UltimateDailyChallengesScreen({
   const zenModeEnabled = !!toggles?.zenMode;
 
   const todayKey = nowUtcDateKey(Date.now());
-  const todayDate = new Date(`${todayKey}T00:00:00.000Z`);
+  const todayDate = React.useMemo(() => new Date(`${todayKey}T00:00:00.000Z`), [todayKey]);
 
   const availableDateKeys = React.useMemo(() => {
     // Make parity: month navigation is bounded by "30 days ago, rounded down to month start".

@@ -66,16 +66,26 @@ export function FreePlayCard({
     </>
   );
 
-  const Portal = React.useMemo(() => {
-    if (Platform.OS !== 'web') return null;
-    try {
-      // Keep this require web-only to avoid pulling react-dom into native bundles.
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
-      const rd = require('react-dom') as { createPortal?: (children: React.ReactNode, container: Element) => React.ReactPortal };
-      return typeof rd?.createPortal === 'function' ? rd.createPortal : null;
-    } catch {
-      return null;
-    }
+  const [portalFn, setPortalFn] = React.useState<((children: React.ReactNode, container: Element) => React.ReactPortal) | null>(null);
+  React.useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        // Web-only: avoid pulling react-dom into native bundles.
+        const rd = (await import('react-dom')) as unknown as {
+          createPortal?: (children: React.ReactNode, container: Element) => React.ReactPortal;
+        };
+        if (cancelled) return;
+        setPortalFn(typeof rd?.createPortal === 'function' ? rd.createPortal : null);
+      } catch {
+        if (cancelled) return;
+        setPortalFn(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const measureAnchor = React.useCallback(() => {
@@ -176,8 +186,8 @@ export function FreePlayCard({
 
                 {showTooltip ? (
                   // Make uses Radix Tooltip Portal, so it never gets clipped and always layers above cards.
-                  Portal && typeof document !== 'undefined' && anchorRect
-                    ? Portal(
+                  portalFn && typeof document !== 'undefined' && anchorRect
+                    ? portalFn(
                         <View
                           pointerEvents="none"
                           style={{
