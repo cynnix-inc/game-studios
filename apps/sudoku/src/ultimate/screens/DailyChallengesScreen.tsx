@@ -225,7 +225,7 @@ export function UltimateDailyChallengesScreen({
       visibleKeys.add(d.dateKey);
     }
     for (const cell of calendar.cells) {
-      if (cell.kind !== 'date') continue;
+      if (cell.kind !== 'day') continue;
       // Skip out-of-window archive days; include future locked days.
       if (cell.status === 'out_of_window') continue;
       visibleKeys.add(cell.dateKey);

@@ -264,8 +264,8 @@ function canPlace(state: MonthBuildState, dayIdx0: number, d: Difficulty): boole
   if (state.difficulties[dayIdx0]) return false;
   if (state.remaining[d] <= 0) return false;
 
-  const prev = dayIdx0 - 1 >= 0 ? state.difficulties[dayIdx0 - 1] : null;
-  const next = dayIdx0 + 1 < state.days ? state.difficulties[dayIdx0 + 1] : null;
+  const prev = dayIdx0 - 1 >= 0 ? (state.difficulties[dayIdx0 - 1] ?? null) : null;
+  const next = dayIdx0 + 1 < state.days ? (state.difficulties[dayIdx0 + 1] ?? null) : null;
   if (!difficultyDeltaOk(prev, d)) return false;
   // If the next day is pre-filled (for example by the Fiendish block), ensure we don't
   // introduce a future adjacency jump.
