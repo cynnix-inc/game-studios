@@ -1,5 +1,5 @@
 import { createSaveService } from '@cynnix-studios/game-foundation';
-import type { Difficulty, HintType, RunTimer, SudokuMove } from '@cynnix-studios/sudoku-core';
+import { assertPuzzleSolutionContract, parseGrid, type Difficulty, type HintType, type RunTimer, type SudokuMove } from '@cynnix-studios/sudoku-core';
 
 import { GAME_KEY, usePlayerStore } from '../state/usePlayerStore';
 import type { UndoAction } from '../state/usePlayerStore';
@@ -259,6 +259,27 @@ export async function loadLocalSave() {
   const saved = await readLocalInProgressSave();
   if (!saved) return;
   if (saved.mode !== 'free') return;
+
+  // Safety net: validate the *givens-only* puzzle against the saved solution.
+  // We must not validate the full `serializedPuzzle` because it can include player moves (including incorrect guesses).
+  try {
+    const puzzle = parseGrid(saved.serializedPuzzle);
+    const solution = parseGrid(saved.serializedSolution);
+    const givensOnly = puzzle.slice() as number[];
+    for (let i = 0; i < 81; i++) {
+      if (!saved.givensMask[i]) givensOnly[i] = 0;
+    }
+    assertPuzzleSolutionContract(givensOnly, solution);
+  } catch {
+    // If the saved content is invalid (including non-unique), self-heal by clearing it and starting a new run.
+    await clearLocalInProgressSave();
+    usePlayerStore.getState().newPuzzle(saved.difficulty, {
+      mode: 'free',
+      variantId: saved.variantId ?? 'classic',
+      subVariantId: saved.subVariantId ?? 'classic:9x9',
+    });
+    return;
+  }
 
   const nowMs = Date.now();
   const status: 'paused' | 'completed' | 'failed' = saved.runStatus === 'completed' || saved.runStatus === 'failed' ? saved.runStatus : 'paused';

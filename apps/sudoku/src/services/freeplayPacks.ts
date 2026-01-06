@@ -28,6 +28,17 @@ function packSlot(difficulty: Difficulty) {
   return `${PACK_SLOT_PREFIX}${difficulty}`;
 }
 
+function assertPackPuzzleContracts(pack: FreePlayPackV1): void {
+  for (let i = 0; i < pack.puzzles.length; i++) {
+    const p = pack.puzzles[i]!;
+    try {
+      assertPuzzleSolutionContract(p.puzzle, p.solution);
+    } catch {
+      throw new Error(`pack ${pack.difficulty} puzzle contract violation (puzzle_id=${p.puzzle_id})`);
+    }
+  }
+}
+
 function freePlayBaseUrl(): string | null {
   const base = process.env.EXPO_PUBLIC_SUDOKU_FREEPLAY_BASE_URL;
   if (!base) return null;
@@ -49,12 +60,30 @@ function buildBundledPacks(): Partial<Record<Difficulty, FreePlayPackV1>> {
   const ultimate = assertFreePlayPack(bundledUltimate as unknown);
 
   return {
-    novice: novice.difficulty === 'novice' ? novice : undefined,
-    skilled: skilled.difficulty === 'skilled' ? skilled : undefined,
-    advanced: advanced.difficulty === 'advanced' ? advanced : undefined,
-    expert: expert.difficulty === 'expert' ? expert : undefined,
-    fiendish: fiendish.difficulty === 'fiendish' ? fiendish : undefined,
-    ultimate: ultimate.difficulty === 'ultimate' ? ultimate : undefined,
+    novice:
+      novice.difficulty === 'novice'
+        ? (assertPackPuzzleContracts(novice), novice)
+        : undefined,
+    skilled:
+      skilled.difficulty === 'skilled'
+        ? (assertPackPuzzleContracts(skilled), skilled)
+        : undefined,
+    advanced:
+      advanced.difficulty === 'advanced'
+        ? (assertPackPuzzleContracts(advanced), advanced)
+        : undefined,
+    expert:
+      expert.difficulty === 'expert'
+        ? (assertPackPuzzleContracts(expert), expert)
+        : undefined,
+    fiendish:
+      fiendish.difficulty === 'fiendish'
+        ? (assertPackPuzzleContracts(fiendish), fiendish)
+        : undefined,
+    ultimate:
+      ultimate.difficulty === 'ultimate'
+        ? (assertPackPuzzleContracts(ultimate), ultimate)
+        : undefined,
   };
 }
 
@@ -183,6 +212,7 @@ export function createFreePlayPacksService(
     try {
       const pack = assertFreePlayPack(saved.data);
       if (pack.difficulty !== difficulty) return null;
+      assertPackPuzzleContracts(pack);
       return pack;
     } catch {
       return null;
@@ -250,6 +280,11 @@ export function createFreePlayPacksService(
           const pack = assertFreePlayPack(json);
           if (pack.difficulty !== d) return { ok: false, reason: 'invalid_remote_payload' };
           if (pack.version !== entry.version) return { ok: false, reason: 'invalid_remote_payload' };
+          try {
+            assertPackPuzzleContracts(pack);
+          } catch {
+            return { ok: false, reason: 'invalid_remote_payload' };
+          }
 
           await writeCachedPack(pack);
           packs[d] = pack;

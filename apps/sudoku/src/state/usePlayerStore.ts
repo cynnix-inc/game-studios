@@ -6,7 +6,8 @@ import {
   createRunTimer,
   computeScoreMs,
   foldMovesToState,
-  generate,
+  generateContractGated,
+  generateUnique,
   getRunTimerElapsedMs,
   nowUtcDateKey,
   parseGrid,
@@ -257,7 +258,15 @@ function countMoves(moves: SudokuMove[]) {
   return { setCount, clearCount, noteAddCount, noteRemoveCount };
 }
 
-const initial = generate('skilled', { seed: 1337 });
+const initial = (() => {
+  // Important: the legacy `generate()` does not enforce uniqueness. Keep our initial state unique.
+  // Use a deterministic seed so tests and snapshots remain stable.
+  try {
+    return generateContractGated('skilled', { seed: 1337, maxAttempts: 10 });
+  } catch {
+    return generateUnique('skilled', { seed: 1337, maxAttempts: 50 });
+  }
+})();
 
 export const usePlayerStore = create<SudokuState>((set, get) => {
   function getZenModeEnabled(): boolean {

@@ -14,7 +14,7 @@ jest.mock('../../services/stats', () => ({
 import { usePlayerStore } from '../usePlayerStore';
 import { trackEvent } from '../../services/telemetry';
 import { useSettingsStore } from '../../state/useSettingsStore';
-import { getRunTimerElapsedMs, serializeGrid, type RunTimer, type SudokuMove } from '@cynnix-studios/sudoku-core';
+import { assertPuzzleSolutionContract, getRunTimerElapsedMs, serializeGrid, type RunTimer, type SudokuMove } from '@cynnix-studios/sudoku-core';
 
 function makeGrid(fill: number): number[] {
   return Array.from({ length: 81 }, () => fill);
@@ -52,6 +52,14 @@ function resetStoreForTest() {
   } as never);
   useSettingsStore.setState({ settings: null } as never);
 }
+
+describe('usePlayerStore: initial puzzle contract', () => {
+  it('initial puzzle givens match solution and are unique', () => {
+    const s = usePlayerStore.getState();
+    const givensOnly = s.puzzle.map((v, i) => (s.givensMask[i] ? v : 0));
+    assertPuzzleSolutionContract(givensOnly, s.solution);
+  });
+});
 
 describe('usePlayerStore Epic 1: notes + undo/redo', () => {
   beforeEach(() => {

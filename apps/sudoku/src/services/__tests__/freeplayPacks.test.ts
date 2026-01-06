@@ -28,6 +28,8 @@ const VALID_SOLUTION = [
   3, 4, 5, 2, 8, 6, 1, 7, 9,
 ];
 
+const NON_UNIQUE_PUZZLE = Array.from({ length: 81 }, () => 0);
+
 function makeMemoryStorage(): SaveStorage {
   const map = new Map<string, string>();
   return {
@@ -170,6 +172,52 @@ describe('free play packs', () => {
     const pick2 = svc2.getPuzzleSync('novice');
     expect(pick2.source).toBe('cached_pack');
     expect(pick2.puzzle_id).toBe('p2');
+  });
+
+  test('refresh rejects packs that violate the puzzle contract (e.g., non-unique)', async () => {
+    const storage = makeMemoryStorage();
+    const saveService = createSaveService({ storage });
+    const svc = createFreePlayPacksService({ saveService });
+
+    const fetchMock = jest.fn();
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    // 1) manifest.json
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          schema_version: 1,
+          packs: {
+            novice: { version: 'v1', url: '/novice/v1.json' },
+          },
+        }),
+        { status: 200, headers: { ETag: '"m1"' } },
+      ),
+    );
+
+    // 2) pack payload with a non-unique puzzle (all zeros)
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          schema_version: 1,
+          difficulty: 'novice',
+          version: 'v1',
+          puzzles: [
+            {
+              puzzle_id: 'bad',
+              puzzle: NON_UNIQUE_PUZZLE,
+              solution: VALID_SOLUTION,
+            },
+          ],
+        }),
+        { status: 200, headers: {} },
+      ),
+    );
+
+    const r = await svc.refresh();
+    expect(r.ok).toBe(false);
+    if (r.ok) throw new Error('unreachable');
+    expect(r.reason).toBe('invalid_remote_payload');
   });
 
   test('refreshInBackground does not block getPuzzleSync', async () => {
