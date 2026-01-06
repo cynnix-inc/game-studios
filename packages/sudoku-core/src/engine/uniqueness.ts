@@ -17,11 +17,6 @@ function allowed(grid: Grid, i: number, v: CellValue): boolean {
   return true;
 }
 
-function findEmpty(grid: Grid): number {
-  for (let i = 0; i < 81; i++) if (grid[i]! === 0) return i;
-  return -1;
-}
-
 function candidatesForCell(grid: Grid, i: number): CellValue[] {
   const out: CellValue[] = [];
   for (const v of [1, 2, 3, 4, 5, 6, 7, 8, 9] as const) {

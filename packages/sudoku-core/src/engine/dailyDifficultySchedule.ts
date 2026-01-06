@@ -114,7 +114,7 @@ function roundMonthlyCounts(days: number, targets: Readonly<Record<Difficulty, n
     return { d, exact, base, rem: exact - base };
   });
 
-  let used = raw.reduce((sum, r) => sum + r.base, 0);
+  const used = raw.reduce((sum, r) => sum + r.base, 0);
   const need = Math.max(0, days - used);
 
   // Sort by remainder desc; stable tie-break by difficulty order.
