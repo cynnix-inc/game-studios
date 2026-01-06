@@ -191,7 +191,8 @@ export function FreePlayCard({
                         <View
                           pointerEvents="none"
                           style={{
-                            position: 'fixed',
+                            // RN style types don't include `position: 'fixed'`; apply it web-only via a cast.
+                            position: 'absolute',
                             left: anchorRect.x + anchorRect.width / 2,
                             top: anchorRect.y - 2,
                             zIndex: 2147483647,
@@ -205,6 +206,7 @@ export function FreePlayCard({
                             paddingVertical: 6,
                             ...(Platform.OS === 'web'
                               ? ({
+                                  position: 'fixed',
                                   boxShadow: '0 12px 32px rgba(0,0,0,0.25)',
                                   backdropFilter: 'blur(24px)',
                                   WebkitBackdropFilter: 'blur(24px)',
