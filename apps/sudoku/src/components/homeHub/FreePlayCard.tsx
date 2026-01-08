@@ -66,28 +66,6 @@ export function FreePlayCard({
     </>
   );
 
-  const [portalFn, setPortalFn] = React.useState<((children: React.ReactNode, container: Element) => React.ReactPortal) | null>(null);
-  React.useEffect(() => {
-    if (Platform.OS !== 'web') return;
-    let cancelled = false;
-    void (async () => {
-      try {
-        // Web-only: avoid pulling react-dom into native bundles.
-        const rd = (await import('react-dom')) as unknown as {
-          createPortal?: (children: React.ReactNode, container: Element) => React.ReactPortal;
-        };
-        if (cancelled) return;
-        setPortalFn(typeof rd?.createPortal === 'function' ? rd.createPortal : null);
-      } catch {
-        if (cancelled) return;
-        setPortalFn(null);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
   const measureAnchor = React.useCallback(() => {
     if (Platform.OS !== 'web') return;
     const node = anchorRef.current as unknown as { measureInWindow?: (cb: (x: number, y: number, w: number, h: number) => void) => void };
@@ -185,134 +163,80 @@ export function FreePlayCard({
                 </MakePrimaryIconProgressButton>
 
                 {showTooltip ? (
-                  // Make uses Radix Tooltip Portal, so it never gets clipped and always layers above cards.
-                  portalFn && typeof document !== 'undefined' && anchorRect
-                    ? portalFn(
-                        <View
-                          pointerEvents="none"
-                          style={{
-                            // RN style types don't include `position: 'fixed'`; apply it web-only via a cast.
-                            position: 'absolute',
+                  // Avoid `react-dom` portals in exported builds (we've seen hard crashes when the portal container is unavailable).
+                  // Instead, use a fixed-position tooltip on web when we can measure the anchor, and fall back to an in-card tooltip otherwise.
+                  <View
+                    pointerEvents="none"
+                    style={{
+                      position: 'absolute',
+                      bottom: tooltipBottomOffset,
+                      zIndex: 9999,
+                      borderRadius: 6,
+                      borderWidth: 1,
+                      borderColor: makeTheme.card.border,
+                      backgroundColor: makeTheme.card.background,
+                      paddingHorizontal: 12,
+                      paddingVertical: 6,
+                      ...(Platform.OS === 'web' && anchorRect
+                        ? ({
+                            position: 'fixed',
                             left: anchorRect.x + anchorRect.width / 2,
                             top: anchorRect.y - 2,
-                            zIndex: 2147483647,
-                            // Prevent crazy long lines while still feeling like w-fit.
+                            transform: 'translate(-50%, -100%)',
+                            boxShadow: '0 12px 32px rgba(0,0,0,0.25)',
+                            backdropFilter: 'blur(24px)',
+                            WebkitBackdropFilter: 'blur(24px)',
+                            // Make tooltip is w-fit (web-only)
+                            width: 'fit-content',
                             maxWidth: 320,
-                            borderRadius: 6,
-                            borderWidth: 1,
-                            borderColor: makeTheme.card.border,
-                            backgroundColor: makeTheme.card.background,
-                            paddingHorizontal: 12,
-                            paddingVertical: 6,
-                            ...(Platform.OS === 'web'
-                              ? ({
-                                  position: 'fixed',
-                                  boxShadow: '0 12px 32px rgba(0,0,0,0.25)',
-                                  backdropFilter: 'blur(24px)',
-                                  WebkitBackdropFilter: 'blur(24px)',
-                                  transform: 'translate(-50%, -100%)',
-                                  // Make tooltip is w-fit (web-only)
-                                  width: 'fit-content',
-                                } as unknown as object)
-                              : null),
-                          }}
-                        >
-                          <View
-                            style={{
-                              position: 'absolute',
-                              bottom: -5,
-                              width: 10,
-                              height: 10,
-                              backgroundColor: makeTheme.card.background,
-                              borderRightWidth: 1,
-                              borderBottomWidth: 1,
-                              borderColor: makeTheme.card.border,
-                              ...(Platform.OS === 'web'
-                                ? ({
-                                    backdropFilter: 'blur(24px)',
-                                    WebkitBackdropFilter: 'blur(24px)',
-                                    left: '50%',
-                                    transform: 'translateX(-50%) rotate(45deg)',
-                                  } as unknown as object)
-                                : null),
-                            }}
-                          />
-
-                          <MakeText style={{ fontSize: 14, lineHeight: 18 }}>Game in Progress</MakeText>
-                          <View style={{ height: 4 }} />
-                          <View style={{ gap: 2 }}>
-                            <MakeText tone="secondary" style={{ fontSize: 12, lineHeight: 16 }}>
-                              {lastDifficultyLabel} • {lastModeLabel}
-                            </MakeText>
-                            <MakeText tone="secondary" style={{ fontSize: 12, lineHeight: 16 }}>
-                              {progressClamped}% Complete
-                            </MakeText>
-                            {tooltipRunStats}
-                          </View>
-                        </View>,
-                        document.body,
-                      )
-                    : // Fallback (no portal): still render above button inside card; may clip in some stacking contexts.
-                      (
-                        <View
-                          pointerEvents="none"
-                          style={{
-                            position: 'absolute',
-                            bottom: tooltipBottomOffset,
-                            zIndex: 9999,
-                            borderRadius: 6,
-                            borderWidth: 1,
-                            borderColor: makeTheme.card.border,
-                            backgroundColor: makeTheme.card.background,
-                            paddingHorizontal: 12,
-                            paddingVertical: 6,
-                            ...(Platform.OS === 'web'
-                              ? ({
-                                  boxShadow: '0 12px 32px rgba(0,0,0,0.25)',
-                                  backdropFilter: 'blur(24px)',
-                                  WebkitBackdropFilter: 'blur(24px)',
-                                  left: '50%',
-                                  transform: 'translateX(-50%)',
-                                  // Make tooltip is w-fit (web-only)
-                                  width: 'fit-content',
-                                  maxWidth: 320,
-                                } as unknown as object)
-                              : null),
-                          }}
-                        >
-                          <View
-                            style={{
-                              position: 'absolute',
-                              bottom: -5,
-                              width: 10,
-                              height: 10,
-                              backgroundColor: makeTheme.card.background,
-                              borderRightWidth: 1,
-                              borderBottomWidth: 1,
-                              borderColor: makeTheme.card.border,
-                              ...(Platform.OS === 'web'
-                                ? ({
-                                    backdropFilter: 'blur(24px)',
-                                    WebkitBackdropFilter: 'blur(24px)',
-                                    left: '50%',
-                                    transform: 'translateX(-50%) rotate(45deg)',
-                                  } as unknown as object)
-                                : null),
-                            }}
-                          />
-                          <MakeText style={{ fontSize: 14, lineHeight: 18 }}>Game in Progress</MakeText>
-                          <View style={{ height: 4 }} />
-                          <View style={{ gap: 2 }}>
-                            <MakeText tone="secondary" style={{ fontSize: 12, lineHeight: 16 }}>
-                              {lastDifficultyLabel} • {lastModeLabel}
-                            </MakeText>
-                            <MakeText tone="secondary" style={{ fontSize: 12, lineHeight: 16 }}>
-                              {progressClamped}% Complete
-                            </MakeText>
-                            {tooltipRunStats}
-                          </View>
-                        </View>
-                      )
+                            zIndex: 2147483647,
+                          } as unknown as object)
+                        : Platform.OS === 'web'
+                          ? ({
+                              boxShadow: '0 12px 32px rgba(0,0,0,0.25)',
+                              backdropFilter: 'blur(24px)',
+                              WebkitBackdropFilter: 'blur(24px)',
+                              left: '50%',
+                              transform: 'translateX(-50%)',
+                              // Make tooltip is w-fit (web-only)
+                              width: 'fit-content',
+                              maxWidth: 320,
+                            } as unknown as object)
+                          : null),
+                    }}
+                  >
+                    <View
+                      style={{
+                        position: 'absolute',
+                        bottom: -5,
+                        width: 10,
+                        height: 10,
+                        backgroundColor: makeTheme.card.background,
+                        borderRightWidth: 1,
+                        borderBottomWidth: 1,
+                        borderColor: makeTheme.card.border,
+                        ...(Platform.OS === 'web'
+                          ? ({
+                              backdropFilter: 'blur(24px)',
+                              WebkitBackdropFilter: 'blur(24px)',
+                              left: '50%',
+                              transform: 'translateX(-50%) rotate(45deg)',
+                            } as unknown as object)
+                          : null),
+                      }}
+                    />
+                    <MakeText style={{ fontSize: 14, lineHeight: 18 }}>Game in Progress</MakeText>
+                    <View style={{ height: 4 }} />
+                    <View style={{ gap: 2 }}>
+                      <MakeText tone="secondary" style={{ fontSize: 12, lineHeight: 16 }}>
+                        {lastDifficultyLabel} • {lastModeLabel}
+                      </MakeText>
+                      <MakeText tone="secondary" style={{ fontSize: 12, lineHeight: 16 }}>
+                        {progressClamped}% Complete
+                      </MakeText>
+                      {tooltipRunStats}
+                    </View>
+                  </View>
                 ) : null}
               </View>
             ) : (
@@ -330,54 +254,57 @@ export function FreePlayCard({
         </View>
       </View>
 
-      {/* Abandon confirm */}
-      <Modal transparent visible={abandonOpen} animationType="fade" onRequestClose={() => setAbandonOpen(false)}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Close abandon dialog"
-          onPress={() => setAbandonOpen(false)}
-          style={{
-            flex: 1,
-            padding: 16,
-            alignItems: 'center',
-            justifyContent: 'center',
-            backgroundColor: 'rgba(0,0,0,0.55)',
-          }}
-        >
+      {/* Abandon confirm
+          On web, `Modal` uses portals internally; avoid mounting it until needed to prevent hard crashes in certain export/hydration states. */}
+      {abandonOpen ? (
+        <Modal transparent visible animationType="fade" onRequestClose={() => setAbandonOpen(false)}>
           <Pressable
-            accessibilityRole="none"
-            onPress={(e) => {
-              const maybe = e as unknown as { stopPropagation?: () => void };
-              maybe.stopPropagation?.();
+            accessibilityRole="button"
+            accessibilityLabel="Close abandon dialog"
+            onPress={() => setAbandonOpen(false)}
+            style={{
+              flex: 1,
+              padding: 16,
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: 'rgba(0,0,0,0.55)',
             }}
-            style={{ width: '100%', maxWidth: 420 }}
           >
-            <MakeCard style={{ borderRadius: 18 }}>
-              <View style={{ padding: 16, gap: 12 }}>
-                <MakeText weight="bold" style={{ fontSize: 18 }}>
-                  Abandon Current Game?
-                </MakeText>
-                <MakeText tone="secondary">
-                  You have a free play game in progress. Starting a new setup will abandon your current game and you'll lose all progress.
-                </MakeText>
+            <Pressable
+              accessibilityRole="none"
+              onPress={(e) => {
+                const maybe = e as unknown as { stopPropagation?: () => void };
+                maybe.stopPropagation?.();
+              }}
+              style={{ width: '100%', maxWidth: 420 }}
+            >
+              <MakeCard style={{ borderRadius: 18 }}>
+                <View style={{ padding: 16, gap: 12 }}>
+                  <MakeText weight="bold" style={{ fontSize: 18 }}>
+                    Abandon Current Game?
+                  </MakeText>
+                  <MakeText tone="secondary">
+                    You have a free play game in progress. Starting a new setup will abandon your current game and you'll lose all progress.
+                  </MakeText>
 
-                <View style={{ flexDirection: 'row', gap: 10, justifyContent: 'flex-end', marginTop: 4 }}>
-                  <MakeButton title="Cancel" variant="secondary" elevation="flat" onPress={() => setAbandonOpen(false)} />
-                  <MakeButton
-                    title="Abandon & Setup"
-                    elevation="flat"
-                    onPress={async () => {
-                      setAbandonOpen(false);
-                      await onAbandonAndSetup?.();
-                    }}
-                    contentStyle={{ backgroundColor: 'rgba(239,68,68,0.40)', borderColor: 'rgba(239,68,68,0.80)' }}
-                  />
+                  <View style={{ flexDirection: 'row', gap: 10, justifyContent: 'flex-end', marginTop: 4 }}>
+                    <MakeButton title="Cancel" variant="secondary" elevation="flat" onPress={() => setAbandonOpen(false)} />
+                    <MakeButton
+                      title="Abandon & Setup"
+                      elevation="flat"
+                      onPress={async () => {
+                        setAbandonOpen(false);
+                        await onAbandonAndSetup?.();
+                      }}
+                      contentStyle={{ backgroundColor: 'rgba(239,68,68,0.40)', borderColor: 'rgba(239,68,68,0.80)' }}
+                    />
+                  </View>
                 </View>
-              </View>
-            </MakeCard>
+              </MakeCard>
+            </Pressable>
           </Pressable>
-        </Pressable>
-      </Modal>
+        </Modal>
+      ) : null}
     </MakeCard>
   );
 }

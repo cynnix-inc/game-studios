@@ -1,6 +1,9 @@
 import { expect, test } from '@playwright/test';
 
 test('ultimate UI: can start free play and see the grid', async ({ page }) => {
+  page.on('pageerror', (e) => {
+    throw e;
+  });
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Ultimate Sudoku' })).toBeVisible();
 
@@ -14,6 +17,9 @@ test('ultimate UI: can start free play and see the grid', async ({ page }) => {
 });
 
 test('ultimate UI: free play creates a resumable in-progress save', async ({ page }) => {
+  page.on('pageerror', (e) => {
+    throw e;
+  });
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Ultimate Sudoku' })).toBeVisible();
@@ -30,10 +36,18 @@ test('ultimate UI: free play creates a resumable in-progress save', async ({ pag
   // Reload and ensure Resume is available.
   await page.reload();
   await expect(page.getByRole('heading', { name: 'Ultimate Sudoku' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Free Play resume' })).toBeVisible();
+  const resume = page.getByRole('button', { name: 'Free Play resume' });
+  await expect(resume).toBeVisible();
+
+  // Regression guard: hovering Resume should not crash (tooltip uses a portal on web).
+  await resume.hover();
+  await expect(page.getByText('Game in Progress')).toBeVisible();
 });
 
 test('ultimate UI: in-game menu opens and shows main sections', async ({ page }) => {
+  page.on('pageerror', (e) => {
+    throw e;
+  });
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Ultimate Sudoku' })).toBeVisible();
@@ -58,6 +72,9 @@ test('ultimate UI: in-game menu opens and shows main sections', async ({ page })
 });
 
 test('ultimate UI: settings screen opens and grid customizer can open', async ({ page }) => {
+  page.on('pageerror', (e) => {
+    throw e;
+  });
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Ultimate Sudoku' })).toBeVisible();
@@ -73,6 +90,9 @@ test('ultimate UI: settings screen opens and grid customizer can open', async ({
 });
 
 test('ultimate UI: zen mode hides header status (Make parity)', async ({ page }) => {
+  page.on('pageerror', (e) => {
+    throw e;
+  });
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Ultimate Sudoku' })).toBeVisible();
